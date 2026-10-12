@@ -20,6 +20,7 @@ const clone = () => structuredClone(MAP);
 const ADS = MAP.protected.ads;
 const GUARD = `:not(:has(${ADS.join(', ')}))`;
 const CTX = { allowList: buildAllowList(MAP), protectedSelectors: [...MAP.protected.ads, ...MAP.protected.sponsor, ...MAP.protected.playerControls] };
+const ENGINE_CTX = { ...CTX, profile: 'engine' };
 
 const shapeErrors = (map) => validateMapShape(map).errors;
 const hasError = (map, pathRe, msgRe) => shapeErrors(map).some((e) => pathRe.test(e.path) && (!msgRe || msgRe.test(e.message)));
@@ -306,22 +307,22 @@ test('safeHide never lets a hostile map entry break out of the guard', () => {
 test('safeHide output is accepted by the css-validator for every role, and the bare selector is refused where an ad can sit inside', () => {
   for (const role of Object.keys(MAP.roles)) {
     const guarded = `${safeHide(MAP, roleCss(MAP, role))}{display:none !important}`;
-    const r = validateCss(guarded, CTX);
+    const r = validateCss(guarded, ENGINE_CTX);
     assert.equal(r.ok, true, `${role}: ${JSON.stringify(r.errors[0])}`);
   }
   for (const container of ['ytd-rich-item-renderer', '#contents', 'ytd-watch-flexy', '#movie_player', 'ytd-engagement-panel-section-list-renderer']) {
-    assert.equal(validateCss(`${container}{display:none}`, CTX).ok, false, `${container} unguarded`);
-    assert.equal(validateCss(`${safeHide(MAP, container)}{display:none}`, CTX).ok, true, `${container} guarded`);
+    assert.equal(validateCss(`${container}{display:none}`, ENGINE_CTX).ok, false, `${container} unguarded`);
+    assert.equal(validateCss(`${safeHide(MAP, container)}{display:none}`, ENGINE_CTX).ok, true, `${container} guarded`);
   }
   // A guard built from only some of the ads is not enough.
-  assert.equal(validateCss(`ytd-rich-item-renderer:not(:has(${ADS.slice(1).join(',')})){display:none}`, CTX).ok, false);
+  assert.equal(validateCss(`ytd-rich-item-renderer:not(:has(${ADS.slice(1).join(',')})){display:none}`, ENGINE_CTX).ok, false);
 });
 
 test('safeHide on a map with empty protected groups produces CSS the validator still refuses for containers', () => {
   const emptyGroups = { ...clone(), protected: { ads: [], sponsor: [], playerControls: [], containers: [] } };
   const unguarded = safeHide(emptyGroups, 'ytd-rich-item-renderer');
   assert.equal(unguarded, 'ytd-rich-item-renderer');
-  assert.equal(validateCss(`${unguarded}{display:none}`, CTX).ok, false, 'with the real protected list in the validator, an unguarded container hide is refused');
+  assert.equal(validateCss(`${unguarded}{display:none}`, ENGINE_CTX).ok, false, 'with the real protected list in the validator, an unguarded container hide is refused');
   assert.equal(validateMapShape(emptyGroups).ok, false, 'and the map itself is reported broken');
 });
 
