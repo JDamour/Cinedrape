@@ -52,7 +52,8 @@ const compose = (cfg) => composeStylesheet({ map: MAP, cfg });
 const ALLOWED_ENGINE_RULES = [
   { code: 'hides-container', line: /^html\[cd-theme\]\[cd-page="watch"\]:not\(\[cd-off-layout-watch\]\) ytd-watch-flexy\[is-two-columns_\]:not\(\[theater\]\):not\(\[fullscreen\]\) #primary(?:-inner)?(?:,[^{]*)?\{display:contents\}$/ },
 ];
-const SCAN_CTX = { allowList: ALLOW, protectedSelectors: PROTECTED_FLAT, maxBytes: 4 * 1024 * 1024, maxErrors: Infinity, profile: 'engine' };
+const RULE_CACHE = new Map();
+const SCAN_CTX = { allowList: ALLOW, protectedSelectors: PROTECTED_FLAT, maxBytes: 4 * 1024 * 1024, maxErrors: Infinity, profile: 'engine', ruleCache: RULE_CACHE };
 /** Every finding of the whole sheet (engine profile, nothing capped), the documented exceptions removed, plus what was evaluated. */
 function scan(css) {
   const r = scanCss(css, SCAN_CTX);
@@ -62,16 +63,22 @@ function scan(css) {
 }
 const safetyFindings = (css) => scan(css).findings;
 
+let _ruleCountDoc = null;
 /** CSSStyleRule count of a sheet as jsdom's own parser sees it, descending into @media / @supports. */
 function jsdomRuleCount(css) {
-  const { document, window } = createPage('home', { tiles: 1 });
+  if (!_ruleCountDoc) {
+    const { document } = createPage('home', { tiles: 1 });
+    _ruleCountDoc = document;
+  }
+  const style = _ruleCountDoc.createElement('style');
+  style.textContent = css;
+  _ruleCountDoc.head.appendChild(style);
   try {
-    const style = document.createElement('style');
-    style.textContent = css;
-    document.head.appendChild(style);
     const count = (rules) => { let n = 0; for (const rule of rules) { if (rule.selectorText !== undefined && rule.style) n++; else if (rule.cssRules) n += count(rule.cssRules); } return n; };
     return count(style.sheet.cssRules);
-  } finally { window.close(); }
+  } finally {
+    style.remove();
+  }
 }
 
 describe('static scan of every composed stylesheet', () => {

@@ -1664,7 +1664,7 @@ function parseQualifiedRule(S, i, hi) {
   }
   const blockEnd = match[j];
   const sels = parseSelectorList(S, i, j, 0, false);
-  const rec = { sels, decls: [], off: toks[i].s };
+  const rec = { sels, decls: [], off: toks[i].s, end: toks[blockEnd].e };
   S.rules.push(rec);
   parseDeclarations(S, j + 1, blockEnd, rec);
   return blockEnd + 1;
@@ -2825,7 +2825,43 @@ function run(css, ctx) {
         cc.kfProfile.set(lc(name), verdict);
       }
     }
-    for (const rec of S.rules) evaluateRule(S, rec, cc);
+    const ruleCache = c.ruleCache;
+    for (const rec of S.rules) {
+      if (ruleCache && rec.end !== undefined) {
+        const ruleText = S.src.slice(rec.off, rec.end);
+        const cached = ruleCache.get(ruleText);
+        if (cached) {
+          if (cached.skipped) S.stats.skipped += cached.skipped;
+          if (cached.evaluated) S.stats.evaluated += cached.evaluated;
+          S.stats.declarations += cached.declarations;
+          for (const item of cached.findings) {
+            report(rec.off + item.relOff, item.message, item.code);
+          }
+          continue;
+        }
+        const beforeCount = found.length;
+        const prevSkipped = S.stats.skipped;
+        const prevEval = S.stats.evaluated;
+        const prevDecls = S.stats.declarations;
+        evaluateRule(S, rec, cc);
+        const findings = [];
+        for (let fi = beforeCount; fi < found.length; fi++) {
+          findings.push({
+            relOff: found[fi].off - rec.off,
+            message: found[fi].message,
+            code: found[fi].code,
+          });
+        }
+        ruleCache.set(ruleText, {
+          skipped: S.stats.skipped - prevSkipped,
+          evaluated: S.stats.evaluated - prevEval,
+          declarations: S.stats.declarations - prevDecls,
+          findings,
+        });
+      } else {
+        evaluateRule(S, rec, cc);
+      }
+    }
   }
 
   const starts = lineStarts(css);
