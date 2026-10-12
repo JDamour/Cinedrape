@@ -1,0 +1,6 @@
+node_modules
+dist
+dist-*
+.keys
+test/e2e/out
+*.log

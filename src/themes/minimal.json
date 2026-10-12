@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "id": "minimal",
+  "name": "Minimal",
+  "author": "Cinedrape",
+  "version": "1.0.0",
+  "tier": "free",
+  "tokens": {
+    "color": {
+      "bg": "#ffffff",
+      "surface": "#f3f3f5",
+      "text": "#18181b",
+      "muted": "#5b5b66",
+      "accent": "#2f5bd0",
+      "border": "#8a8a94"
+    },
+    "type": { "family": "System", "baseSize": 14, "headingWeight": 500 },
+    "shape": { "radius": 6, "shadow": false, "spacing": 4 }
+  },
+  "layout": { "home": "grid", "watch": "default", "density": 4 },
+  "calm": { "hideShorts": true },
+  "css": ".cd-hero{border-radius:var(--cd-radius)}\n.cd-hero-title{font-weight:500;letter-spacing:-0.01em}\n.cd-row-title{font-weight:500;font-size:0.95em;letter-spacing:0;color:var(--cd-muted)}\n.cd-card-thumb{box-shadow:none;border-radius:var(--cd-radius);transition:none}\n.cd-card:hover .cd-card-thumb{transform:none;box-shadow:none}\n.cd-card-title{font-weight:500}\n.cd-card-meta{color:var(--cd-muted)}\n.cd-card-duration{border-radius:var(--cd-radius)}"
+}

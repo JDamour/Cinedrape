@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "id": "cinema",
+  "name": "Cinema",
+  "author": "Cinedrape",
+  "version": "1.0.0",
+  "tier": "free",
+  "tokens": {
+    "color": {
+      "bg": "#0b0b0f",
+      "surface": "#16161d",
+      "text": "#f2f2f5",
+      "muted": "#a3a3b2",
+      "accent": "#e8b04a",
+      "border": "#656572"
+    },
+    "type": { "family": "Inter", "baseSize": 14, "headingWeight": 700 },
+    "shape": { "radius": 10, "shadow": true, "spacing": 3 }
+  },
+  "layout": { "home": "hero-rows", "watch": "cinema", "density": 3 },
+  "calm": {},
+  "css": ".cd-hero{border-radius:calc(var(--cd-radius) * 1.6);box-shadow:var(--cd-shadow)}\n.cd-hero-title{letter-spacing:-0.02em;font-weight:var(--cd-heading-weight)}\n.cd-hero-meta{color:var(--cd-muted)}\n.cd-hero-cta{background:var(--cd-accent);color:var(--cd-accent-text);border-radius:var(--cd-radius)}\n.cd-row-title{letter-spacing:0.04em;text-transform:uppercase;font-size:0.9em;color:var(--cd-muted)}\n.cd-card-thumb{border-radius:var(--cd-radius);box-shadow:var(--cd-shadow);transition:transform var(--cd-duration) ease}\n.cd-card:hover .cd-card-thumb{transform:translateY(-4px) scale(1.02)}\n.cd-card-title{font-weight:600}\n.cd-card-duration{border-radius:calc(var(--cd-radius) / 2)}"
+}

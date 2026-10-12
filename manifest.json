@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "Cinedrape",
+  "version": "0.1.0",
+  "description": "Themes, layouts and calm mode for YouTube. Not affiliated with Google or YouTube.",
+  "minimum_chrome_version": "105",
+  "permissions": ["storage", "alarms"],
+  "host_permissions": ["https://www.youtube.com/*"],
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_title": "Cinedrape",
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "background": {
+    "service_worker": "service-worker.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.youtube.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "id": "classic",
+  "name": "Classic",
+  "author": "Cinedrape",
+  "version": "1.0.0",
+  "tier": "free",
+  "tokens": {
+    "color": {
+      "bg": "#f1f1f1",
+      "surface": "#ffffff",
+      "text": "#222222",
+      "muted": "#575757",
+      "accent": "#1c5fb4",
+      "border": "#858585"
+    },
+    "type": { "family": "System", "baseSize": 13, "headingWeight": 700 },
+    "shape": { "radius": 2, "shadow": false, "spacing": 2 }
+  },
+  "layout": { "home": "grid", "watch": "default", "density": 2 },
+  "calm": {},
+  "css": ".cd-hero{border:1px solid var(--cd-border);background:linear-gradient(#ffffff,#e4e4e4);border-radius:var(--cd-radius)}\n.cd-hero-title{font-size:1.25em;font-weight:700;color:var(--cd-text)}\n.cd-hero-cta{background:var(--cd-accent);color:var(--cd-accent-text);border:1px solid var(--cd-text);border-radius:var(--cd-radius)}\n.cd-row-title{font-size:15px;font-weight:700;border-bottom:2px solid var(--cd-accent);padding-bottom:2px}\n.cd-row-prev,.cd-row-next{background:linear-gradient(#ffffff,#dedede);border:1px solid var(--cd-border);color:var(--cd-text);border-radius:var(--cd-radius)}\n.cd-card{border:1px solid var(--cd-border);background:var(--cd-surface);border-radius:var(--cd-radius)}\n.cd-card-title{font-size:13px;font-weight:700;color:var(--cd-text)}\n.cd-card-meta{font-size:11px;color:var(--cd-muted)}\n.cd-card-duration{border-radius:var(--cd-radius);font-size:11px}"
+}

@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="color-scheme" content="dark light">
+  <title>Cinedrape</title>
+  <link rel="stylesheet" href="popup.css">
+  <script src="popup.js" defer></script>
+</head>
+<body>
+  <!-- Icon sprite. Referenced with <use href="#i-name"> from JS; purely decorative, always aria-hidden. -->
+  <svg class="sprite" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="i-lock" viewBox="0 0 16 16"><rect x="3" y="7" width="10" height="7.5" rx="1.6"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+    <symbol id="i-check" viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-ok" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5 8.2l2.1 2.1L11 6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-warn" viewBox="0 0 16 16"><path d="M8 2.2l6.3 11H1.7z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M8 6.5v3.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="11.6" r=".9"/></symbol>
+    <symbol id="i-info" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 7.2v4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="8" cy="4.9" r=".95"/></symbol>
+    <symbol id="i-close" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-external" viewBox="0 0 16 16"><path d="M9 3h4v4M13 3L7.5 8.5M11.5 9.5v3a1 1 0 0 1-1 1h-6a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  </svg>
+
+  <main class="popup" aria-labelledby="app-title">
+    <header class="masthead">
+      <svg class="logo" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+        <rect class="logo-bg" x="2" y="2" width="28" height="28" rx="8"/>
+        <path class="logo-fold" d="M8 7c0 7 3.2 12 8 18M24 7c0 7-3.2 12-8 18"/>
+      </svg>
+      <div>
+        <h1 id="app-title" class="brand">Cinedrape</h1>
+        <p class="tagline">Themes and calm for YouTube</p>
+      </div>
+    </header>
+
+    <!-- Messages: lock explanations, save errors. The text is the live region; the buttons stay outside it. -->
+    <div id="notice-wrap" class="notice" data-open="false" data-kind="info">
+      <p id="notice" class="notice-text" role="status" aria-live="polite" aria-atomic="true"></p>
+      <div class="notice-actions">
+        <button type="button" id="notice-action" class="btn btn-small" hidden>Activate Pro</button>
+        <button type="button" id="notice-dismiss" class="btn btn-ghost btn-icon" aria-label="Dismiss message" hidden><svg class="icon" aria-hidden="true" focusable="false"><use href="#i-close"/></svg></button>
+      </div>
+    </div>
+
+    <section id="status" class="card status" data-state="checking" aria-labelledby="status-heading">
+      <h2 id="status-heading" class="sr-only">Status</h2>
+      <svg id="status-icon" class="icon status-icon" aria-hidden="true" focusable="false"><use href="#i-info"/></svg>
+      <div class="status-body">
+        <p id="status-text" class="status-text" role="status">Checking this tab&hellip;</p>
+        <p id="status-detail" class="hint"></p>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="look-heading">
+      <h2 id="look-heading" class="card-title">Look</h2>
+
+      <fieldset id="theme-group" class="group" role="radiogroup" aria-labelledby="theme-legend" aria-describedby="theme-note">
+        <legend id="theme-legend">Theme</legend>
+        <div id="theme-grid" class="theme-grid"></div>
+        <p id="theme-note" class="hint"></p>
+        <span id="theme-locked-desc" class="sr-only">Requires Cinedrape Pro. Press to see how to unlock it.</span>
+      </fieldset>
+
+      <fieldset id="accent-group" class="group">
+        <legend id="accent-legend">Accent colour</legend>
+        <div id="accent-swatches" class="swatch-row" role="radiogroup" aria-labelledby="accent-legend"></div>
+        <div class="accent-custom">
+          <label for="accent-hex" class="field-label">Custom colour</label>
+          <div class="hex-row">
+            <span id="accent-preview" class="hex-preview" aria-hidden="true"></span>
+            <input id="accent-hex" class="input input-hex" type="text" maxlength="7" size="9" placeholder="#e8b04a" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="accent-help accent-error accent-warning">
+            <button type="button" id="accent-reset" class="btn btn-secondary btn-small">Reset to theme</button>
+          </div>
+        </div>
+        <p id="accent-help" class="hint"></p>
+        <p id="accent-error" class="hint hint-error" role="alert"></p>
+        <p id="accent-warning" class="hint hint-warn" role="status"></p>
+      </fieldset>
+
+      <fieldset id="density-group" class="group">
+        <legend id="density-legend">Density <span id="density-pro" class="tag-pro" hidden><svg class="icon" aria-hidden="true" focusable="false"><use href="#i-lock"/></svg>Pro<span class="sr-only"> feature, locked</span></span></legend>
+        <div class="range-row">
+          <span class="range-end" aria-hidden="true">Compact</span>
+          <input id="density" class="range" type="range" min="1" max="5" step="1" value="3" aria-label="Density, from compact to roomy" aria-describedby="density-note">
+          <span class="range-end" aria-hidden="true">Roomy</span>
+        </div>
+        <p class="density-readout"><output id="density-value" for="density">Balanced</output> <button type="button" id="density-reset" class="link-button" hidden>Use the theme&rsquo;s density</button></p>
+        <p id="density-note" class="hint"></p>
+        <button type="button" id="density-unlock" class="btn btn-secondary btn-small" hidden>Activate Pro</button>
+      </fieldset>
+
+      <div class="row" id="animations-row">
+        <div class="row-text">
+          <span id="animations-label" class="row-title">Animations</span>
+          <span id="animations-desc" class="hint">Smooth transitions in Cinedrape&rsquo;s own layouts. Your system&rsquo;s reduced-motion setting always wins.</span>
+        </div>
+        <button type="button" id="animations" class="switch" role="switch" aria-checked="true" aria-labelledby="animations-label" aria-describedby="animations-desc">
+          <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+          <span class="switch-state" aria-hidden="true">On</span>
+        </button>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="calm-heading">
+      <h2 id="calm-heading" class="card-title">Calm mode</h2>
+      <fieldset id="calm-group" class="group">
+        <legend id="calm-legend" class="sr-only">Calm mode options</legend>
+        <div id="calm-list" class="calm-list"></div>
+        <p id="calm-note" class="hint">Ads and sponsorship labels are never hidden.</p>
+      </fieldset>
+    </section>
+
+    <section id="pro" class="card" aria-labelledby="pro-heading">
+      <h2 id="pro-heading" class="card-title">Cinedrape Pro</h2>
+      <p id="pro-state" class="pro-state" data-state="free">
+        <svg id="pro-state-icon" class="icon" aria-hidden="true" focusable="false"><use href="#i-info"/></svg>
+        <span id="pro-state-text">Free</span>
+      </p>
+      <p id="pro-detail" class="hint"></p>
+      <p id="pro-saved" class="hint"></p>
+      <details id="activate" class="activate" open>
+        <summary id="activate-summary">Activate Pro</summary>
+        <form id="activate-form" class="activate-form" novalidate autocomplete="off">
+          <label for="token" class="field-label">Licence token</label>
+          <input id="token" class="input input-secret" type="text" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="token-help activate-result">
+          <p id="token-help" class="hint">Paste the token from your licence. It is checked on this device and never shown again.</p>
+          <button type="submit" id="activate-btn" class="btn btn-primary">Activate Pro</button>
+          <p id="activate-result" class="hint activate-result" role="status"></p>
+        </form>
+      </details>
+    </section>
+
+    <footer class="footer">
+      <p><span id="version">Cinedrape</span> &middot; Not affiliated with Google or YouTube.</p>
+      <p><a id="site-link" href="https://cinedrape.com" target="_blank" rel="noopener noreferrer">cinedrape.com<svg class="icon" aria-hidden="true" focusable="false"><use href="#i-external"/></svg><span class="sr-only"> (opens in a new tab)</span></a></p>
+    </footer>
+
+    <div id="dev-slot"></div>
+  </main>
+</body>
+</html>

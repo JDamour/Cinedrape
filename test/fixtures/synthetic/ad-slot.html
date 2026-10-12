@@ -1,0 +1,43 @@
+<!-- ============================================================================================
+     SYNTHETIC FIXTURE - NOT CAPTURED FROM YOUTUBE.
+     Real ads cannot be captured reliably (they are not served to an automation session and vary per user),
+     so these are best-knowledge approximations of YouTube's ad containers, written by hand on 2026-10-07.
+     Purpose: prove that Cinedrape never hides, covers or restyles-to-invisible an ad or a sponsorship disclosure
+     (ARCHITECTURE.md section 6). Tag/class names are the ones the protected.ads / protected.sponsor selector-map
+     groups must match: ytd-ad-slot-renderer, ytd-in-feed-ad-layout-renderer, ytd-display-ad-renderer,
+     ytd-video-masthead-ad-v3-renderer, ytd-search-pyv-renderer, .video-ads, .ytp-ad-module, .ytp-ad-player-overlay,
+     .ytp-ad-text, .ytp-ad-badge, .ytp-ad-skip-button-container, .ytp-paid-content-overlay (real class, see watch.html).
+     No real advertiser, no real tracking URLs: every href points at https://ads.example.invalid/ which cannot resolve.
+     Every root carries data-cd-synthetic="..." so tests can find it and nobody mistakes it for a capture.
+     test/helpers/dom.js splices these <template>s into pages when createPage(kind, { ads: true }).
+     ============================================================================================ -->
+
+<!-- SYNTHETIC in-feed ad in a rich grid (home / channel / subscriptions): ytd-rich-item-renderer > #content > ytd-ad-slot-renderer -->
+<template id="feed-ad">
+<ytd-rich-item-renderer items-per-row="3" rendered-from-rich-grid="" no-gutter-margins="" data-cd-synthetic="feed-ad"><div id="content"><ytd-ad-slot-renderer data-cd-synthetic="feed-ad-slot"><div id="content"><ytd-in-feed-ad-layout-renderer><div id="ad-thumbnail"><a href="https://ads.example.invalid/synthetic/click?slot=feed" aria-hidden="true"><img alt="" width="320" height="180"></a></div><div id="ad-meta"><div id="ad-badge" class="ytwAdBadge" data-cd-synthetic="ad-badge"><span class="ytwAdBadgeText">Sponsored</span></div><h3 id="ad-title"><a href="https://ads.example.invalid/synthetic/click?slot=feed" title="SYNTHETIC test advertiser - not a real ad">SYNTHETIC test advertiser - not a real ad</a></h3><div id="ad-advertiser">ads.example.invalid</div><a id="ad-cta" class="ytAdCtaButton" href="https://ads.example.invalid/synthetic/click?slot=feed">Learn more</a></div></ytd-in-feed-ad-layout-renderer></div></ytd-ad-slot-renderer></div></ytd-rich-item-renderer>
+</template>
+
+<!-- SYNTHETIC home masthead banner ad, goes inside the (real, normally empty) #masthead-ad container of ytd-rich-grid-renderer -->
+<template id="masthead-ad">
+<ytd-video-masthead-ad-v3-renderer data-cd-synthetic="masthead-ad"><div id="masthead-ad-inner"><div class="ytwAdBadge" data-cd-synthetic="ad-badge"><span class="ytwAdBadgeText">Ad</span></div><a href="https://ads.example.invalid/synthetic/click?slot=masthead">SYNTHETIC masthead advertiser - not a real ad</a></div></ytd-video-masthead-ad-v3-renderer>
+</template>
+
+<!-- SYNTHETIC search-results ad, goes into ytd-item-section-renderer > #contents -->
+<template id="search-ad">
+<ytd-ad-slot-renderer data-cd-synthetic="search-ad"><div id="content"><ytd-search-pyv-renderer><div class="ytwAdBadge" data-cd-synthetic="ad-badge"><span class="ytwAdBadgeText">Sponsored</span></div><a id="video-title" href="https://ads.example.invalid/synthetic/click?slot=search" title="SYNTHETIC search advertiser - not a real ad">SYNTHETIC search advertiser - not a real ad</a><div id="ad-description">This node exists only to prove Cinedrape leaves ads alone.</div></ytd-search-pyv-renderer></div></ytd-ad-slot-renderer>
+</template>
+
+<!-- SYNTHETIC in-player ad module, goes inside #movie_player (real YouTube puts .video-ads.ytp-ad-module there while an ad runs) -->
+<template id="player-ad">
+<div class="video-ads ytp-ad-module" data-cd-synthetic="player-ad"><div class="ytp-ad-player-overlay"><div class="ytp-ad-player-overlay-layout"><div class="ytp-ad-badge-container"><div class="ytp-ad-badge">Ad</div></div><div class="ytp-ad-text">Ad 1 of 1 - 0:15</div><div class="ytp-ad-skip-button-container"><button class="ytp-skip-ad-button" type="button">Skip</button></div><a class="ytp-ad-visit-advertiser-button" href="https://ads.example.invalid/synthetic/click?slot=player">Visit advertiser</a></div></div></div>
+</template>
+
+<!-- SYNTHETIC sponsorship disclosure. REPLACES the real-but-empty .ytp-paid-content-overlay already present in watch.html (same class names, populated and visible) -->
+<template id="sponsor">
+<div class="ytp-paid-content-overlay ytp-paid-content-overlay-visible" aria-live="assertive" aria-atomic="true" data-overlay-order="5" data-cd-synthetic="sponsor"><a class="ytp-paid-content-overlay-link" href="https://ads.example.invalid/synthetic/sponsor" target="_blank"><div class="ytp-paid-content-overlay-indicator"></div><div class="ytp-paid-content-overlay-icon"></div><div class="ytp-paid-content-overlay-text">Includes paid promotion</div><div class="ytp-paid-content-overlay-chevron"></div></a></div>
+</template>
+
+<!-- SYNTHETIC ad inside the watch page right rail: goes at the top of #related > ytd-watch-next-secondary-results-renderer #contents, and a second one inside the (real, empty) #player-ads -->
+<template id="related-ad">
+<ytd-ad-slot-renderer data-cd-synthetic="related-ad"><div id="content"><ytd-display-ad-renderer><div class="ytwAdBadge" data-cd-synthetic="ad-badge"><span class="ytwAdBadgeText">Sponsored</span></div><a href="https://ads.example.invalid/synthetic/click?slot=related" title="SYNTHETIC related advertiser - not a real ad">SYNTHETIC related advertiser - not a real ad</a></ytd-display-ad-renderer></div></ytd-ad-slot-renderer>
+</template>
