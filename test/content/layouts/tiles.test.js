@@ -155,6 +155,31 @@ test('isLive: a bottom-overlay badge that is not a duration ("LIVE", in any lang
   assert.equal(extractTile(items[1], p.sel).isLive, false);
 });
 
+test('channel /streams tab tiles: live and upcoming stream lockups extract correctly with modern UI elements', () => {
+  const p = page('channel', { tiles: 2 });
+  const items = [...p.document.querySelectorAll('ytd-rich-item-renderer')].filter((el) => el.querySelector('yt-lockup-view-model'));
+  const badge = (item) => item.querySelector('.ytBadgeShapeText');
+  const meta = (item) => item.querySelectorAll('.ytContentMetadataViewModelMetadataText');
+
+  // Stream tile 1: running live stream (e.g. Lofi Girl)
+  badge(items[0]).textContent = 'LIVE';
+  if (meta(items[0]).length) meta(items[0])[0].textContent = '6.2K watching';
+  const liveStream = extractTile(items[0], p.sel);
+  assert.ok(liveStream);
+  assert.equal(liveStream.isLive, true);
+  assert.equal(liveStream.duration, 'LIVE');
+  assert.ok(liveStream.meta.includes('6.2K watching'));
+
+  // Stream tile 2: upcoming scheduled stream (e.g. NASA)
+  badge(items[1]).textContent = 'Upcoming';
+  if (meta(items[1]).length) meta(items[1])[0].textContent = '5 waiting';
+  const upcomingStream = extractTile(items[1], p.sel);
+  assert.ok(upcomingStream);
+  assert.equal(upcomingStream.isLive, true);
+  assert.equal(upcomingStream.duration, 'Upcoming');
+  assert.ok(upcomingStream.meta.includes('5 waiting'));
+});
+
 // ---- 2. hrefs ----------------------------------------------------------------------------------------------------------
 
 test('href is absolute and keeps the original query string and fragment exactly', () => {
