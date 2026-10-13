@@ -179,6 +179,51 @@ css-validator allow-list.
   - Scoped strictly to `.cd-*` classes (`.cd-hero`, `.cd-hero-title`, `.cd-hero-meta`, `.cd-hero-cta`, `.cd-row-title`, `.cd-card`, `.cd-card-thumb`, `.cd-card-title`, `.cd-card-meta`, `.cd-card-duration`). Zero external URLs, zero comments, zero at-rules, zero hiding of YouTube elements.
 - **Verification**: Verified by `test/themes/broadcast-candidate.test.js` against the full theme and validator gates.
 
+### S11 — Theme Export & Import (Spec F9) — P1, owner: popup + shared + engine
+
+Export the active look or a custom theme as a compliant theme JSON file, and import third-party/custom theme files in two clicks.
+
+- **Export behaviour**:
+  - Serialises the active look (base theme tokens overridden by user custom accent, density, and calm preferences) into a valid Schema v1 theme JSON (`id`, `name`, `author`, `version`, `tier`, `tokens`, `layout`, `calm`, `css`).
+  - Exports via file download (`<theme-id>.json`) and clipboard copy.
+- **Import validation**:
+  - Runs strictly through `validateTheme(raw, { selectorMap })` in `src/shared/theme-schema.js`.
+  - Immune to prototype pollution; enforces length limits; checks all 6 WCAG AA contrast pairs.
+  - Runs `validateCss` through `src/shared/css-validator.js`: rejects any CSS targeting unknown selectors, external URLs, `@import`, or touching protected ad/player controls.
+  - Gating: Free users can import `tier: "free"` themes; Pro users can import `tier: "pro"` themes and custom CSS.
+- **Storage**:
+  - Stored in `chrome.storage.local` under `cd.customThemes` (a dictionary `{ [id]: NormalizedTheme }`, max 10 themes, <= 64 KB total).
+- **Engine integration**:
+  - `engine.js` loads `cd.customThemes` from storage and joins them with bundled `THEMES` for `computeEffectiveConfig`.
+  - Recomputes instantly on `storage.onChanged` for `cd.customThemes`.
+- **Popup integration**:
+  - Popup renders custom themes in the theme selector grid with custom badge/delete button.
+  - "Export theme" button and "Import theme" modal (file picker + JSON textarea with validation error feedback).
+
+### S12 — YouTube New UI Forward-Compatibility Pass (Web Components) — P1, owner: skin + selectors
+
+YouTube is actively rolling out modular Web Component View Models across surfaces. Ensure skin and selector fallbacks natively target both modern view models and legacy renderers.
+
+- **Skin FALLBACK updates (`src/content/skin.js`)**:
+  - `channelHeader`: add `yt-page-header-view-model`.
+  - `pageHeaderCard`: add `yt-page-header-view-model`.
+  - `descriptionBox`: add `yt-description-preview-view-model`.
+  - `commentsHeader`: add `yt-comments-header-view-model`.
+  - `button`: add `yt-button-view-model button, yt-button-shape button`.
+- **Resilience**:
+  - Preserves 100% fail-safe fallback: if YouTube changes back or serves legacy HTML to certain cohorts, legacy selectors still match.
+  - Zero performance degradation; zero ad-safety risk.
+
+### S13 — Saved Profiles & Time-Based Scheduling (Spec F8) — P2, owner: popup + background
+
+Save named presets (e.g. "Day / Clean", "Night / Cinema") and automatically switch looks based on the time of day.
+
+- **Data structures**:
+  - `cd.profiles`: Dictionary `{ [id]: { id, name, settings } }`.
+  - `cd.schedule`: `{ enabled: boolean, dayProfileId: string, nightProfileId: string, dayTime: string, nightTime: string }`.
+- **Background scheduling**:
+  - Service worker sets `cd-schedule` alarm to check current local time against schedule thresholds, updating `cd.settings` atomically.
+
 ---
 
 ## Non-goals / explicitly rejected
