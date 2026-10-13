@@ -10,6 +10,9 @@
 //  3. Is all-or-nothing. mount() builds every node in memory first and touches the page only if at least one card exists;
 //     any exception rolls back and reports through onFail; unmount() restores the original DOM exactly.
 //
+// Live tiles: extractTile flags them from the badge (isLive), cards show a red LIVE pill instead of the duration pill, the
+// viewer count carries a live dot, and hero-rows puts a live stream in the hero with a "Watch live" call to action.
+//
 // It never removes, moves, re-parents or clones YouTube nodes. The only writes to YouTube's DOM are the SRC_ATTR attribute on
 // tiles that were mirrored, and one inserted element (div.cd-home) right before the grid's #contents, i.e. after the chip bar
 // and the masthead ad slot and above YouTube's own list (where every ad item, which is never mirrored, stays visible).
@@ -27,6 +30,7 @@ const MODES = Object.freeze(['rows', 'hero-rows']);
 const ROW_TITLE_FIRST = 'Recommended';
 const ROW_TITLE_NEXT = 'More to watch';
 const HERO_CTA = 'Watch';
+const HERO_CTA_LIVE = 'Watch live';
 const ROW_WRAPPER = 'ytd-rich-grid-row';
 const DRAG_THRESHOLD = 6;
 const HAND_OFF_FALLBACK_MS = 1200;
@@ -86,7 +90,9 @@ export function buildHomeLayoutCss(map, cfg) {
   rule('.cd-hero', 'position:relative;margin:0 0 var(--cd-row-gap,30px);overflow:hidden;border-radius:calc(var(--cd-radius,12px) * 1.4);background:var(--cd-surface,#212121)');
   rule('.cd-hero-link', 'display:block;position:relative;color:inherit;text-decoration:none;border-radius:inherit');
   rule('.cd-hero-link:focus-visible', ring);
-  rule('.cd-hero-media', 'display:block;position:relative;aspect-ratio:21 / 9;min-height:200px;max-height:min(62vh,600px);background:var(--cd-surface,#212121)');
+  // width:100% is required: with width:auto, Chrome transfers max-height through aspect-ratio into a max-width, so on a short
+  // viewport the media shrank to 21:9 of the capped height and left an empty band on the right of the hero.
+  rule('.cd-hero-media', 'display:block;position:relative;box-sizing:border-box;width:100%;aspect-ratio:21 / 9;min-height:200px;max-height:min(62vh,600px);background:var(--cd-surface,#212121)');
   rule('.cd-hero-media img', 'position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;display:block');
   rule('.cd-hero-body', `position:absolute;left:calc(${sp} * 3);bottom:calc(${sp} * 3);display:block;box-sizing:border-box;`
     + `max-width:min(38em,calc(100% - ${sp} * 6));padding:calc(${sp} * 3);border-radius:var(--cd-radius,12px);`
@@ -118,15 +124,30 @@ export function buildHomeLayoutCss(map, cfg) {
     + 'transition:box-shadow var(--cd-duration,160ms) ease');
   rule('.cd-card-thumb img', 'display:block;width:100%;height:100%;object-fit:cover');
   rule('.cd-card-duration', 'position:absolute;right:6px;bottom:6px;padding:1px 6px;border-radius:4px;background:rgba(0,0,0,.82);color:#fff;font-size:.85em;font-weight:600;line-height:1.5');
+  // Live badge (a live tile's duration field holds the localized badge text): a red pill that reads on both YouTube modes.
+  // #cc0000 with white text is 5.9:1; the pulsing dot scales instead of fading because this sheet contains no opacity at all.
+  rule('.cd-live-badge', 'display:inline-flex;align-items:center;gap:.45em;padding:1px 7px;border-radius:4px;background:#cc0000;color:#fff;'
+    + 'font-size:max(.85em,11px);font-weight:700;line-height:1.5;letter-spacing:.06em;text-transform:uppercase');
+  rule('.cd-card-thumb .cd-live-badge', 'position:absolute;right:6px;bottom:6px');
+  rule('.cd-live-dot', 'display:inline-block;flex:none;width:.45em;height:.45em;border-radius:50%;background:#ff5249');
+  rule('.cd-live-badge .cd-live-dot', 'background:#fff');
+  rule('.cd-card-watching', 'display:inline-flex;align-items:center;gap:.4em;font-weight:600');
+  rule('.cd-hero-live', 'margin:0 0 .6em');
+  // The dot pulses unless the user turned animations off (the reduced-motion media block below is the second gate).
+  if (cfg.animations !== false) {
+    rule('.cd-live-badge .cd-live-dot', 'animation:cd-live-pulse 1.6s ease-in-out infinite');
+    out.push('@keyframes cd-live-pulse{0%,100%{transform:scale(1)}50%{transform:scale(.55)}}');
+  }
   rule('.cd-card-body', `display:block;padding:calc(${sp} * 1.5) ${sp}`);
   rule('.cd-card-title', 'display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden;'
     + 'font-weight:600;line-height:1.3;overflow-wrap:anywhere;color:var(--cd-text,inherit)');
-  rule('.cd-card-meta', 'display:block;margin-top:.3em;font-size:.9em;color:var(--cd-muted,#aaa)');
+  // max() keeps the metadata legible on small-base themes (Classic is 13px) instead of scaling below a readable floor.
+  rule('.cd-card-meta', 'display:block;margin-top:.3em;font-size:max(.9em,12px);color:var(--cd-muted,#aaa)');
   rule('.cd-card-meta > span:not(:first-child)::before,.cd-hero-meta > span:not(:first-child)::before', 'content:"\\2022";margin:0 .4em');
   rule('.cd-card:hover .cd-card-title', 'text-decoration:underline');
 
   out.push(`@media (max-width:700px){\n${S} .cd-hero-body{position:static;max-width:none;border-radius:0}\n${S} .cd-hero-title{font-size:1.5em}\n}`);
-  out.push(`@media (prefers-reduced-motion:reduce){\n${S} .cd-card-thumb{transition:none}\n}`);
+  out.push(`@media (prefers-reduced-motion:reduce){\n${S} .cd-card-thumb{transition:none}\n${S} .cd-live-badge .cd-live-dot{animation:none}\n}`);
   return `${out.join('\n')}\n`;
 }
 
@@ -134,7 +155,8 @@ export function buildHomeLayoutCss(map, cfg) {
 
 const matches = (el, sel) => { try { return !!sel && el.matches(sel); } catch { return false; } };
 
-/** Splits the metadata into the parts a card shows: channel, then the rest with the view count marked. */
+/** Splits the metadata into the parts a card shows: channel, then the rest with the view count marked. On a live tile the
+ *  last text is the viewer count ("591 watching", viewers last even on collab rows), marked so it can carry the live dot. */
 function metaParts(tile) {
   const parts = [];
   const channel = tile.channel;
@@ -143,6 +165,9 @@ function metaParts(tile) {
   // [views, age] -> views first; [x, views, age] (collab channels) -> second to last; a lone text is the view count / status.
   const viewsAt = rest.length >= 2 ? rest.length - 2 : 0;
   rest.forEach((text, i) => parts.push({ cls: i === viewsAt ? 'cd-card-views' : 'cd-card-info', text }));
+  if (tile.isLive && parts.length && parts[parts.length - 1].cls !== 'cd-card-channel') {
+    parts[parts.length - 1].cls = 'cd-card-watching';
+  }
   return parts;
 }
 
@@ -199,8 +224,26 @@ export function createHomeLayout(deps) {
 
   function metaNode(tag, cls, tile) {
     const node = el(tag, cls);
-    for (const p of metaParts(tile)) node.append(el('span', p.cls, p.text));
+    for (const p of metaParts(tile)) {
+      const span = el('span', p.cls, p.text);
+      if (p.cls === 'cd-card-watching') span.insertBefore(liveDot(), span.firstChild);
+      node.append(span);
+    }
     return node;
+  }
+
+  /** The red dot of a live badge. aria-hidden: the badge text already says it. */
+  function liveDot() {
+    const d = el('span', 'cd-live-dot');
+    d.setAttribute('aria-hidden', 'true');
+    return d;
+  }
+
+  /** The localized live badge text with its dot ('LIVE' in English UI). */
+  function liveBadge(text) {
+    const b = el('span', 'cd-live-badge');
+    b.append(liveDot(), el('span', null, text || 'LIVE'));
+    return b;
   }
 
   function imageNode(src, fallback) {
@@ -222,7 +265,8 @@ export function createHomeLayout(deps) {
     const img = imageNode(t.thumb || derivedThumb(t.videoId, 'hqdefault'));
     img.setAttribute('loading', 'lazy');
     thumb.append(img);
-    if (t.duration) thumb.append(el('span', 'cd-card-duration', t.duration));
+    if (t.isLive) thumb.append(liveBadge(t.duration));
+    else if (t.duration) thumb.append(el('span', 'cd-card-duration', t.duration));
     const body = el('span', 'cd-card-body');
     body.append(el('span', 'cd-card-title', t.title), metaNode('span', 'cd-card-meta', t));
     a.append(thumb, body);
@@ -241,7 +285,9 @@ export function createHomeLayout(deps) {
     // The 720p image is missing for some older videos: the placeholder is detected on load and swapped for hqdefault.
     media.append(t.thumb ? imageNode(t.thumb) : imageNode(derivedThumb(t.videoId, 'hq720'), derivedThumb(t.videoId, 'hqdefault')));
     const body = el('span', 'cd-hero-body');
-    body.append(el('h2', 'cd-hero-title', t.title), metaNode('span', 'cd-hero-meta', t), el('span', 'cd-hero-cta', HERO_CTA));
+    if (t.isLive) body.append(liveBadge(t.duration));
+    body.append(el('h2', 'cd-hero-title', t.title), metaNode('span', 'cd-hero-meta', t),
+      el('span', 'cd-hero-cta', t.isLive ? HERO_CTA_LIVE : HERO_CTA));
     a.append(media, body);
     wrap.append(a);
     entry.heroEl = wrap;
@@ -280,14 +326,25 @@ export function createHomeLayout(deps) {
     for (const c of cardsOf(track)) c.setAttribute('tabindex', c === card ? '0' : '-1');
   }
 
-  /** Puts `entries` into rows of `chunk` cards, continuing the last row when there is room. Returns how many cards were added. */
-  function place(rootEl, entries, chunk) {
+  /** Gives a track exactly one tab stop (the first card) when moving cards left it without one. */
+  function ensureTabStop(track) {
+    const cards = cardsOf(track);
+    if (cards.length && !cards.some((c) => c.getAttribute('tabindex') === '0')) cards[0].setAttribute('tabindex', '0');
+  }
+
+  /**
+   * Puts `entries` into rows, always continuing the last row. A row only splits once it holds `chunk + visible` cards, and the
+   * cards past `chunk` move to a new row, so every row but a lone first one shows at least a full screen (`visible`) of cards
+   * and the page never ends on a 1- or 2-card stub with an empty band beside it. Returns how many cards were added.
+   */
+  function place(rootEl, entries, chunk, visible) {
     let added = 0;
     let rows = rootEl.querySelectorAll('.cd-row').length;
     const lastEl = rootEl.lastElementChild;
     let track = lastEl && lastEl.classList.contains('cd-row') ? lastEl.querySelector('.cd-row-track') : null;
+    const limit = chunk + Math.max(1, visible || 1) - 1;
     for (const entry of entries) {
-      if (!track || cardsOf(track).length >= chunk) {
+      if (!track) {
         const r = buildRow(rows);
         rows += 1;
         rootEl.append(r.row);
@@ -297,6 +354,16 @@ export function createHomeLayout(deps) {
       card.setAttribute('tabindex', cardsOf(track).length === 0 ? '0' : '-1');
       track.append(card);
       added += 1;
+      const cards = cardsOf(track);
+      if (cards.length > limit) {
+        const r = buildRow(rows);
+        rows += 1;
+        rootEl.append(r.row);
+        for (const moved of cards.slice(chunk)) { moved.setAttribute('tabindex', '-1'); r.track.append(moved); }
+        ensureTabStop(track);
+        ensureTabStop(r.track);
+        track = r.track;
+      }
     }
     return added;
   }
@@ -308,15 +375,19 @@ export function createHomeLayout(deps) {
     let rest = live;
     let heroBuilt = 0;
     if (mode === 'hero-rows') {
-      // First tile with the page's own thumbnail; if none has loaded one yet, the first tile we can derive an image for.
-      const hero = live.find((e) => e.tile.thumb) || live.find((e) => VIDEO_ID.test(e.tile.videoId));
+      // A live stream is the strongest hero (the badge and "watching" count make the page feel live); then the first tile
+      // with the page's own thumbnail; if none has loaded one yet, the first tile we can derive an image for.
+      const usable = (e) => e.tile.thumb || VIDEO_ID.test(e.tile.videoId || '');
+      const hero = live.find((e) => e.tile.isLive && usable(e))
+        || live.find((e) => e.tile.thumb)
+        || live.find((e) => VIDEO_ID.test(e.tile.videoId));
       if (hero) {
         rootEl.append(buildHero(hero));
         rest = live.filter((e) => e !== hero);
         heroBuilt = 1;
       }
     }
-    return place(rootEl, rest, rowChunkForDensity(density)) + heroBuilt;
+    return place(rootEl, rest, rowChunkForDensity(density), rowVisibleForDensity(density)) + heroBuilt;
   }
 
   function newRoot(mode, density) {
@@ -757,7 +828,7 @@ export function createHomeLayout(deps) {
         reassignRepeats();
         rebuild();
       } else if (fresh.length) {
-        place(state.root, fresh.filter((e) => !e.dup), rowChunkForDensity(state.density));
+        place(state.root, fresh.filter((e) => !e.dup), rowChunkForDensity(state.density), rowVisibleForDensity(state.density));
         markSources(fresh);
         updateAllNav();
       }

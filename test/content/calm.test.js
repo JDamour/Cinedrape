@@ -1220,6 +1220,19 @@ describe('hideViewCounts', () => {
     for (const sel of ['.cd-card', '.cd-card-title', '.cd-card-meta', '.cd-card-channel', '.cd-card-age']) assert.ok(!effectivelyHidden(card.matches(sel) ? card : card.querySelector(sel), roots), sel);
   });
 
+  test('Cinedrape\'s mirrored cards: a live card\'s span.cd-card-watching ("591 watching") hides with the view counts, as YouTube\'s own live rows do', () => {
+    const page = setup('home', { tiles: 2 }, { on: ['hideViewCounts'] });
+    const { document } = page;
+    const card = parse(document, '<a class="cd-card" href="/watch?v=x"><span class="cd-card-title">t</span><span class="cd-card-meta"><span class="cd-card-channel">c</span><span class="cd-card-watching"><span class="cd-live-dot" aria-hidden="true"></span>591 watching</span></span></a>');
+    const mirror = parse(document, '<div class="cd-home"></div>');
+    document.querySelector('ytd-browse').prepend(mirror);
+    mirror.appendChild(card);
+    const roots = hiddenRoots(document);
+    assert.ok(roots.has(card.querySelector('.cd-card-watching')));
+    assert.ok(!effectivelyHidden(card, roots), 'the card itself stays');
+    assert.ok(!effectivelyHidden(card.querySelector('.cd-card-title'), roots));
+  });
+
   test('other pages and toggles: history rows with no lockup shape are left alone (nothing to match, nothing broken)', () => {
     const page = setup('history', { tiles: 3 }, { on: ['hideViewCounts'], pageAttr: 'history' });
     const roots = hiddenRoots(page.document);

@@ -42,6 +42,9 @@ const FALLBACK = Object.freeze({
 const YOUTUBE_HOST = /(?:^|\.)youtube\.com$/i;
 const OWN_HOST = /^(?:www\.)?youtube\.com$/i;
 const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
+// A duration badge is h:mm / h:mm:ss. Any other bottom-overlay badge text (a localized "LIVE", a premiere clock) means the
+// stream is live-shaped. Text-based, so it works in every UI language.
+const DURATION_SHAPE = /^\d{1,3}(?::\d{2}){1,2}$/;
 const AD_PATH = /\/(?:pagead|aclk|ptracking|api\/stats\/ads)(?:[/?#]|$)/i;
 const AD_PARAMS = ['adurl', 'ad_type', 'ad_cpn', 'ad_query', 'aclk_sa'];
 // Ad-shaped names, language independent: ad / ads as a whole word of a tag or class (ytd-ad-slot-renderer, ytp-ad-text, video-ads,
@@ -305,9 +308,10 @@ export function readThumb(el, selectors) {
  * Reads one tile.
  * @param {Element} el  a tile root: ytd-rich-item-renderer, yt-lockup-view-model, ytd-video-renderer, ytd-rich-grid-media...
  * @param {{find:Function, findAll:Function, map:Function}} selectors  from createSelectors()
- * @returns {{href:string,title:string,thumb:string,duration:string,channel:string,meta:string[],videoId:string}|null}
+ * @returns {{href:string,title:string,thumb:string,duration:string,isLive:boolean,channel:string,meta:string[],videoId:string}|null}
  *   `href` is absolute and keeps the original query string (history and recommendations depend on it). `thumb` is '' until the
- *   page lazy-loads the image. `meta` is every metadata text in order; `channel` is the channel text when the shape has one
+ *   page lazy-loads the image. `isLive` is true when the bottom-overlay badge is not a duration (a live or premiere badge).
+ *   `meta` is every metadata text in order; `channel` is the channel text when the shape has one
  *   (home, watch-related, playlist rows, legacy renderers), else ''. A non-enumerable `el` property is the element passed in.
  */
 export function extractTile(el, selectors) {
@@ -331,11 +335,13 @@ export function extractTile(el, selectors) {
 
     const meta = findFieldAll(selectors, 'tileMeta', el).map(textOf).filter(Boolean);
     const channelEl = findField(selectors, 'tileChannel', el);
+    const duration = textOf(findField(selectors, 'tileDuration', el));
     const tile = {
       href: link.url.href,
       title,
       thumb: thumbOf(selectors, el),
-      duration: textOf(findField(selectors, 'tileDuration', el)),
+      duration,
+      isLive: duration !== '' && !DURATION_SHAPE.test(duration),
       channel: textOf(channelEl),
       meta,
       videoId: link.url.searchParams.get('v'),

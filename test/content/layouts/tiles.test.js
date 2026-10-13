@@ -136,6 +136,25 @@ test('a live stream and a collab keep their texts; empty and whitespace-only met
   assert.equal(t.channel, 'National Geographic');
 });
 
+test('isLive: a bottom-overlay badge that is not a duration ("LIVE", in any language) flags the tile', () => {
+  const p = page('home', { tiles: 2, tileStyle: 'home' });
+  const items = [...p.document.querySelectorAll('ytd-rich-item-renderer')].filter((el) => el.querySelector('yt-lockup-view-model'));
+  const badge = (item) => item.querySelector('.ytBadgeShapeText');
+  badge(items[0]).textContent = 'LIVE';
+  assert.equal(extractTile(items[0], p.sel).isLive, true);
+  // A localized badge is not a duration either.
+  badge(items[0]).textContent = 'EN DIRECT';
+  assert.equal(extractTile(items[0], p.sel).isLive, true);
+  const vod = extractTile(items[1], p.sel);
+  assert.equal(vod.isLive, false);
+  assert.ok(/^\d{1,3}(:\d{2}){1,2}$/.test(vod.duration), `sanity: "${vod.duration}" is a duration shape`);
+  badge(items[1]).textContent = '12:34';
+  assert.equal(extractTile(items[1], p.sel).isLive, false);
+  // An empty badge (a live tile's second badge is dropped by the text filter) is not "live" by itself.
+  badge(items[1]).textContent = '';
+  assert.equal(extractTile(items[1], p.sel).isLive, false);
+});
+
 // ---- 2. hrefs ----------------------------------------------------------------------------------------------------------
 
 test('href is absolute and keeps the original query string and fragment exactly', () => {

@@ -113,8 +113,9 @@ function parseRules(css, at = '') {
     assert.ok(close > 0, 'unbalanced braces');
     const prelude = text.slice(i, open).trim();
     const body = text.slice(open + 1, close);
-    if (prelude.startsWith('@')) rules.push(...parseRules(body, prelude));
-    else rules.push({ at, selectors: splitTop(prelude, ','), decls: splitTop(body, ';').map((d2) => { const k = d2.indexOf(':'); return { prop: d2.slice(0, k).trim(), value: d2.slice(k + 1).trim() }; }) });
+    // Only @media contains cascade rules; @keyframes steps (the live dot) are not rules and carry no selectors.
+    if (/^@media\b/i.test(prelude)) rules.push(...parseRules(body, prelude));
+    else if (!prelude.startsWith('@')) rules.push({ at, selectors: splitTop(prelude, ','), decls: splitTop(body, ';').map((d2) => { const k = d2.indexOf(':'); return { prop: d2.slice(0, k).trim(), value: d2.slice(k + 1).trim() }; }) });
     i = close + 1;
   }
   return rules;
@@ -415,19 +416,21 @@ for (const [label, style] of STYLES) {
         assert.equal(card.querySelector('.cd-card-views').textContent, style === 'home' ? texts[1] : texts[0]);
         assert.equal(card.querySelectorAll('.cd-card-channel').length, style === 'home' ? 1 : 0);
       });
-      // One tab stop per row (roving tabindex), and the first card is it.
       assert.deepEqual(cards.map((c) => c.getAttribute('tabindex')), ['0', ...Array(11).fill('-1')]);
     });
 
-    test('rows are sized from the density: visible 8..4, held 16..8, --cd-row-visible on the root', () => {
+    // One tab stop per row (roving tabindex), and the first card is it — asserted above via the tabindex array.
+
+    test('rows are sized from the density: visible 8..4, held 16..8, no stub last row, --cd-row-visible on the root', () => {
       for (const d of [1, 2, 3, 4, 5]) {
         const p = setup({ tiles: 40, tileStyle: style }, { home: 'rows', density: d });
         assert.equal(p.layout.mount(), true);
-        const chunk = DENSITY_TABLE[d].visible * 2;
+        const visible = DENSITY_TABLE[d].visible;
+        const chunk = visible * 2;
         const sizes = rowSizes(p.root());
         assert.equal(sizes.reduce((a, b) => a + b, 0), 40);
         sizes.slice(0, -1).forEach((n) => assert.equal(n, chunk, `density ${d}`));
-        assert.ok(sizes.at(-1) <= chunk);
+        assert.ok(sizes.at(-1) >= visible && sizes.at(-1) < chunk + visible, `density ${d}: last row ${sizes.at(-1)} holds a full screen and no more than a chunk plus a screen`);
         assert.equal(p.root().style.getPropertyValue('--cd-row-visible'), String(DENSITY_TABLE[d].visible));
         assert.equal(p.root().querySelectorAll('.cd-row-title')[1].textContent, 'More to watch');
       }
@@ -566,6 +569,84 @@ for (const [label, style] of STYLES) {
   });
 }
 
+// ---- 3b. live tiles ------------------------------------------------------------------------------------------------------------
+
+for (const [label, style] of STYLES) {
+  describe(`live tiles with ${label}`, () => {
+    /** Turns the first `count` ordinary tiles into live streams (localized LIVE badge, viewer count last). */
+    function makeLive(p, count) {
+      const items = p.items();
+      for (let i = 0; i < count; i++) {
+        items[i].querySelector('.ytBadgeShapeText').textContent = 'LIVE';
+        const texts = [...items[i].querySelectorAll('.ytContentMetadataViewModelMetadataText')];
+        if (texts.length) texts[texts.length - 1].textContent = '591 watching';
+      }
+      return items;
+    }
+
+    test('cards show a red LIVE badge with a dot instead of the duration pill, and the viewer count carries a live dot', () => {
+      const p = setup({ tileStyle: style }, { home: 'rows' });
+      makeLive(p, 2);
+      p.layout.mount();
+      const cards = [...p.root().querySelectorAll('a.cd-card')];
+      for (const card of cards.slice(0, 2)) {
+        const badge = card.querySelector('.cd-card-thumb .cd-live-badge');
+        assert.ok(badge, 'live badge on the thumbnail');
+        assert.equal(badge.textContent, 'LIVE');
+        assert.equal(card.querySelector('.cd-card-duration'), null, 'no duration pill on a live card');
+        const dot = badge.querySelector('.cd-live-dot');
+        assert.ok(dot && dot.getAttribute('aria-hidden') === 'true', 'a decorative dot inside the badge');
+        const watching = card.querySelector('.cd-card-meta > .cd-card-watching');
+        assert.ok(watching, 'the viewer count is marked as watching');
+        assert.equal(watching.textContent, '591 watching');
+        assert.equal(watching.firstElementChild.classList.contains('cd-live-dot'), true, 'the watching text opens with the live dot');
+      }
+      for (const card of cards.slice(2)) {
+        assert.ok(card.querySelector('.cd-card-duration'), 'ordinary cards keep the duration pill');
+        assert.equal(card.querySelector('.cd-live-badge'), null);
+        assert.equal(card.querySelector('.cd-card-watching'), null);
+      }
+    });
+
+    test('hero-rows: a live tile wins the hero, shows the badge there and a "Watch live" call to action', () => {
+      const p = setup({ tileStyle: style });
+      const live = makeLive(p, 3);
+      p.layout.mount();
+      const hero = p.root().querySelector('.cd-hero a.cd-hero-link');
+      const vParam = /v=([\w-]{11})/.exec(live[0].querySelector('a[href^="/watch"]').getAttribute('href'))[1];
+      assert.ok(hero.getAttribute('href').includes(`v=${vParam}`), 'the first live tile is the hero');
+      const badge = hero.querySelector('.cd-hero-body .cd-live-badge');
+      assert.ok(badge, 'the hero carries the live badge');
+      assert.equal(badge.textContent, 'LIVE');
+      assert.equal(hero.querySelector('.cd-hero-cta').textContent, 'Watch live');
+      assert.equal(p.root().querySelectorAll('.cd-hero').length, 1);
+    });
+
+    test('no live tiles: cards keep the duration pill and the hero keeps plain "Watch" (nothing live-styled)', () => {
+      const p = setup({ tileStyle: style });
+      p.layout.mount();
+      assert.equal(p.root().querySelector('.cd-live-badge'), null);
+      assert.equal(p.root().querySelector('.cd-card-watching'), null);
+      assert.equal(p.root().querySelector('.cd-hero-cta').textContent, 'Watch');
+    });
+  });
+}
+
+describe('live CSS', () => {
+  test('the pulse is a transform keyframe (this sheet never animates or sets opacity), gated on animations and reduced motion', () => {
+    const css = buildHomeLayoutCss(MAP, { home: 'hero-rows', animations: true });
+    assert.match(css, /@keyframes cd-live-pulse\{0%,100%\{transform:scale\(1\)\}50%\{transform:scale\(\.55\)\}\}/);
+    assert.ok(css.includes('.cd-live-badge .cd-live-dot{'), 'the animation is scoped to the badge dot');
+    assert.ok(css.includes('@media (prefers-reduced-motion:reduce)'), 'reduced-motion block present');
+    for (const banned of ['opacity', 'visibility', 'filter', 'clip', 'pointer-events', 'z-index', 'scale(0']) assert.ok(!css.includes(banned), banned);
+    const off = buildHomeLayoutCss(MAP, { home: 'hero-rows', animations: false });
+    assert.ok(!off.includes('cd-live-pulse'), 'no pulse keyframes when animations are off');
+    assert.ok(off.includes('.cd-live-badge'), 'the badge itself is styled regardless');
+    // The badge reads on both YouTube modes; the white-on-red pair is 5.9:1.
+    assert.ok(css.includes('background:#cc0000'), 'fixed live red, not a theme variable that can fall below 4.5:1');
+  });
+});
+
 // ---- 4. unmount ------------------------------------------------------------------------------------------------------------------
 
 for (const [label, style] of STYLES) {
@@ -627,7 +708,7 @@ for (const [label, style] of STYLES) {
 
 for (const [label, style] of STYLES) {
   describe(`tiles arriving later with ${label}`, () => {
-    test('are appended to the last row (then a new row), marked, in arrival order, rAF-batched', async () => {
+    test('are appended to the last row, which only splits once a full screen of cards fits a new row, marked, in arrival order, rAF-batched', async () => {
       const p = setup({ tiles: 20, tileStyle: style }, { home: 'rows', density: 5 }); // 8 per row held
       p.layout.mount();
       assert.deepEqual(rowSizes(p.root()), [8, 8, 4]);
@@ -636,11 +717,19 @@ for (const [label, style] of STYLES) {
       // Batched: nothing yet in this tick.
       assert.deepEqual(rowSizes(p.root()), [8, 8, 4]);
       await settle(p.window);
-      assert.deepEqual(rowSizes(p.root()), [8, 8, 8, 2]);
+      // 10 < 8 + 4 visible: no 2-card stub row, the last row grows instead.
+      assert.deepEqual(rowSizes(p.root()), [8, 8, 10]);
       assert.deepEqual(cardKeys(p.root()).slice(-6), ['LATEA00000', 'LATEB00000', 'LATEC00000', 'LATED00000', 'LATEE00000', 'LATEF00000'].map((s) => s.padEnd(11, '0').slice(0, 11)));
       assert.ok(added.every((w) => w.hasAttribute(SRC_ATTR)));
-      assert.equal(p.root().querySelectorAll('.cd-row').length, 4);
+      assert.equal(p.root().querySelectorAll('.cd-row').length, 3);
+      // Two more make 12 = 8 + 4: the 4 past the chunk move to a new row.
+      p.append(['G', 'H'].map((c, i) => tileHtml(`LATE${c}000000`.slice(0, 11), `Late ${6 + i}`, style)).join(''));
+      await settle(p.window);
+      assert.deepEqual(rowSizes(p.root()), [8, 8, 8, 4]);
       assert.equal(p.root().querySelectorAll('.cd-row-title')[3].textContent, 'More to watch');
+      for (const track of p.root().querySelectorAll('.cd-row-track')) {
+        assert.equal(track.querySelectorAll('.cd-card[tabindex="0"]').length, 1, 'one tab stop per row after the split');
+      }
     });
 
     test('many arrivals in one frame cause one sync (a burst of 30 appends is one batch)', async () => {
@@ -1145,7 +1234,7 @@ for (const [label, style] of STYLES) {
       const p = setup({ tiles: 40, tileStyle: style }, { home: 'rows', density: 3 });
       p.layout.mount();
       const items = p.items();
-      assert.deepEqual(rowSizes(p.root()), [12, 12, 12, 4]);
+      assert.deepEqual(rowSizes(p.root()), [12, 12, 16]);
       p.cfg.density = 1;
       p.layout.update();
       assert.deepEqual(rowSizes(p.root()), [16, 16, 8]);

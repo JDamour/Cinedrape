@@ -304,8 +304,14 @@ CSS variables written on `html[cd-theme]` (names fixed): `--cd-bg --cd-surface -
 --cd-accent-text --cd-border --cd-radius --cd-shadow --cd-space --cd-font-family --cd-font-size
 --cd-heading-weight --cd-gap --cd-card-min --cd-row-gap --cd-duration`.
 Own DOM classes (all `cd-` prefixed): `cd-home cd-hero cd-hero-media cd-hero-body cd-hero-title cd-hero-meta
-cd-hero-cta cd-row cd-row-title cd-row-track cd-row-prev cd-row-next cd-card cd-card-thumb cd-card-title
-cd-card-meta cd-card-duration cd-notice`.
+cd-hero-cta cd-hero-live cd-row cd-row-title cd-row-track cd-row-prev cd-row-next cd-card cd-card-thumb cd-card-title
+cd-card-meta cd-card-duration cd-card-channel cd-card-views cd-card-info cd-card-watching cd-live-badge cd-live-dot cd-notice`.
+A live tile (`extractTile`'s `isLive`: the bottom-overlay badge text is not a duration, language-independent) shows a
+`cd-live-badge` (fixed `#cc0000` pill, white text 5.9:1, decorative `cd-live-dot` that pulses via the `cd-live-pulse`
+`@keyframes` — transform only, never opacity) instead of the duration pill, marks its viewer count `cd-card-watching`
+(hidden by calm's hideViewCounts like `.cd-card-views`), and hero-rows prefers a live tile for the hero with a
+"Watch live" call to action. The pulse is emitted only when `cfg.animations !== false` and is disabled in the
+`prefers-reduced-motion` block.
 
 ## 4. Module contracts
 
@@ -429,7 +435,7 @@ the gate for all of it.
 **themes/*.json** — the six launch themes per the spec's briefs; each must pass `validateTheme`, contrast checks and
 `validateCss`. `themes/index.js` exports `THEMES` (array, order = ALL_THEME_IDS) and `getTheme(id)`.
 
-**content/layouts/tiles.js** — `extractTile(el, selectors) → {href,title,thumb,duration,channel,meta,videoId}|null`,
+**content/layouts/tiles.js** — `extractTile(el, selectors) → {href,title,thumb,duration,isLive,channel,meta,videoId}|null`,
 `collectTiles(container, selectors) → Tile[]` (skips ads, playlist/collection lockups, Shorts items and anything without an
 `href`+`title`); `isAdTile(el, map)`. **A tile is mirrorable only on positive, marker-independent evidence** (every marker in the map
 is a hand-written guess): its primary link is a plain `/watch?v=<11 id characters>` on this origin, and neither it nor the cell

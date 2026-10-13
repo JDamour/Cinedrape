@@ -1,6 +1,6 @@
 # Cinedrape — Status (MVP F1–F6)
 
-Last verified: 13 Oct 2026, Windows, Node 25, jsdom 29.1.1, esbuild 0.28.2, Chrome 154. Contract: `docs/ARCHITECTURE.md`. Spec: `YouTube Skin Studio — Product Spec.md`.
+Last verified: 13 Oct 2026 (live-UI audit pass — see `docs/ENHANCEMENT-SPECS.md` and `docs/TASKS.md`), Windows, Node 25, jsdom 29.1.1, esbuild 0.28.2, Chrome 154. Contract: `docs/ARCHITECTURE.md`. Spec: `YouTube Skin Studio — Product Spec.md`.
 
 ## Build and tests
 
@@ -13,19 +13,19 @@ npm run e2e:home    real Chrome live YouTube features & calm mode (F1-F5)
 npm run e2e:popup   real Chrome live YouTube popup, breakage, service worker & trust audit (F4, F6)
 ```
 
-`npm test` (full run, 33 test files):
+`npm test` (full run, 38 test files):
 
 ```
-ℹ tests 88
-ℹ suites 0
-ℹ pass 88
+ℹ tests 1874
+ℹ suites 74
+ℹ pass 1874
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
 ```
 
-`npm run build:strict`: `content.js` 215.8 KB raw, **73,114 bytes gzipped (71.4 KB)** against the 150 KB budget; service-worker 20.6 KB gz, popup 15.0 KB gz.
+`npm run build:strict`: `content.js` 217.6 KB raw, **73,697 bytes gzipped (72.0 KB)** against the 150 KB budget; service-worker 20.6 KB gz, popup 15.0 KB gz.
 0 forbidden constructs in any shipped file; `content.js` has no `fetch` / `XMLHttpRequest`. `dist/` ends as the production build.
 
 ### E2E Verification (Real Chrome on Live YouTube)
@@ -45,6 +45,13 @@ npm run e2e:popup   real Chrome live YouTube popup, breakage, service worker & t
    - Readability: 0% below 3:1, 0 titles failing 4.5:1 across all visits.
    - Theme switch latency: 8ms – 23ms (strict < 150ms budget).
    - Heap delta: +0.1 to +0.5 MB.
+
+**13 Oct 2026 re-run after the live-UI change (S1–S3 in `docs/ENHANCEMENT-SPECS.md`):** e2e:home and e2e:popup green again on
+rebuilt `dist-home`/`dist-popup` (0 fail; one earlier e2e:popup run's 6 failures did not reproduce on an immediate retry with an
+unchanged build — YouTube-side flakiness). Theme matrix: 35/36 visits clean; the one failed check (`classic/watch/dark`
+readability-rate 3.2% vs the 3% gate, worst offender YouTube's own `ytd-creator-heart-renderer` heart icon, white SVG on the
+light background) did not reproduce on an immediate single-visit re-run (0% below 3:1) — comment-section content variance at a
+marginal gate, no Cinedrape selector involved (see `docs/TASKS.md` T7).
 
 
 `dist/` is a loadable MV3 extension: every file `manifest.json` points at exists, no `web_accessible_resources`, permissions `storage` + `alarms`, host `https://www.youtube.com/*`.

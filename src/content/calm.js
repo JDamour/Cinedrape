@@ -31,9 +31,9 @@ const EXTRA = {
   shortsViews: ['.shortsLockupViewModelHostOutsideMetadataSubhead'],
   // Direct children of the home grid that are not tiles: shelves and the old row wrapper.
   richSection: ['ytd-rich-section-renderer', 'ytd-rich-grid-row'],
-  // Cinedrape's own DOM (home layout mirror and the span its cards must wrap the view count in).
+  // Cinedrape's own DOM (home layout mirror and the spans its cards must wrap the view count / live viewer count in).
   mirrorRoot: ['.cd-home'],
-  mirrorViews: ['.cd-card-views'],
+  mirrorViews: ['.cd-card-views', '.cd-card-watching'],
 };
 
 const PLACEHOLDER = 'Home recommendations are hidden. Turn off Calm mode in Cinedrape to bring them back.';
