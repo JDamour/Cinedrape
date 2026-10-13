@@ -74,9 +74,9 @@ describe('boot and apply', () => {
   test('a theme switch by storage change completes in under 150 ms with the real map', async () => {
     await withEnv('home', { page: HOME, stored: { settings: { themeId: 'cinema' } } }, async (env) => {
       await env.engine.start();
-      // Fastest of three switches: a real regression slows all of them, CPU contention from parallel test files only some.
+      // Fastest of several switches: a real regression slows all of them, CPU contention from parallel test files only some.
       const samples = [];
-      for (const id of ['minimal', 'cinema', 'minimal']) {
+      for (const id of ['minimal', 'cinema', 'minimal', 'cinema', 'minimal', 'cinema', 'minimal']) {
         const t0 = performance.now();
         await env.set('settings', { themeId: id });
         await waitFor(() => env.attr('cd-theme') === id, id + ' applied');

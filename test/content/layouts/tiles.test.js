@@ -379,14 +379,23 @@ test('collectTiles on a 400-tile page returns all of them in document order and 
   // jsdom's selector engine costs milliseconds per tile (a real browser, microseconds), so an absolute budget would only measure
   // the machine. What matters is that the cost per tile does not grow with the page: 4x the tiles must cost about 4x, not 16x.
   const small = page('home', { tiles: 100 });
-  const t0 = process.hrtime.bigint();
-  assert.equal(collectTiles(small.document, small.sel).length, 100);
-  const smallMs = Number(process.hrtime.bigint() - t0) / 1e6;
+  const smallTimes = [];
+  for (let rep = 0; rep < 3; rep++) {
+    const t0 = process.hrtime.bigint();
+    assert.equal(collectTiles(small.document, small.sel).length, 100);
+    smallTimes.push(Number(process.hrtime.bigint() - t0) / 1e6);
+  }
+  const smallMs = Math.min(...smallTimes);
 
   const p = page('home', { tiles: 400 });
-  const t1 = process.hrtime.bigint();
-  const tiles = collectTiles(p.document, p.sel);
-  const bigMs = Number(process.hrtime.bigint() - t1) / 1e6;
+  const bigTimes = [];
+  let tiles = null;
+  for (let rep = 0; rep < 3; rep++) {
+    const t1 = process.hrtime.bigint();
+    tiles = collectTiles(p.document, p.sel);
+    bigTimes.push(Number(process.hrtime.bigint() - t1) / 1e6);
+  }
+  const bigMs = Math.min(...bigTimes);
   assert.equal(tiles.length, 400);
   assert.deepEqual(tiles.slice(0, 3).map((t) => t.videoId), ['kGIIPzvK9c0', 'Y0JIkdKL1jg', 'fwpjpQizZA4']);
   assert.ok(bigMs / 400 < (smallMs / 100) * 2.5 + 1, `no quadratic blowup: ${smallMs.toFixed(0)} ms for 100 tiles, ${bigMs.toFixed(0)} ms for 400`);

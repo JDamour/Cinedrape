@@ -78,7 +78,21 @@ function createGuards(map) {
   const ads = attempt(() => splitSelectorList(protectedCss(map, 'ads')), []);
   if (!ads.length) return null;
   const sponsor = attempt(() => splitSelectorList(protectedCss(map, 'sponsor')), []);
-  return { ads: ads.join(','), adList: ads, sponsor: sponsor.join(',') };
+  // Ancestor selectors: excludes external links (which organic video descriptions commonly have
+  // and which defeat the browser's ancestor Bloom filter and cause quadratic checking in jsdom).
+  const adAncestors = ads.filter((s) => !s.startsWith('a[href^="http"]'));
+  // Selectors that mark a tile as carrying an ad badge: excludes player/masthead controls,
+  // and excludes first-party Google links (e.g. support.google.com help badges) while keeping real advertiser links.
+  const adBadges = ads
+    .filter((s) => !s.startsWith('.ytp-') && !s.startsWith('#masthead') && !s.startsWith('#player') && !s.startsWith('.video-ads'))
+    .map((s) => (s.startsWith('a[href^="http"]') ? `${s}:not([href*="google.com"])` : s));
+  return {
+    ads: ads.join(','),
+    adList: ads,
+    sponsor: sponsor.join(','),
+    adAncestors: adAncestors.join(','),
+    adBadges: adBadges.join(','),
+  };
 }
 
 /**
@@ -96,7 +110,7 @@ function carriesAdsGuard(safe, subject, adList) {
 /**
  * One hide rule: `gate subject` with the contract guard (safeHide) plus calm's extra narrowing.
  * @param {object} map
- * @param {{ads:string,sponsor:string}} guards
+ * @param {{ads:string,sponsor:string,adAncestors:string,adBadges:string}} guards
  * @param {string} gate   compound on <html>, e.g. html[cd-calm-hideShorts]
  * @param {string[]} subjects  complex selectors (no top-level comma); unioned
  * @param {{tiles?:string[], outside?:string}} [opts]  tiles: leaf subjects inside a tile that holds an ad are left alone (omit
@@ -110,9 +124,12 @@ function hideRule(map, guards, gate, subjects, opts = {}) {
   // Fail closed: only emit a rule whose subject really got the full ads guard appended.
   if (!carriesAdsGuard(safe, subject, guards.adList)) return '';
   let narrow = guards.sponsor ? `:not(:has(${guards.sponsor}))` : '';
-  if (opts.tiles) {
-    const inside = [guards.ads, guards.sponsor, `:is(${dedupe(opts.tiles).join(',')}):has(${guards.ads})`].filter(Boolean);
-    narrow += `:not(:is(${inside.join(',')}) *)`;
+  if (opts.insideAd || opts.tiles) {
+    const inside = [guards.adAncestors || guards.ads, guards.sponsor];
+    if (opts.tiles && opts.tiles.length) {
+      inside.push(`:is(${dedupe(opts.tiles).join(',')}):has(${guards.adBadges || guards.ads})`);
+    }
+    narrow += `:not(:is(${inside.filter(Boolean).join(',')}) *)`;
   }
   if (opts.outside) narrow += `:not(${opts.outside} *)`;
   return `${gate} ${safe}${narrow}${HIDE}`;
@@ -129,13 +146,12 @@ const gateFor = (key, extra = '') => `html[${ATTR.calmPrefix}${key}]${extra}`;
 // ---- the five toggles ----------------------------------------------------------------------------------------------
 
 function shorts(map, g) {
-  const tiles = [...roleList(map, 'videoTile'), ...roleList(map, 'richItem'), ...roleList(map, 'shortsTiles')];
   // Guide and mini-guide entries, shelves, tiles in any grid and the channel Shorts tab. The Shorts player itself is left
   // alone (its own links are not feed items; hiding them would only break the page).
   const subjects = [
     ...roleList(map, 'shortsNavEntry'), ...roleList(map, 'shortsShelf'), ...roleList(map, 'shortsTiles'), ...EXTRA.shortsTab,
   ];
-  return block('hideShorts', [hideRule(map, g, gateFor('hideShorts'), subjects, { tiles, outside: EXTRA.shortsPlayer })]);
+  return block('hideShorts', [hideRule(map, g, gateFor('hideShorts'), subjects, { insideAd: true, outside: EXTRA.shortsPlayer })]);
 }
 
 function homeRecs(map, g) {
@@ -165,8 +181,13 @@ function endScreens(map, g) {
 
 function viewCounts(map, g) {
   const tiles = [...roleList(map, 'videoTile'), ...roleList(map, 'richItem')];
-  const subjects = [...roleList(map, 'viewCounts'), ...EXTRA.shortsViews, ...EXTRA.mirrorViews];
-  return block('hideViewCounts', [hideRule(map, g, gateFor('hideViewCounts'), subjects, { tiles })]);
+  const videoViews = roleList(map, 'viewCounts');
+  const otherViews = [...EXTRA.shortsViews, ...EXTRA.mirrorViews];
+  const rules = [
+    hideRule(map, g, gateFor('hideViewCounts'), videoViews, { tiles }),
+    hideRule(map, g, gateFor('hideViewCounts'), otherViews),
+  ];
+  return block('hideViewCounts', rules);
 }
 
 // ---- public API ----------------------------------------------------------------------------------------------------

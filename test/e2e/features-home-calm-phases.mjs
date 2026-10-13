@@ -356,32 +356,43 @@ async function f3RestoreAndNav(ctx) {
 export async function protectedDiff(ctx, sels) {
   const { page } = ctx;
   const list = Array.from(new Set(sels));
-  const read = () => page.evaluate((ss) => {
+  const read = (filterList) => page.evaluate((ss) => {
     const out = [];
     for (const s of ss) {
       let nodes = [];
       try { nodes = Array.from(document.querySelectorAll(s)); } catch { /* unparseable here */ }
+      if (nodes.length === 0) continue;
       nodes.forEach((e, i) => {
-        const cs = getComputedStyle(e); const r = e.getBoundingClientRect();
-        out.push({ k: `${s}#${i}`, shown: e.getClientRects().length > 0 && cs.visibility === 'visible' && cs.opacity !== '0', display: cs.display, vis: cs.visibility, op: cs.opacity, w: Math.round(r.width), h: Math.round(r.height) });
+        const cs = getComputedStyle(e);
+        const rects = e.getClientRects();
+        const shown = rects.length > 0 && cs.visibility === 'visible' && cs.opacity !== '0';
+        const r = rects.length > 0 ? rects[0] : { width: 0, height: 0 };
+        out.push({ k: `${s}#${i}`, sel: s, shown, display: cs.display, vis: cs.visibility, op: cs.opacity, w: Math.round(r.width), h: Math.round(r.height) });
       });
     }
     return out;
-  }, list);
+  }, filterList || list);
   const withCss = await read();
+  const matchedSelectors = Array.from(new Set(withCss.map((x) => x.sel)));
   await H(page, 'setSheet', true);
-  await sleep(150);
-  const without = await read();
+  await sleep(350);
+  const without = await read(matchedSelectors);
   await H(page, 'setSheet', false);
-  await sleep(150);
-  const map = new Map(without.map((x) => [x.k, x]));
+  await sleep(350);
+  const withCss2 = await read(matchedSelectors);
+  const mapWithout = new Map(without.map((x) => [x.k, x]));
+  const mapBack = new Map(withCss2.map((x) => [x.k, x]));
   const hiddenByUs = [];
   const changed = [];
   for (const x of withCss) {
-    const y = map.get(x.k);
+    const y = mapWithout.get(x.k);
     if (!y) continue;
-    if ((y.shown && !x.shown) || (y.display !== 'none' && x.display === 'none')) hiddenByUs.push({ k: x.k, display: x.display, vis: x.vis, op: x.op });
-    else if (y.op !== x.op || y.vis !== x.vis) changed.push({ k: x.k, op: [y.op, x.op], vis: [y.vis, x.vis] });
+    const z = mapBack.get(x.k);
+    if ((y.shown && !x.shown) || (y.display !== 'none' && x.display === 'none')) {
+      hiddenByUs.push({ k: x.k, display: x.display, vis: x.vis, op: x.op });
+    } else if (z && (y.op !== x.op || y.vis !== x.vis) && (z.op === x.op && z.vis === x.vis)) {
+      changed.push({ k: x.k, op: [y.op, x.op], vis: [y.vis, x.vis] });
+    }
   }
   return { checked: withCss.length, shownWith: withCss.filter((x) => x.shown).length, shownWithout: without.filter((x) => x.shown).length, hiddenByUs, fadedOrChanged: changed.slice(0, 5) };
 }
@@ -459,7 +470,11 @@ async function f3Watch(ctx) {
   await ctx.set({ themeId: 'classic', density: null });
   await gotoWatch(ctx);
   await prepPage(ctx);
-  await sleep(1500);
+  await page.evaluate(() => window.scrollTo(0, 1000));
+  await until(page, () => { const c = document.querySelector('ytd-comments#comments'); return !!c && c.getClientRects().length > 0; }, null, 15000);
+  await sleep(800);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await sleep(600);
   await page.evaluate(() => {
     const p = document.querySelector('#movie_player');
     window.__player = p; window.__video = p.querySelector('video'); window.__chain = [];
@@ -609,9 +624,11 @@ function rowScrollRun() {
   });
 }
 const summarize = (deltas) => {
-  const d = deltas.slice(5).sort((a, b) => a - b);
+  const d = (deltas || []).slice(5).sort((a, b) => a - b);
   const n = d.length;
-  return { frames: n, p50: +pct(d, 50).toFixed(1), p95: +pct(d, 95).toFixed(1), p99: +pct(d, 99).toFixed(1), max: +d[n - 1].toFixed(1), over25msPct: +((100 * d.filter((x) => x > 25).length) / n).toFixed(2), over33msPct: +((100 * d.filter((x) => x > 33.4).length) / n).toFixed(2) };
+  if (!n) return { frames: 0, p50: 0, p95: 0, p99: 0, max: 0, over25msPct: 0, over33msPct: 0 };
+  const p = (q) => { const v = pct(d, q); return v === null ? 0 : +v.toFixed(1); };
+  return { frames: n, p50: p(50), p95: p(95), p99: p(99), max: +(d[n - 1] || 0).toFixed(1), over25msPct: +((100 * d.filter((x) => x > 25).length) / n).toFixed(2), over33msPct: +((100 * d.filter((x) => x > 33.4).length) / n).toFixed(2) };
 };
 
 async function f3Perf(ctx) {

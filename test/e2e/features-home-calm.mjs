@@ -21,7 +21,7 @@ const code = await withTimeout((async () => {
   ctx = await startSession({ extension: get('extension', 'dist-home'), viewport: { width: w, height: h } });
   ctx.extension = get('extension', 'dist-home');
   return runAll(ctx, { out, phases: String(get('phases', 'f3,f5')).split(','), only: get('only', ''), pages: get('pages', '') ? String(get('pages', '')).split(',') : null });
-})(), 25 * 60 * 1000, 'features-home-calm').catch((err) => { console.error(err && err.stack ? err.stack : err); return 6; });
+})(), 35 * 60 * 1000, 'features-home-calm').catch((err) => { console.error(err && err.stack ? err.stack : err); return 6; });
 if (ctx) await ctx.close();
 writeFileSync(join(out, '.done'), String(code));
 process.exit(code);

@@ -111,7 +111,10 @@ export function createSession() {
 }
 
 export async function launchChrome(puppeteer, { chromePath, headed, viewport, profile, extraArgs = [] }) {
-  const args = ['--no-first-run', '--no-default-browser-check', '--lang=en-US', '--mute-audio', `--window-size=${viewport.width},${viewport.height}`];
+  const args = [
+    '--no-first-run', '--no-default-browser-check', '--lang=en-US', '--mute-audio', `--window-size=${viewport.width},${viewport.height}`,
+    '--disable-background-timer-throttling', '--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding',
+  ];
   if (headed) args.push('--window-position=-2400,0');
   args.push(...extraArgs);
   try {
@@ -124,6 +127,7 @@ export async function launchChrome(puppeteer, { chromePath, headed, viewport, pr
       defaultViewport: { width: viewport.width, height: viewport.height, deviceScaleFactor: 1 },
       args,
       timeout: 30000,
+      protocolTimeout: 120000,
     });
   } catch (err) {
     throw new HarnessError(EXIT.ENVIRONMENT, `could not launch Chrome (${chromePath}): ${err.message}`);

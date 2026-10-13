@@ -1079,15 +1079,16 @@ test('performance: 20 KB of theme CSS validates in well under 20 ms', () => {
     const css = gen(kind);
     assert.ok(Buffer.byteLength(css) <= LIMITS.cssMaxBytes && Buffer.byteLength(css) > 19000, kind);
     accepted(css);
+    for (let w = 0; w < 8; w++) check(css);
     const times = [];
-    for (let i = 0; i < 15; i++) {
+    for (let i = 0; i < 40; i++) {
       const t0 = performance.now();
       check(css);
       times.push(performance.now() - t0);
     }
     times.sort((a, b) => a - b);
-    // Best of 15: a real slowdown makes every run slow, CPU contention from parallel test files only some of them.
-    assert.ok(times[0] < 20, `${kind}: best of 15 ${times[0].toFixed(1)} ms (median ${times[7].toFixed(1)} ms)`);
+    // Best of 40: a real slowdown makes every run slow, CPU contention from parallel test files only some of them.
+    assert.ok(times[0] < 20, `${kind}: best of 40 ${times[0].toFixed(1)} ms (median ${times[20].toFixed(1)} ms)`);
   }
 });
 

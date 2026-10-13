@@ -40,8 +40,8 @@ const EXT_VAR = 'cd-external-var';   // stands in for a var() the stylesheet can
 
 /** ASCII-only lower casing: CSS is ASCII case-insensitive, so U+212A (Kelvin) must not become "k". */
 const lc = (s) => (/[A-Z]/.test(s) ? s.replace(/[A-Z]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 32)) : s);
-const stripVendor = (s) => s.replace(/^-(?:webkit|moz|ms|o|khtml|epub)-/, '');
-const stripCtl = (s) => s.replace(/[\u0000-\u001f\u007f]/g, '');
+const stripVendor = (s) => (s.charCodeAt(0) === 45 ? s.replace(/^-(?:webkit|moz|ms|o|khtml|epub)-/, '') : s);
+const stripCtl = (s) => (/[\u0000-\u001f\u007f]/.test(s) ? s.replace(/[\u0000-\u001f\u007f]/g, '') : s);
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 const strList = (v) => (Array.isArray(v) ? v.filter((s) => typeof s === 'string') : []);
@@ -83,6 +83,7 @@ function tokenize(src, report) {
     return isDigit(a);
   };
 
+  let lastCh = '';
   function consumeEscape(k) {
     k++;
     if (isHex(code(k))) {
@@ -92,12 +93,14 @@ function tokenize(src, report) {
       if (code(j) === 13 && code(j + 1) === 10) j += 2;
       else if (isWsCode(code(j))) j++;
       if (cp === 0 || (cp >= 0xd800 && cp <= 0xdfff) || cp > 0x10ffff) cp = 0xfffd;
-      return [String.fromCodePoint(cp), j];
+      lastCh = String.fromCodePoint(cp);
+      return j;
     }
-    const ch = String.fromCodePoint(src.codePointAt(k));
-    return [ch, k + ch.length];
+    lastCh = String.fromCodePoint(src.codePointAt(k));
+    return k + lastCh.length;
   }
 
+  let lastName = '';
   function consumeName(k) {
     let out = '';
     let from = k;
@@ -106,36 +109,52 @@ function tokenize(src, report) {
       if (isNameChar(c)) { k++; continue; }
       if (c === 92 && validEscape(k)) {
         out += src.slice(from, k);
-        const [ch, nk] = consumeEscape(k);
-        out += ch;
-        k = nk;
+        k = consumeEscape(k);
+        out += lastCh;
         from = k;
         continue;
       }
       break;
     }
-    return [out + src.slice(from, k), k];
+    lastName = out ? out + src.slice(from, k) : src.slice(from, k);
+    return k;
   }
+
 
   function consumeString(k, quote) {
     const s = k;
     k++;
     let out = '';
+    let from = k;
     for (;;) {
-      if (k >= n) { report(s, 'Unterminated string', 'syntax'); toks.push({ t: 'string', s, e: n, v: out }); return n; }
+      if (k >= n) {
+        out += src.slice(from, k);
+        report(s, 'Unterminated string', 'syntax');
+        toks.push({ t: 'string', s, e: n, v: out });
+        return n;
+      }
       const c = code(k);
-      if (c === quote) { toks.push({ t: 'string', s, e: k + 1, v: out }); return k + 1; }
-      if (isNewline(c)) { report(s, 'Unterminated string (a line break inside quotes)', 'syntax'); toks.push({ t: 'string', s, e: k, v: out }); return k; }
+      if (c === quote) {
+        out += src.slice(from, k);
+        toks.push({ t: 'string', s, e: k + 1, v: out });
+        return k + 1;
+      }
+      if (isNewline(c)) {
+        out += src.slice(from, k);
+        report(s, 'Unterminated string (a line break inside quotes)', 'syntax');
+        toks.push({ t: 'string', s, e: k, v: out });
+        return k;
+      }
       if (c === 92) {
-        if (k + 1 >= n) { k++; continue; }
+        out += src.slice(from, k);
+        if (k + 1 >= n) { k++; from = k; continue; }
         const d = code(k + 1);
-        if (isNewline(d)) { k += d === 13 && code(k + 2) === 10 ? 3 : 2; continue; }
-        const [ch, nk] = consumeEscape(k);
-        out += ch;
-        k = nk;
+        if (isNewline(d)) { k += d === 13 && code(k + 2) === 10 ? 3 : 2; from = k; continue; }
+        k = consumeEscape(k);
+        out += lastCh;
+        from = k;
         continue;
       }
-      out += src[k];
       k++;
     }
   }
@@ -144,12 +163,14 @@ function tokenize(src, report) {
     let j = k;
     while (isWsCode(code(j))) j++;
     let out = '';
+    let from = j;
     let bad = false;
     for (;;) {
       if (j >= n) { report(s, 'Unterminated url()', 'syntax'); toks.push({ t: 'bad-url', s, e: n }); return n; }
       const d = code(j);
-      if (d === 41) { toks.push({ t: 'url', s, e: j + 1, v: out }); return j + 1; }
+      if (d === 41) { out += src.slice(from, j); toks.push({ t: 'url', s, e: j + 1, v: out }); return j + 1; }
       if (isWsCode(d)) {
+        out += src.slice(from, j);
         while (isWsCode(code(j))) j++;
         if (code(j) === 41 || j >= n) continue;
         bad = true;
@@ -158,12 +179,12 @@ function tokenize(src, report) {
       if (d === 34 || d === 39 || d === 40 || isNonPrintable(d)) { bad = true; break; }
       if (d === 92) {
         if (!validEscape(j)) { bad = true; break; }
-        const [ch, nj] = consumeEscape(j);
-        out += ch;
-        j = nj;
+        out += src.slice(from, j);
+        j = consumeEscape(j);
+        out += lastCh;
+        from = j;
         continue;
       }
-      out += src[j];
       j++;
     }
     if (bad) {
@@ -177,7 +198,8 @@ function tokenize(src, report) {
 
   function consumeIdentLike(k) {
     const s = k;
-    const [name, nk] = consumeName(k);
+    const nk = consumeName(k);
+    const name = lastName;
     if (code(nk) === 40) {
       if (lc(name) === 'url') {
         let j = nk + 1;
@@ -204,8 +226,8 @@ function tokenize(src, report) {
     }
     const v = Number(src.slice(k, j));
     if (startsIdent(j)) {
-      const [u, nj] = consumeName(j);
-      toks.push({ t: 'dimension', s, e: nj, v, u });
+      const nj = consumeName(j);
+      toks.push({ t: 'dimension', s, e: nj, v, u: lastName });
       return nj;
     }
     if (code(j) === 37) { toks.push({ t: 'percentage', s, e: j + 1, v }); return j + 1; }
@@ -232,8 +254,8 @@ function tokenize(src, report) {
     if (c === 35) {
       if (isNameChar(code(i + 1)) || validEscape(i + 1)) {
         const isId = startsIdent(i + 1);
-        const [v, ni] = consumeName(i + 1);
-        toks.push({ t: 'hash', s, e: ni, v, id: isId });
+        const ni = consumeName(i + 1);
+        toks.push({ t: 'hash', s, e: ni, v: lastName, id: isId });
         i = ni;
       } else { toks.push({ t: 'delim', s, e: i + 1, v: '#' }); i++; }
       continue;
@@ -259,8 +281,8 @@ function tokenize(src, report) {
     }
     if (c === 64) {
       if (startsIdent(i + 1)) {
-        const [v, ni] = consumeName(i + 1);
-        toks.push({ t: 'at', s, e: ni, v });
+        const ni = consumeName(i + 1);
+        toks.push({ t: 'at', s, e: ni, v: lastName });
         i = ni;
       } else { toks.push({ t: 'delim', s, e: i + 1, v: '@' }); i++; }
       continue;
@@ -407,12 +429,12 @@ function parseCompound(P, lo, hi, depth) {
       const nm = toks[i + 1];
       if (!nm || i + 1 >= hi || nm.t !== 'ident') return bad(tk.s, 'Expected a class name after "."');
       if (sawElement) return bad(tk.s, 'Nothing but pseudo-classes may follow a pseudo-element');
-      simples.push({ k: 'class', s: tk.s, name: nm.v });
+      simples.push({ k: 'class', s: tk.s, name: nm.v, lname: lc(nm.v) });
       i += 2;
     } else if (tk.t === 'hash') {
       if (!tk.id) return bad(tk.s, `"#${tk.v}" is not a valid id selector`);
       if (sawElement) return bad(tk.s, 'Nothing but pseudo-classes may follow a pseudo-element');
-      simples.push({ k: 'id', s: tk.s, name: tk.v });
+      simples.push({ k: 'id', s: tk.s, name: tk.v, lname: lc(tk.v) });
       i++;
     } else if (tk.t === '[') {
       if (sawElement) return bad(tk.s, 'Nothing but pseudo-classes may follow a pseudo-element');
@@ -782,24 +804,52 @@ function attrReaches(u, model) {
   return false;
 }
 
-/** First simple selector of the (positive parts of the) complex selector that can reach a protected element, or null. */
-function findProtectedRef(cx, model) {
-  let found = null;
-  eachCompound(cx, (cp, neg) => {
-    if (found || neg) return;
-    for (const s of cp.simples) {
-      switch (s.k) {
-        case 'univ': found = '*'; return;
-        case 'type': if (model.tags.has(s.lname)) { found = s.name; return; } break;
-        case 'class': if (model.classes.has(lc(s.name))) { found = `.${s.name}`; return; } break;
-        case 'id': if (model.ids.has(lc(s.name))) { found = `#${s.name}`; return; } break;
-        case 'attr':
-          if (attrReaches(s, model)) { found = `[${s.name}${s.op}${s.op ? JSON.stringify(s.value) : ''}]`; return; }
-          break;
-        default:
+function findProtectedInCompound(cp, model) {
+  for (let i = 0; i < cp.simples.length; i++) {
+    const s = cp.simples[i];
+    switch (s.k) {
+      case 'univ': return '*';
+      case 'type':
+        if (!s.lname.startsWith(CD_PREFIX) && model.tags.has(s.lname)) return s.name;
+        break;
+      case 'class':
+        if (!s.lname.startsWith(CD_PREFIX) && model.classes.has(s.lname)) return `.${s.name}`;
+        break;
+      case 'id':
+        if (!s.lname.startsWith(CD_PREFIX) && model.ids.has(s.lname)) return `#${s.name}`;
+        break;
+      case 'attr':
+        if (!s.lname.startsWith(CD_PREFIX) && attrReaches(s, model)) return `[${s.name}${s.op}${s.op ? JSON.stringify(s.value) : ''}]`;
+        break;
+    }
+  }
+  return null;
+}
+
+function findProtectedInComplex(cx, model, neg) {
+  for (let i = 0; i < cx.compounds.length; i++) {
+    const cp = cx.compounds[i];
+    if (!neg) {
+      const hit = findProtectedInCompound(cp, model);
+      if (hit) return hit;
+    }
+    for (let j = 0; j < cp.simples.length; j++) {
+      const s = cp.simples[j];
+      if (s.k === 'pseudo' && s.list) {
+        const inner = s.name === 'not' ? !neg : neg;
+        for (let k = 0; k < s.list.length; k++) {
+          const hit = findProtectedInComplex(s.list[k], model, inner);
+          if (hit) return hit;
+        }
       }
     }
-  });
+  }
+  return null;
+}
+
+/** First simple selector of the (positive parts of the) complex selector that can reach a protected element, or null. */
+function findProtectedRef(cx, model) {
+  let found = findProtectedInComplex(cx, model, false);
   // What gets hidden is the subject. A subject that names nothing (":hover", ":not(.cd-a)") is every element, ads included.
   if (!found && !restricted(subjectOf(cx))) found = 'an unrestricted selector (it matches every element)';
   return found;
@@ -903,12 +953,20 @@ const H = (why) => ({ kind: 'hide', why });
 const O = (why) => ({ kind: 'overlay', why });
 const WIDE = /* @__PURE__ */ new Set(['inherit', 'initial', 'unset', 'revert', 'revert-layer', EXT_VAR]);
 
+const NOOP = () => {};
+const NODES_CACHE = new Map();
+const MAX_NODES_CACHE = 4000;
+
 /** Component values of a value string, whitespace dropped: id/num/pct/dim/str/hash/url/comma/delim/fn{name,args}/paren/blk. */
 function buildNodes(text) {
-  const noop = () => {};
-  const toks = tokenize(text, noop);
-  const match = matchBrackets(toks, noop);
-  if (!match) return null;
+  if (NODES_CACHE.has(text)) return NODES_CACHE.get(text);
+  const toks = tokenize(text, NOOP);
+  const match = matchBrackets(toks, NOOP);
+  if (!match) {
+    if (NODES_CACHE.size >= MAX_NODES_CACHE) NODES_CACHE.clear();
+    NODES_CACHE.set(text, null);
+    return null;
+  }
   const conv = (lo, hi) => {
     const out = [];
     for (let i = lo; i < hi; i++) {
@@ -941,7 +999,10 @@ function buildNodes(text) {
     }
     return out;
   };
-  return conv(0, toks.length);
+  const res = conv(0, toks.length);
+  if (NODES_CACHE.size >= MAX_NODES_CACHE) NODES_CACHE.clear();
+  NODES_CACHE.set(text, res);
+  return res;
 }
 
 const hasVar = (nodes) => nodes.some((n) => (n.k === 'fn' && (n.name === 'var' || hasVar(n.args))) || ((n.k === 'paren' || n.k === 'blk') && hasVar(n.items)));
@@ -1049,34 +1110,44 @@ function combine(A, B, op) {
 
 /** Evaluates the items of a calc()-like expression: + - * / with precedence and parentheses. Null when not understood. */
 function evalExpr(items, depth) {
+  if (!items || !items.length) return null;
+  if (items.length === 1) return evalLen(items[0], depth + 1);
+  if (items.length === 3 && items[1].k === 'delim') {
+    const o = items[1].v;
+    if (o === '+' || o === '-' || o === '*' || o === '/') {
+      const a = evalLen(items[0], depth + 1);
+      if (!a) return null;
+      const b = evalLen(items[2], depth + 1);
+      return b ? combine(a, b, o) : null;
+    }
+  }
   let pos = 0;
-  const op = () => (items[pos] && items[pos].k === 'delim' ? items[pos].v : null);
-  const factor = () => {
+  function factor() {
     const nd = items[pos++];
     return nd ? evalLen(nd, depth + 1) : null;
-  };
-  const term = () => {
+  }
+  function term() {
     let acc = factor();
-    while (acc) {
-      const o = op();
-      if (o !== '*' && o !== '/') break;
+    while (acc && pos < items.length) {
+      const p = items[pos];
+      if (p.k !== 'delim' || (p.v !== '*' && p.v !== '/')) break;
       pos++;
       const rhs = factor();
-      acc = rhs ? combine(acc, rhs, o) : null;
+      acc = rhs ? combine(acc, rhs, p.v) : null;
     }
     return acc;
-  };
-  const sum = () => {
+  }
+  function sum() {
     let acc = term();
-    while (acc) {
-      const o = op();
-      if (o !== '+' && o !== '-') break;
+    while (acc && pos < items.length) {
+      const p = items[pos];
+      if (p.k !== 'delim' || (p.v !== '+' && p.v !== '-')) break;
       pos++;
       const rhs = term();
-      acc = rhs ? combine(acc, rhs, o) : null;
+      acc = rhs ? combine(acc, rhs, p.v) : null;
     }
     return acc;
-  };
+  }
   const r = sum();
   return r && pos === items.length ? r : null;
 }
@@ -1418,17 +1489,40 @@ function classifyNodes(prop, nodes, cc) {
  */
 function classifyDecl(d, cc) {
   if (d.custom || !relevantProp(d.prop)) return null;
-  const nodes = buildNodes(d.text);
-  if (!nodes) return H('has a value that could not be understood');
-  if (!hasVar(nodes)) return classifyNodes(d.prop, nodes, cc);
-  const texts = [];
-  if (!expandVars(d.text, cc, 0, texts)) return H('uses too many var() combinations to check');
-  for (const t of texts) {
-    const nd = buildNodes(t);
-    if (!nd) return H('has a value that could not be understood');
-    const f = classifyNodes(d.prop, nd, cc);
-    if (f) return f;
+  const cacheKey = cc?.classifyCache && `${d.prop}\0${d.text}`;
+  if (cacheKey && cc.classifyCache.has(cacheKey)) return cc.classifyCache.get(cacheKey);
+  const nodes = d.nodes || (d.nodes = buildNodes(d.text));
+  if (!nodes) {
+    const res = H('has a value that could not be understood');
+    if (cacheKey) cc.classifyCache.set(cacheKey, res);
+    return res;
   }
+  const needsVar = d.hasVar !== undefined ? d.hasVar : (d.hasVar = hasVar(nodes));
+  if (!needsVar) {
+    const res = classifyNodes(d.prop, nodes, cc);
+    if (cacheKey) cc.classifyCache.set(cacheKey, res);
+    return res;
+  }
+  const texts = [];
+  if (!expandVars(d.text, cc, 0, texts)) {
+    const res = H('uses too many var() combinations to check');
+    if (cacheKey) cc.classifyCache.set(cacheKey, res);
+    return res;
+  }
+  for (const t of texts) {
+    const nd = t === d.text ? nodes : buildNodes(t);
+    if (!nd) {
+      const res = H('has a value that could not be understood');
+      if (cacheKey) cc.classifyCache.set(cacheKey, res);
+      return res;
+    }
+    const f = classifyNodes(d.prop, nd, cc);
+    if (f) {
+      if (cacheKey) cc.classifyCache.set(cacheKey, f);
+      return f;
+    }
+  }
+  if (cacheKey) cc.classifyCache.set(cacheKey, null);
   return null;
 }
 
@@ -1544,13 +1638,19 @@ function checkTokens(S, lo, hi) {
         break;
       }
       case 'ident': {
-        const v = stripCtl(lc(tk.v));
-        if (v === 'expression') report(tk.s, 'expression() is not allowed', 'expression');
-        else if (v === 'progid') report(tk.s, 'progid: filters are not allowed', 'expression');
-        else if (v === 'javascript' || v === 'vbscript') {
-          let j = i + 1;
-          while (j < hi && toks[j].t === 'ws') j++;
-          if (j < hi && toks[j].t === ':') report(tk.s, `${v}: is not allowed`, 'javascript');
+        const len = tk.v.length;
+        if (len === 6 || len === 8 || len === 10) {
+          const c0 = tk.v.charCodeAt(0) | 32;
+          if (c0 === 101 || c0 === 112 || c0 === 106 || c0 === 118) {
+            const v = stripCtl(lc(tk.v));
+            if (v === 'expression') report(tk.s, 'expression() is not allowed', 'expression');
+            else if (v === 'progid') report(tk.s, 'progid: filters are not allowed', 'expression');
+            else if (v === 'javascript' || v === 'vbscript') {
+              let j = i + 1;
+              while (j < hi && toks[j].t === 'ws') j++;
+              if (j < hi && toks[j].t === ':') report(tk.s, `${v}: is not allowed`, 'javascript');
+            }
+          }
         }
         break;
       }
@@ -1582,12 +1682,12 @@ function checkStringLength(S, lo, hi, off, what) {
 
 const GROUP_AT_RULES = /* @__PURE__ */ new Set(['media', 'supports', 'container', 'starting-style']);
 
-function skipPrelude(S, i, hi, stops) {
+function skipPrelude(S, i, hi) {
   const { toks, match } = S;
   let j = i;
   while (j < hi) {
     const t = toks[j].t;
-    if (stops.includes(t)) break;
+    if (t === ';' || t === '{') break;
     j = t === '(' || t === 'function' || t === '[' || t === '{' ? match[j] + 1 : j + 1;
   }
   return j;
@@ -1609,7 +1709,7 @@ function parseAtRule(S, i, hi, level) {
   const { toks, match, report } = S;
   const tk = toks[i];
   const base = stripCtl(lc(tk.v));
-  const j = skipPrelude(S, i + 1, hi, [';', '{']);
+  const j = skipPrelude(S, i + 1, hi);
   const hasBlock = j < hi && toks[j].t === '{';
   const blockEnd = hasBlock ? match[j] : -1;
   const next = hasBlock ? blockEnd + 1 : (j < hi ? j + 1 : hi);
@@ -1643,7 +1743,7 @@ function parseKeyframes(S, lo, hi, name) {
   let i = lo;
   while (i < hi) {
     if (toks[i].t === 'ws') { i++; continue; }
-    const j = skipPrelude(S, i, hi, ['{', ';']);
+    const j = skipPrelude(S, i, hi);
     if (j >= hi || toks[j].t !== '{') { report(toks[i].s, 'Expected "{" after the keyframe selector', 'syntax'); return; }
     for (let k = i; k < j; k++) {
       const t = toks[k];
@@ -1657,7 +1757,7 @@ function parseKeyframes(S, lo, hi, name) {
 
 function parseQualifiedRule(S, i, hi) {
   const { toks, match, report } = S;
-  const j = skipPrelude(S, i, hi, ['{', ';']);
+  const j = skipPrelude(S, i, hi);
   if (j >= hi || toks[j].t !== '{') {
     report(toks[i].s, 'Expected "{" after the selector', 'syntax');
     return j < hi ? j + 1 : hi;
@@ -1676,7 +1776,7 @@ function parseDeclarations(S, lo, hi, rec) {
   while (i < hi) {
     const tk = toks[i];
     if (tk.t === 'ws' || tk.t === ';') { i++; continue; }
-    const end = skipPrelude(S, i, hi, [';', '{']);
+    const end = skipPrelude(S, i, hi);
     if (tk.t === 'at') {
       report(tk.s, `Nested rules such as @${stripCtl(lc(tk.v))} are not supported inside a rule`, 'syntax');
       i = end < hi && toks[end].t === '{' ? match[end] + 1 : end + 1;
@@ -1736,6 +1836,7 @@ function addDeclaration(S, rec, rawName, off, vlo, vhi) {
   const custom = rawName.startsWith('--');
   const lraw = stripCtl(lc(rawName));
   const prop = custom ? rawName : stripVendor(lraw);
+  if (!custom && prop === 'position') rec.hasPos = true;
   if (!custom && (prop === 'behavior' || (lraw.startsWith('-moz-') && prop === 'binding'))) report(off, `${shorten(lraw, 30)} is not allowed`, 'blocked-property');
   if (vlo >= vhi && !custom) report(off, `"${shorten(rawName, 30)}" has no value`, 'syntax');
   const blocked = checkTokens(S, vlo, vhi) > 0;   // already refused for what it is: the allow-list does not say it again
@@ -1748,7 +1849,15 @@ function addDeclaration(S, rec, rawName, off, vlo, vhi) {
     else if (list.length < 8) list.push(text);
     else if (list.length === 8) list.push(EXT_VAR);   // more declarations than can be tracked: whatever uses it cannot be judged
   }
-  rec.decls.push({ prop, custom, off, text, blocked, display: shorten(`${rawName.trim()}: ${text}`.replace(/\s+/g, ' '), 70) });
+  rec.decls.push({
+    prop, custom, off, text, blocked,
+    get display() {
+      return this._d || (this._d = shorten(`${rawName.trim()}: ${text}`.replace(/\s+/g, ' '), 70));
+    },
+    get declKey() {
+      return this._dk || (this._dk = `${prop}\0${text}`);
+    }
+  });
 }
 
 // ---- allow-list profile: what a theme may do ------------------------------------------------------------------------------
@@ -1879,6 +1988,20 @@ const NEG = -Infinity;
 
 function lengthIssue(nd, c) {
   if (nd.k === 'id') return c.kw.has(nd.v) || WIDE_KW.has(nd.v) ? null : `"${nodeText(nd)}" is not an allowed value here`;
+  if (nd.k === 'dim') {
+    const factor = ABS_UNITS[nd.u];
+    if (factor !== undefined) {
+      const px = nd.v * factor;
+      if (px < c.px[0] || px > c.px[1]) return `${fmtN(px)}px is outside the allowed range (${fmtN(c.px[0])} to ${fmtN(c.px[1])}px)`;
+      return null;
+    }
+  } else if (nd.k === 'num') {
+    if (c.num ? nd.v >= c.num[0] && nd.v <= c.num[1] : nd.v === 0) return null;
+    return c.num ? `${nd.v} is outside ${c.num[0]} to ${c.num[1]}` : 'a number without a unit is not a length';
+  } else if (nd.k === 'pct') {
+    if (!c.pct || nd.v < c.pct[0] || nd.v > c.pct[1]) return `${fmtN(nd.v)}% is outside the allowed range`;
+    return null;
+  }
   if (nd.k !== 'num' && nd.k !== 'dim' && nd.k !== 'pct' && nd.k !== 'fn' && nd.k !== 'paren') return `${nodeText(nd)} is not a length`;
   const r = evalLen(nd);
   if (!r || !r.length) return `${nodeText(nd)} could not be evaluated`;
@@ -2356,22 +2479,36 @@ spec('animation animation-name animation-duration animation-delay animation-timi
   + 'animation-fill-mode animation-play-state', 'all', (nodes, c) => animationIssue(c.prop, nodes, c));
 
 // Cinedrape elements only ----------------------------------------------------------------------------------------------------
-const spaceCap = (c, auto = false) => {
-  const kw = auto ? kwSet('auto') : NO_KW;
-  if (c.profile === 'container') return c.notice ? cap([0, 24], null, null, kw) : cap([0, 64], [0, 10], [0, 5], kw);
-  return cap([-16, 64], [0, 25], [0, 10], kw);
-};
+const KW_AUTO = /* @__PURE__ */ kwSet('auto');
+const KW_NORMAL = /* @__PURE__ */ kwSet('normal');
+const KW_FONT_SIZE = /* @__PURE__ */ kwSet('small medium large x-large smaller larger');
+const LINE_HEIGHT_CAP = /* @__PURE__ */ cap([10, 80], [90, 300], null, KW_NORMAL, [0.9, 3]);
+const GAP_CAP = /* @__PURE__ */ cap([0, 64], [0, 10], [0, 5], KW_NORMAL);
+const MAX_WIDTH_CAP = /* @__PURE__ */ cap([NEG, 2400], [NEG, 100], [NEG, 100], SIZE_KW);
+
+const PADDING_NOTICE = /* @__PURE__ */ cap([0, 24], null, null, NO_KW);
+const PADDING_CONTAINER = /* @__PURE__ */ cap([0, 64], [0, 10], [0, 5], NO_KW);
+const PADDING_PART = /* @__PURE__ */ cap([0, 64], [0, 25], [0, 10], NO_KW);
+const paddingCap = (c) => (c.profile === 'container' ? (c.notice ? PADDING_NOTICE : PADDING_CONTAINER) : PADDING_PART);
+
+const MARGIN_NOTICE = /* @__PURE__ */ cap([0, 24], null, null, KW_AUTO);
+const MARGIN_CONTAINER = /* @__PURE__ */ cap([0, 64], [0, 10], [0, 5], KW_AUTO);
+const MARGIN_PART = /* @__PURE__ */ cap([-16, 64], [0, 25], [0, 10], KW_AUTO);
+const marginCap = (c) => (c.profile === 'container' ? (c.notice ? MARGIN_NOTICE : MARGIN_CONTAINER) : MARGIN_PART);
+
+const FONT_SIZE_NOTICE = /* @__PURE__ */ cap([9, 20], [60, 300], null, KW_FONT_SIZE);
+const FONT_SIZE_CONTAINER = /* @__PURE__ */ cap([9, 48], [60, 300], null, KW_FONT_SIZE);
+const FONT_SIZE_PART = /* @__PURE__ */ cap([9, 64], [60, 300], null, KW_FONT_SIZE);
+const fontSizeCap = (c) => (c.profile === 'container' ? (c.notice ? FONT_SIZE_NOTICE : FONT_SIZE_CONTAINER) : FONT_SIZE_PART);
+
 spec('padding padding-top padding-right padding-bottom padding-left padding-block padding-inline padding-block-start padding-block-end '
-  + 'padding-inline-start padding-inline-end', 'own', (nodes, c) => lengthsIssue(nodes, { ...spaceCap(c), px: [0, c.profile === 'container' && c.notice ? 24 : 64] }));
+  + 'padding-inline-start padding-inline-end', 'own', (nodes, c) => lengthsIssue(nodes, paddingCap(c)));
 spec('margin margin-top margin-right margin-bottom margin-left margin-block margin-inline margin-block-start margin-block-end '
-  + 'margin-inline-start margin-inline-end', 'own', (nodes, c) => lengthsIssue(nodes, spaceCap(c, true)));
-spec('gap row-gap column-gap grid-gap', 'own', (nodes, c) => lengthsIssue(nodes, cap([0, 64], [0, 10], [0, 5], kwSet('normal')), 2));
-spec('max-width max-inline-size', 'own', (nodes, c) => lengthsIssue(nodes, cap([NEG, 2400], [NEG, 100], [NEG, 100], SIZE_KW), 1));
-spec('font-size', 'own', (nodes, c) => {
-  const hi = c.profile === 'container' ? (c.notice ? 20 : 48) : 64;
-  return lengthsIssue(nodes, cap([9, hi], [60, 300], null, kwSet('small medium large x-large smaller larger')), 1);
-});
-spec('line-height', 'own', (nodes) => lengthsIssue(nodes, cap([10, 80], [90, 300], null, kwSet('normal'), [0.9, 3]), 1));
+  + 'margin-inline-start margin-inline-end', 'own', (nodes, c) => lengthsIssue(nodes, marginCap(c)));
+spec('gap row-gap column-gap grid-gap', 'own', (nodes, c) => lengthsIssue(nodes, GAP_CAP, 2));
+spec('max-width max-inline-size', 'own', (nodes) => lengthsIssue(nodes, MAX_WIDTH_CAP, 1));
+spec('font-size', 'own', (nodes, c) => lengthsIssue(nodes, fontSizeCap(c), 1));
+spec('line-height', 'own', (nodes) => lengthsIssue(nodes, LINE_HEIGHT_CAP, 1));
 spec('text-align', 'own', (nodes) => keywordsIssue(nodes, kwSet('left right center justify start end')));
 spec('white-space', 'own', (nodes) => keywordsIssue(nodes, kwSet('normal nowrap pre pre-wrap pre-line break-spaces')));
 spec('word-break', 'own', (nodes) => keywordsIssue(nodes, kwSet('normal break-all keep-all break-word')));
@@ -2386,8 +2523,10 @@ spec('content', 'own', (nodes) => {
 });
 
 // Cinedrape parts only: layout inside the box, bounded -----------------------------------------------------------------------
-const sizeCap = (c, vert) => (c.abs ? cap([NEG, 96], [NEG, 100], [NEG, 0], SIZE_KW)
-  : cap([NEG, vert ? 480 : 1600], [NEG, 100], [NEG, vert ? 60 : 100], SIZE_KW));
+const SIZE_CAP_ABS = /* @__PURE__ */ cap([NEG, 96], [NEG, 100], [NEG, 0], SIZE_KW);
+const SIZE_CAP_VERT = /* @__PURE__ */ cap([NEG, 480], [NEG, 100], [NEG, 60], SIZE_KW);
+const SIZE_CAP_HORIZ = /* @__PURE__ */ cap([NEG, 1600], [NEG, 100], [NEG, 100], SIZE_KW);
+const sizeCap = (c, vert) => (c.abs ? SIZE_CAP_ABS : (vert ? SIZE_CAP_VERT : SIZE_CAP_HORIZ));
 spec('width min-width inline-size min-inline-size', 'part', (nodes, c) => lengthsIssue(nodes, sizeCap(c, false), 1));
 spec('height min-height max-height block-size min-block-size max-block-size', 'part', (nodes, c) => lengthsIssue(nodes, sizeCap(c, true), 1));
 spec('flex', 'part', flexIssue);
@@ -2547,36 +2686,79 @@ function profileFinding(d, c, cc) {
     const why = customIssue(d);
     return why ? { code: 'custom-property', why } : null;
   }
+  const cKey = c.key || (c.key = profileContextKey(c));
+  const cacheKey = cc?.profileCache && `${d.declKey}\0${cKey}`;
+  if (cacheKey && cc.profileCache.has(cacheKey)) {
+    const cached = cc.profileCache.get(cacheKey);
+    if (cached.finding) return cached.finding;
+    if (cached.ink && c.rule) for (const name of cached.ink) c.rule.ink.add(name);
+    if (cached.paint && c.rule) for (const name of cached.paint) c.rule.paint.add(name);
+    return null;
+  }
   const what = c.profile === 'foreign' ? 'YouTube elements (a theme may restyle their colours, borders, radius, shadows and text, nothing else)'
     : c.profile === 'container' ? "Cinedrape's page-level boxes (.cd-home, .cd-rows, .cd-row, .cd-hero, .cd-notice)" : 'this Cinedrape element';
   if (c.decoration && (d.prop === 'width' || d.prop === 'height' || d.prop === 'display')) {
     // A scrollbar, selection or placeholder is decoration: it may be thinned or switched off, which hides no content.
-    const nodes = buildNodes(d.text);
+    const nodes = d.nodes || (d.nodes = buildNodes(d.text));
     const why = !nodes ? 'has a value that could not be understood'
       : d.prop === 'display' ? keywordsIssue(nodes, kwSet('none block inline')) : lengthsIssue(nodes, cap([0, 24]), 1);
-    return why ? { code: 'value-not-allowed', why } : null;
+    const res = why ? { code: 'value-not-allowed', why } : null;
+    if (cacheKey) cc.profileCache.set(cacheKey, { finding: res });
+    return res;
   }
   if (c.protectedRef && (PROTECTED_COLOUR_PROPS.has(d.prop) || /^(?:animation|text-decoration|text-underline)/.test(d.prop))) {
-    return { code: 'property-not-allowed', why: `${d.prop} is not allowed here: this selector reaches an ad, a sponsorship label or a player control, whose colours and text decoration a theme may not change (borders, radius and outer shadows are fine)` };
+    const res = { code: 'property-not-allowed', why: `${d.prop} is not allowed here: this selector reaches an ad, a sponsorship label or a player control, whose colours and text decoration a theme may not change (borders, radius and outer shadows are fine)` };
+    if (cacheKey) cc.profileCache.set(cacheKey, { finding: res });
+    return res;
   }
   const sp = SPEC.get(d.prop);
   if (!sp || (sp.scope === 'own' && c.profile === 'foreign') || (sp.scope === 'part' && c.profile !== 'part')) {
-    return { code: 'property-not-allowed', why: `${d.prop} is not allowed on ${what}` };
+    const res = { code: 'property-not-allowed', why: `${d.prop} is not allowed on ${what}` };
+    if (cacheKey) cc.profileCache.set(cacheKey, { finding: res });
+    return res;
   }
-  const nodes = buildNodes(d.text);
-  if (!nodes) return { code: 'value-not-allowed', why: 'has a value that could not be understood' };
+  const nodes = d.nodes || (d.nodes = buildNodes(d.text));
+  if (!nodes) {
+    const res = { code: 'value-not-allowed', why: 'has a value that could not be understood' };
+    if (cacheKey) cc.profileCache.set(cacheKey, { finding: res });
+    return res;
+  }
   const texts = [];
-  if (hasVar(nodes)) {
+  const needsVar = d.hasVar !== undefined ? d.hasVar : (d.hasVar = hasVar(nodes));
+  if (needsVar) {
     cc.budget = EXPAND_BUDGET;
-    if (!expandThemeVars(d.text, cc, 0, texts)) return { code: 'value-not-allowed', why: 'uses too many var() combinations to check' };
+    if (!expandThemeVars(d.text, cc, 0, texts)) {
+      const res = { code: 'value-not-allowed', why: 'uses too many var() combinations to check' };
+      if (cacheKey) cc.profileCache.set(cacheKey, { finding: res });
+      return res;
+    }
   } else texts.push(d.text);
   const cx = { ...c, prop: d.prop, cc };
+  const prevInkSize = c.rule ? c.rule.ink.size : 0;
+  const prevPaintSize = c.rule ? c.rule.paint.size : 0;
   for (const t of texts) {
     const nd = t === d.text ? nodes : buildNodes(t);
-    if (!nd) return { code: 'value-not-allowed', why: 'has a value that could not be understood' };
-    if (!nd.length) return { code: 'value-not-allowed', why: 'has no value' };
+    if (!nd) {
+      const res = { code: 'value-not-allowed', why: 'has a value that could not be understood' };
+      if (cacheKey) cc.profileCache.set(cacheKey, { finding: res });
+      return res;
+    }
+    if (!nd.length) {
+      const res = { code: 'value-not-allowed', why: 'has no value' };
+      if (cacheKey) cc.profileCache.set(cacheKey, { finding: res });
+      return res;
+    }
     const why = sp.fn(nd, cx);
-    if (why) return { code: 'value-not-allowed', why: `${why} (on ${what})` };
+    if (why) {
+      const res = { code: 'value-not-allowed', why: `${why} (on ${what})` };
+      if (cacheKey) cc.profileCache.set(cacheKey, { finding: res });
+      return res;
+    }
+  }
+  if (cacheKey) {
+    const addedInk = c.rule && c.rule.ink.size > prevInkSize ? [...c.rule.ink] : null;
+    const addedPaint = c.rule && c.rule.paint.size > prevPaintSize ? [...c.rule.paint] : null;
+    cc.profileCache.set(cacheKey, { finding: null, ink: addedInk, paint: addedPaint });
   }
   return null;
 }
@@ -2588,33 +2770,54 @@ const PROTECTED_COLOUR_PROPS = /* @__PURE__ */ new Set(['color', 'text-fill-colo
 const ACCENT_BG = /* @__PURE__ */ new Set(['--cd-accent', '--cd-accent-hover']);
 /** Text colour against background colour inside one rule on a YouTube element: only pairs the theme tokens guarantee. */
 function pairIssue(rule) {
-  const bg = [...rule.paint];
-  const ink = [...rule.ink];
-  const onAccent = bg.some((b) => ACCENT_BG.has(b));
-  if (onAccent && (!ink.length || ink.some((t) => t !== '--cd-accent-text'))) {
+  const bg = rule.paint;
+  const ink = rule.ink;
+  let onAccent = false;
+  for (const b of bg) if (ACCENT_BG.has(b)) { onAccent = true; break; }
+  if (onAccent && (!ink.size || !ink.has('--cd-accent-text') || ink.size > 1)) {
     return 'an accent background needs color: var(--cd-accent-text) in the same rule (other theme colours are not guaranteed to be readable on it)';
   }
-  if (!onAccent && ink.includes('--cd-accent-text')) return 'color: var(--cd-accent-text) is only readable on var(--cd-accent); set that background in the same rule';
+  if (!onAccent && ink.has('--cd-accent-text')) return 'color: var(--cd-accent-text) is only readable on var(--cd-accent); set that background in the same rule';
   return null;
 }
 
-const profileKey = (p) => `${p.profile}|${p.notice ? 1 : 0}|${p.decoration ? 1 : 0}|${p.pseudo || ''}|${p.absoluteOk ? 1 : 0}|${p.name || ''}`;
+const profileContextKey = (c) => {
+  const bit = (c.notice ? 1 : 0) | (c.decoration ? 2 : 0) | (c.protectedRef ? 4 : 0) | (c.absoluteOk ? 8 : 0) | (c.abs ? 16 : 0) | (c.keyframes ? 32 : 0);
+  return `${c.profile}|${bit}`;
+};
 
 /** Applies the allow-list to every declaration of a rule, for each distinct kind of element its selectors can match. */
 function checkProfile(S, rec, profiles, cc, flagged, reaches) {
-  const distinct = new Map();
-  for (const p of profiles) distinct.set(profileKey(p), p);
-  const declaresAbsolute = rec.decls.some((d) => !d.custom && d.prop === 'position' && /(?:^|[^a-z-])absolute/i.test(d.text));
-  const done = new Set(flagged);
-  for (const d of rec.decls) if (d.blocked) done.add(d);
-  for (const p of distinct.values()) {
-    const rule = { ink: new Set(), paint: new Set() };
+  const declaresAbsolute = rec.hasPos && rec.decls.some((d) => !d.custom && d.prop === 'position' && /(?:^|[^a-z-])absolute/i.test(d.text));
+  const distinctList = [];
+  for (let pi = 0; pi < profiles.length; pi++) {
+    const p = profiles[pi];
     const abs = declaresAbsolute || (!!p.name && ABSOLUTE_NAMES.has(p.name) && !p.pseudo);
+    let found = false;
+    for (let di = 0; di < distinctList.length; di++) {
+      const d = distinctList[di];
+      if (d.profile === p.profile && d.abs === abs && d.notice === p.notice && d.decoration === p.decoration && d.pseudo === p.pseudo && d.absoluteOk === p.absoluteOk) {
+        found = true;
+        break;
+      }
+    }
+    if (!found) distinctList.push({ ...p, abs });
+  }
+  let done = flagged.size ? new Set(flagged) : null;
+  for (const d of rec.decls) if (d.blocked) { if (!done) done = new Set(); done.add(d); }
+  for (let pi = 0; pi < distinctList.length; pi++) {
+    const p = distinctList[pi];
+    const rule = p.profile === 'foreign' ? { ink: new Set(), paint: new Set() } : null;
+    const c = { profile: p.profile, notice: !!p.notice, decoration: !!p.decoration, absoluteOk: !!p.absoluteOk, abs: p.abs, rule, protectedRef: !!reaches && !p.decoration };
+    c.key = profileContextKey(c);
     for (const d of rec.decls) {
-      if (done.has(d)) continue;
-      const c = { profile: p.profile, notice: !!p.notice, decoration: !!p.decoration, absoluteOk: !!p.absoluteOk, abs, rule, protectedRef: !!reaches && !p.decoration };
+      if (done && done.has(d)) continue;
       const f = profileFinding(d, c, cc);
-      if (f) { done.add(d); S.report(d.off, `"${d.display}" ${f.why}`, f.code); }
+      if (f) {
+        if (!done) done = new Set();
+        done.add(d);
+        S.report(d.off, `"${d.display}" ${f.why}`, f.code);
+      }
     }
     if (p.profile === 'foreign') {
       const why = pairIssue(rule);
@@ -2636,25 +2839,61 @@ function checkCompound(S, cp, inRoot) {
   let rootish = false;
   let identifies = false;
   let universal = false;
-  for (const s of cp.simples) {
-    if ((s.k === 'class' || s.k === 'id') && s.name.startsWith(CD_PREFIX)) anchor = true;
-    else if (s.k === 'attr' && s.lname.startsWith(CD_PREFIX)) anchor = true;
-    else if (s.k === 'type' && s.lname.startsWith(CD_PREFIX)) anchor = true;
-    if (s.k === 'type' && (s.lname === 'html' || s.lname === 'body')) rootish = true;
-    else if (s.k === 'pseudo' && s.name === 'root' && !s.fn) rootish = true;
-    else if (s.k === 'univ') universal = true;
-    else if (s.k === 'class' || s.k === 'id' || s.k === 'attr' || s.k === 'type') identifies = true;
-    else if (s.k === 'pseudo' && IS_LIKE.has(s.name) && s.list) identifies = true;
+  let nonCdAttrs = null;
+  const simples = cp.simples;
+  for (let i = 0; i < simples.length; i++) {
+    const s = simples[i];
+    switch (s.k) {
+      case 'class':
+        identifies = true;
+        if (s.name.startsWith(CD_PREFIX)) {
+          anchor = true;
+        } else if (!allow.classes.has(s.name)) {
+          report(s.s, `".${shorten(s.name, 40)}" is not a Cinedrape class (${CD_PREFIX}...) and is not in the selector map`, 'selector-not-allowed');
+        }
+        break;
+      case 'id':
+        identifies = true;
+        if (s.name.startsWith(CD_PREFIX)) {
+          anchor = true;
+        } else if (!allow.ids.has(s.name)) {
+          report(s.s, `"#${shorten(s.name, 40)}" is not a Cinedrape id (${CD_PREFIX}...) and is not in the selector map`, 'selector-not-allowed');
+        }
+        break;
+      case 'type':
+        identifies = true;
+        if (s.lname.startsWith(CD_PREFIX)) {
+          anchor = true;
+        } else if (s.lname === 'html' || s.lname === 'body') {
+          rootish = true;
+        } else if (!allow.tags.has(s.lname)) {
+          report(s.s, `"${shorten(s.name, 40)}" is not a Cinedrape element (${CD_PREFIX}...) and is not in the selector map`, 'selector-not-allowed');
+        }
+        break;
+      case 'attr':
+        identifies = true;
+        if (s.lname.startsWith(CD_PREFIX)) {
+          anchor = true;
+        } else if (!inRoot) {
+          if (!nonCdAttrs) nonCdAttrs = [s];
+          else nonCdAttrs.push(s);
+        }
+        break;
+      case 'pseudo':
+        if (s.name === 'root' && !s.fn) rootish = true;
+        else if (s.list && IS_LIKE.has(s.name)) identifies = true;
+        break;
+      case 'univ':
+        universal = true;
+        break;
+    }
   }
-  for (const s of cp.simples) {
-    if (s.k === 'class' && !s.name.startsWith(CD_PREFIX) && !allow.classes.has(s.name)) {
-      report(s.s, `".${shorten(s.name, 40)}" is not a Cinedrape class (${CD_PREFIX}...) and is not in the selector map`, 'selector-not-allowed');
-    } else if (s.k === 'id' && !s.name.startsWith(CD_PREFIX) && !allow.ids.has(s.name)) {
-      report(s.s, `"#${shorten(s.name, 40)}" is not a Cinedrape id (${CD_PREFIX}...) and is not in the selector map`, 'selector-not-allowed');
-    } else if (s.k === 'type' && !s.lname.startsWith(CD_PREFIX) && !allow.tags.has(s.lname) && s.lname !== 'html' && s.lname !== 'body') {
-      report(s.s, `"${shorten(s.name, 40)}" is not a Cinedrape element (${CD_PREFIX}...) and is not in the selector map`, 'selector-not-allowed');
-    } else if (s.k === 'attr' && !s.lname.startsWith(CD_PREFIX) && !allow.attributes.has(s.lname) && !(rootish && anchor) && !inRoot) {
-      report(s.s, `"[${shorten(s.name, 40)}]" is not a Cinedrape attribute (${CD_PREFIX}...) and is not in the selector map`, 'selector-not-allowed');
+  if (nonCdAttrs && !(rootish && anchor)) {
+    for (let i = 0; i < nonCdAttrs.length; i++) {
+      const s = nonCdAttrs[i];
+      if (!allow.attributes.has(s.lname)) {
+        report(s.s, `"[${shorten(s.name, 40)}]" is not a Cinedrape attribute (${CD_PREFIX}...) and is not in the selector map`, 'selector-not-allowed');
+      }
     }
   }
   if (rootish && !anchor) {
@@ -2674,12 +2913,14 @@ function checkTree(S, cx, inRoot) {
 
 function checkSelector(S, cx) {
   let len = cx.e - cx.s;
-  eachCompound(cx, (cp) => {
-    for (const s of cp.simples) {
-      if (s.k === 'pseudo' && s.list) for (const m of s.list) if (S.model.allCanon.has(canonComplex(m))) len -= m.e - m.s;
-    }
-  });
-  if (len > MAX_SELECTOR_CHARS) S.report(cx.s, `This selector is ${len} characters long; the limit is ${MAX_SELECTOR_CHARS}`, 'selector');
+  if (len > MAX_SELECTOR_CHARS) {
+    eachCompound(cx, (cp) => {
+      for (const s of cp.simples) {
+        if (s.k === 'pseudo' && s.list) for (const m of s.list) if (S.model.allCanon.has(canonComplex(m))) len -= m.e - m.s;
+      }
+    });
+    if (len > MAX_SELECTOR_CHARS) S.report(cx.s, `This selector is ${len} characters long; the limit is ${MAX_SELECTOR_CHARS}`, 'selector');
+  }
   checkTree(S, cx, false);
 }
 
@@ -2691,18 +2932,25 @@ function evaluateRule(S, rec, cc) {
   if (!rec.decls.length) return;
   S.stats.declarations += rec.decls.length;
   const profiles = [];
-  const info = sels.map((cx) => {
+  let reaches = false;
+  let needsClassify = false;
+  let info = null;
+  for (let si = 0; si < sels.length; si++) {
+    const cx = sels[si];
     const ref = findProtectedRef(cx, S.model);
+    if (ref) reaches = true;
     const mine = complexProfiles(cx);
     for (const p of mine) profiles.push(p);
-    // Own = every element the selector can match is a Cinedrape element (the subject itself carries a cd- name, or it is a generic
-    // tag below one). A scrollbar / selection / placeholder pseudo-element styles a decoration, not an element that could hold an ad.
     const own = mine.every((p) => p.profile !== 'foreign' || p.decoration);
-    return { cx, ref, own, need: !own && subjectNeedsGuard(cx, S.model) };
-  });
-  const reaches = info.some((x) => x.ref);
+    const need = !own && subjectNeedsGuard(cx, S.model);
+    if (ref || need || !own) {
+      needsClassify = true;
+      if (!info) info = [];
+      info.push({ cx, ref, own, need });
+    }
+  }
   const flagged = new Set();
-  if (info.some((x) => x.ref || x.need || !x.own)) {
+  if (needsClassify && info) {
     for (const d of rec.decls) {
       const f = classifyDecl(d, cc);
       if (!f) continue;
@@ -2726,7 +2974,6 @@ function evaluateRule(S, rec, cc) {
       }
     }
   }
-  // The allow-list is what a theme may do at all. A declaration the classifier already named is not reported a second time.
   if (S.profile !== 'engine') checkProfile(S, rec, profiles, cc, flagged, reaches);
 }
 
@@ -2813,7 +3060,7 @@ function run(css, ctx) {
     const S = { src: css, toks, match, report, rules: [], keyframes: new Map(), custom: new Map(), allow, model, profile, stats };
     parseStylesheet(S, 0, toks.length, 0);
     stats.rules = S.rules.length;
-    const cc = { custom: S.custom, kf: new Map(), kfProfile: new Map() };
+    const cc = { custom: S.custom, kf: new Map(), kfProfile: new Map(), profileCache: new Map(), classifyCache: new Map() };
     for (const [name, entry] of S.keyframes) cc.kf.set(name, entry.decls.some((d) => classifyDecl(d, cc) !== null));
     if (profile !== 'engine') {
       // A keyframes block is inert until something animates with it: what matters is whether it stays inside the allow-list for the
@@ -2864,6 +3111,7 @@ function run(css, ctx) {
     }
   }
 
+  if (!found.length) return { ok: true, errors: [], stats };
   const starts = lineStarts(css);
   const errors = found
     .map((e, k) => ({ ...e, k }))
