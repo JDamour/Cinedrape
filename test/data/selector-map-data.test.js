@@ -69,6 +69,7 @@ const FEATURE_PAGES = {
   'layout-home': ['home'], 'layout-watch': ['watch'], density: ['home'],
   'calm-hideShorts': ['home', 'watch', 'search', 'channel', 'subscriptions', 'history', 'playlist'],
   'calm-hideHomeRecs': ['home'], 'calm-hideComments': ['watch'], 'calm-hideEndScreens': ['watch'], 'calm-hideViewCounts': ['watch'],
+  'calm-hideLive': ['home'],
 };
 
 // ---- selector utilities --------------------------------------------------------------------------------------------
@@ -199,7 +200,7 @@ test('file hygiene: valid JSON, LF, trailing newline, no duplicate keys, only th
   assert.deepEqual(Object.keys(MAP), TOP_KEYS, 'top-level keys, in contract order');
   assert.equal(MAP.schema, 1);
   assert.match(MAP.mapVersion, /^\d{4}\.\d{2}\.\d{2}\.\d+$/, 'mapVersion is date.counter so it is monotonic as a string-compare of fields');
-  assert.equal(MAP.mapVersion, '2026.10.13.3');
+  assert.equal(MAP.mapVersion, '2026.10.13.4');
   assert.match(MAP.issuedAt, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
   assert.equal(MAP.issuedAt.slice(0, 10), MAP.mapVersion.slice(0, 10).replaceAll('.', '-'), 'issuedAt day matches the mapVersion day');
   assert.ok(Number.isFinite(Date.parse(MAP.issuedAt)));

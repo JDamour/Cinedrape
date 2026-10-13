@@ -76,13 +76,13 @@ describe('composeStylesheet', () => {
   test('cfg.disabled reaches the builders', () => {
     const full = composeStylesheet({ map: MAP, cfg: cfgFor('cinema') }).css;
     const noLayout = composeStylesheet({ map: MAP, cfg: { ...cfgFor('cinema'), disabled: ['layout-home'] } }).css;
-    assert.ok(full.includes('[cd-source]') && !noLayout.includes('[cd-source]'));
+    assert.ok(full.includes('.cd-row-track') && !noLayout.includes('.cd-row-track'));
     assert.ok(noLayout.includes('--cd-bg'), 'unrelated parts survive');
 
     const noTheme = composeStylesheet({ map: MAP, cfg: { ...cfgFor('cinema'), disabled: ['theme'] } }).css;
     assert.ok(!noTheme.includes(TOKEN_SELECTOR) && !noTheme.includes('--cd-bg:') && !noTheme.includes(cfgFor('cinema').theme.css.trim()), 'tokens and theme css are gone');
     assert.ok(noTheme.length < full.length * 0.8, 'skin is gone too');
-    assert.ok(noTheme.includes('[cd-source]'), 'layouts are separate features');
+    assert.ok(noTheme.includes('.cd-row-track'), 'layouts are separate features');
   });
 
   test('a builder that throws costs its own part and leaves a warning; junk input never throws', () => {

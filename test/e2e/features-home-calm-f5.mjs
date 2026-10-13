@@ -291,7 +291,7 @@ async function spaSurvival(ctx) {
   await visit(ctx, 'home');
   await until(page, (ks) => ks.every((k) => document.documentElement.hasAttribute(`cd-calm-${k}`)), CALM_KEYS, 3000);
   await sleep(800);
-  const home1 = await page.evaluate(() => ({ attrs: ['hideShorts', 'hideHomeRecs', 'hideComments', 'hideEndScreens', 'hideViewCounts'].filter((k) => document.documentElement.hasAttribute(`cd-calm-${k}`)).length, rec: window.__cdh.rendered('ytd-browse[page-subtype="home"] ytd-rich-grid-renderer > #contents > ytd-rich-item-renderer'), page: document.documentElement.getAttribute('cd-page') }));
+  const home1 = await page.evaluate((ks) => ({ attrs: ks.filter((k) => document.documentElement.hasAttribute(`cd-calm-${k}`)).length, rec: window.__cdh.rendered('ytd-browse[page-subtype="home"] ytd-rich-grid-renderer > #contents > ytd-rich-item-renderer'), page: document.documentElement.getAttribute('cd-page') }), CALM_KEYS);
   // navigate to a watch page through the tile list is impossible (tiles are hidden): use the logo-less route, a real in-page link
   await page.evaluate(() => { window.__spa = 'alive'; });
   await page.evaluate(() => { const a = document.querySelector('a[href^="/watch"]'); if (a) a.click(); });
@@ -302,15 +302,15 @@ async function spaSurvival(ctx) {
     await sleep(2500);
     await page.evaluate(() => window.scrollTo(0, 1000));
     await sleep(2500);
-    watch1 = await page.evaluate(() => ({ spa: window.__spa, attrs: ['hideShorts', 'hideHomeRecs', 'hideComments', 'hideEndScreens', 'hideViewCounts'].filter((k) => document.documentElement.hasAttribute(`cd-calm-${k}`)).length, comments: window.__cdh.rendered('ytd-comments'), views: window.__cdh.datesAndViews(), page: document.documentElement.getAttribute('cd-page') }));
+    watch1 = await page.evaluate((ks) => ({ spa: window.__spa, attrs: ks.filter((k) => document.documentElement.hasAttribute(`cd-calm-${k}`)).length, comments: window.__cdh.rendered('ytd-comments'), views: window.__cdh.datesAndViews(), page: document.documentElement.getAttribute('cd-page') }), CALM_KEYS);
     await page.evaluate(() => window.scrollTo(0, 0));
   }
   await page.evaluate(() => history.back());
   await until(page, () => location.pathname === '/', null, 10000);
   await sleep(3500);
-  const home2 = await page.evaluate(() => ({ spa: window.__spa, attrs: ['hideShorts', 'hideHomeRecs', 'hideComments', 'hideEndScreens', 'hideViewCounts'].filter((k) => document.documentElement.hasAttribute(`cd-calm-${k}`)).length, rec: window.__cdh.rendered('ytd-browse[page-subtype="home"] ytd-rich-grid-renderer > #contents > ytd-rich-item-renderer'), missedRecs: window.__cdh.missed('hideHomeRecs').length, shorts: window.__cdh.missed('hideShorts').length, views: window.__cdh.datesAndViews(), page: document.documentElement.getAttribute('cd-page') }));
+  const home2 = await page.evaluate((ks) => ({ spa: window.__spa, attrs: ks.filter((k) => document.documentElement.hasAttribute(`cd-calm-${k}`)).length, rec: window.__cdh.rendered('ytd-browse[page-subtype="home"] ytd-rich-grid-renderer > #contents > ytd-rich-item-renderer'), missedRecs: window.__cdh.missed('hideHomeRecs').length, shorts: window.__cdh.missed('hideShorts').length, views: window.__cdh.datesAndViews(), page: document.documentElement.getAttribute('cd-page') }), CALM_KEYS);
   info(P, 'spa-survival-readings', { home1, watch1, home2 });
-  check(P, 'spa-survival:home-to-watch-to-back', home1.attrs === 5 && home1.rec === 0 && !!watch1 && watch1.spa === 'alive' && watch1.attrs === 5 && watch1.comments === 0 && watch1.views.viewsShown === 0 && home2.attrs === 5 && home2.missedRecs === 0 && home2.shorts === 0 && home2.views.viewsShown === 0, { home1, watch1, home2 });
+  check(P, 'spa-survival:home-to-watch-to-back', home1.attrs === 6 && home1.rec === 0 && !!watch1 && watch1.spa === 'alive' && watch1.attrs === 6 && watch1.comments === 0 && watch1.views.viewsShown === 0 && home2.attrs === 6 && home2.missedRecs === 0 && home2.shorts === 0 && home2.views.viewsShown === 0, { home1, watch1, home2 });
 }
 
 async function gating(ctx) {
@@ -327,11 +327,11 @@ async function gating(ctx) {
   await sleep(1200);
   const free = await readAttrs();
   const freeState = await page.evaluate(() => ({ comments: window.__cdh.rendered('ytd-comments'), views: window.__cdh.datesAndViews().viewsShown }));
-  check(P2, 'gating:free-honours-only-shorts-and-home-recs-on-watch', free.length === 2 && free.includes('hideShorts') && free.includes('hideHomeRecs') && freeState.comments > 0 && freeState.views > 0 && pro.length === 5 && proState.comments === 0, { pro, proState, free, freeState });
+  check(P2, 'gating:free-honours-only-shorts-and-home-recs-on-watch', free.length === 2 && free.includes('hideShorts') && free.includes('hideHomeRecs') && freeState.comments > 0 && freeState.views > 0 && pro.length === 6 && proState.comments === 0, { pro, proState, free, freeState });
   // free on home: the two free toggles still do their job
   await visit(ctx, 'home');
   await sleep(1500);
-  const freeHome = await page.evaluate(() => ({ attrs: ['hideShorts', 'hideHomeRecs', 'hideComments', 'hideEndScreens', 'hideViewCounts'].filter((k) => document.documentElement.hasAttribute(`cd-calm-${k}`)), recs: window.__cdh.missed('hideHomeRecs').length, shorts: window.__cdh.missed('hideShorts').length, views: window.__cdh.datesAndViews().viewsShown }));
+  const freeHome = await page.evaluate((ks) => ({ attrs: ks.filter((k) => document.documentElement.hasAttribute(`cd-calm-${k}`)), recs: window.__cdh.missed('hideHomeRecs').length, shorts: window.__cdh.missed('hideShorts').length, views: window.__cdh.datesAndViews().viewsShown }), CALM_KEYS);
   info(P2, 'gating:free-home-readings', freeHome, 'view counts stay visible for free users (hideViewCounts is Pro)');
   check(P2, 'gating:free-home-recs-and-shorts-hidden-view-counts-shown', freeHome.attrs.length === 2 && freeHome.recs === 0 && freeHome.shorts === 0, freeHome);
   await ctx.bridge.run(swSeed, { 'cd.licence': ctx.licence });
@@ -361,7 +361,7 @@ export async function runF5(ctx, { pages = null } = {}) {
     await sleep(500);
     const c2 = await cards();
     check(P, 'home-cinema:hideHomeRecs:mirrored-cards-and-hero-hidden-then-restored', c0.cards > 0 && c0.heroes > 0 && c1.cards === 0 && c1.heroes === 0 && c1.root === 0 && c1.grid === 0 && c2.cards === c0.cards && c2.heroes === c0.heroes && c2.root === c0.root, { before: c0, hidden: c1, restored: c2 });
-    for (const k of ['hideHomeRecs', 'hideViewCounts', 'hideShorts']) await runToggle(ctx, 'home', k, 'home-cinema');
+    for (const k of ['hideHomeRecs', 'hideViewCounts', 'hideShorts', 'hideLive']) await runToggle(ctx, 'home', k, 'home-cinema');
     await protectedAllOn(ctx, 'home-cinema');
     await ctx.set({ themeId: 'classic', calm: ALL_OFF });
   });

@@ -33,6 +33,7 @@ export const CALM_COPY = Object.freeze({
   hideComments: { label: 'Hide comments', hint: 'The comments under a video' },
   hideEndScreens: { label: 'Hide end screens', hint: 'Suggestion cards at the end of a video' },
   hideViewCounts: { label: 'Hide view counts', hint: 'View counts on tiles and the watch page' },
+  hideLive: { label: 'Hide live streams', hint: 'Live streams in feed rows (works with rows layouts)' },
 });
 
 export const FEATURE_LABELS = Object.freeze({
@@ -45,6 +46,7 @@ export const FEATURE_LABELS = Object.freeze({
   'calm-hideComments': 'Hide comments',
   'calm-hideEndScreens': 'Hide end screens',
   'calm-hideViewCounts': 'Hide view counts',
+  'calm-hideLive': 'Hide live streams',
 });
 
 export const PAGE_LABELS = Object.freeze({

@@ -19,6 +19,7 @@ that completes a task. Last full audit: **13 Oct 2026**.
 | D10 | E1: "Live now" dedicated row on home layout (≥ 2 live tiles, live dot, flex title, live tile exclusion from main feed rows) | S4 | unit 1886/1886; e2e:home 109 PASS; e2e:popup 234 PASS |
 | D11 | E2: Watch-page live presentation (html[cd-watch-live], watching-count restyle with pulsing dot, selector-map 2026.10.13.3) | S5 | unit 1890/1890; e2e:home 109 PASS; e2e:popup 234 PASS |
 | D12 | E3: Free text-size control in popup (0.9–1.5 segmented control, baseSize scale clamped [11, 22], first-paint cd-textscale, keyboard navigation) | S6 | unit 1895/1895; e2e:popup 234 PASS; e2e:home 109 PASS |
+| D13 | E4: Pro "Hide live streams" calm toggle (calm-hideLive, cd-live attributes on cards/hero/wrappers, selector-map 2026.10.13.4, calm.js safeHide) | S7 | unit 1898/1898; e2e:home 119 PASS; e2e:popup 235 PASS |
 
 ## Open — bugs / known gaps (from STATUS.md "Known gaps", still true)
 
@@ -34,7 +35,6 @@ that completes a task. Last full audit: **13 Oct 2026**.
 
 | ID | Task | Spec | Priority | Owner | First step |
 |---|---|---|---|---|---|
-| E4 | `hideLive` calm toggle (Pro, mirrored wrappers only) | S7 | P3 | calm + constants + popup | Land T2 first; constants grow `calm-hideLive` |
 | E5 | Channel `/streams` tab live-verification pass + DOM facts recorded | S8 | P3 | selectors | Probe real tab, extend LIVE-VERIFICATION.md |
 | E6 | Popup status line shows the feed's live count | S9 | P4 | popup + engine | getStatus grows `liveCount` |
 | E7 | `Broadcast` theme candidate (live-first, high contrast, 16 px base) | S10 | P4 | skin | After S6 settles; must pass full theme gates |

@@ -22,7 +22,7 @@ const FALLBACK_ADS = ['ytd-ad-slot-renderer', 'ytd-in-feed-ad-layout-renderer', 
 
 /** Theme ids and calm keys come from the contract (src/shared/constants.js) so the harness cannot drift; literals are the fallback. */
 async function loadCatalogue() {
-  const out = { ...FALLBACK, calmKeys: ['hideShorts', 'hideHomeRecs', 'hideComments', 'hideEndScreens', 'hideViewCounts'] };
+  const out = { ...FALLBACK, calmKeys: ['hideShorts', 'hideHomeRecs', 'hideComments', 'hideEndScreens', 'hideViewCounts', 'hideLive'] };
   try {
     const c = await import(pathToFileURL(join(REPO_ROOT, 'src', 'shared', 'constants.js')).href);
     if (Array.isArray(c.ALL_THEME_IDS)) out.allThemes = c.ALL_THEME_IDS;

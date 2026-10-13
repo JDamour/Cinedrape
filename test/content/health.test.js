@@ -144,14 +144,14 @@ const RENAMES = [
   { name: 'ytd-app renamed (channel)', kind: 'channel', rename: ['ytd-app'], expect: [pair('theme', 'app')] },
   { name: 'page manager: tag AND id renamed', kind: 'home', rename: ['ytd-page-manager', '#page-manager'], expect: [pair('theme', 'pageManager')] },
   { name: 'page manager: only the tag renamed, the #page-manager fallback keeps it alive', kind: 'home', rename: ['ytd-page-manager'], expect: [] },
-  { name: 'page-subtype attribute renamed: the three features that need the home browse element, nothing else', kind: 'home', rename: ['[page-subtype]'],
-    expect: [pair('layout-home', 'homeBrowse', 'homeGrid', 'homeGridContents'), pair('density', 'homeBrowse', 'homeGrid', 'homeGridContents'), pair('calm-hideHomeRecs', 'homeBrowse')] },
+  { name: 'page-subtype attribute renamed: the four features that need the home browse element, nothing else', kind: 'home', rename: ['[page-subtype]'],
+    expect: [pair('layout-home', 'homeBrowse', 'homeGrid', 'homeGridContents'), pair('density', 'homeBrowse', 'homeGrid', 'homeGridContents'), pair('calm-hideHomeRecs', 'homeBrowse'), pair('calm-hideLive', 'homeBrowse')] },
   { name: 'same, with the real home tile shape', kind: 'home', opts: { tileStyle: 'home' }, rename: ['[page-subtype]'],
-    expect: [pair('layout-home', 'homeBrowse', 'homeGrid', 'homeGridContents'), pair('density', 'homeBrowse', 'homeGrid', 'homeGridContents'), pair('calm-hideHomeRecs', 'homeBrowse')] },
+    expect: [pair('layout-home', 'homeBrowse', 'homeGrid', 'homeGridContents'), pair('density', 'homeBrowse', 'homeGrid', 'homeGridContents'), pair('calm-hideHomeRecs', 'homeBrowse'), pair('calm-hideLive', 'homeBrowse')] },
   { name: 'same, on the empty-state home page', kind: 'home', opts: { tiles: 0 }, rename: ['[page-subtype]'],
-    expect: [pair('layout-home', 'homeBrowse', 'homeGrid', 'homeGridContents'), pair('density', 'homeBrowse', 'homeGrid', 'homeGridContents'), pair('calm-hideHomeRecs', 'homeBrowse')] },
-  { name: 'app AND page-subtype: four features, the healthy calm-hideShorts is left out', kind: 'home', rename: ['ytd-app', '[page-subtype]'],
-    expect: [pair('theme', 'app'), pair('layout-home', 'homeBrowse', 'homeGrid', 'homeGridContents'), pair('density', 'homeBrowse', 'homeGrid', 'homeGridContents'), pair('calm-hideHomeRecs', 'homeBrowse')] },
+    expect: [pair('layout-home', 'homeBrowse', 'homeGrid', 'homeGridContents'), pair('density', 'homeBrowse', 'homeGrid', 'homeGridContents'), pair('calm-hideHomeRecs', 'homeBrowse'), pair('calm-hideLive', 'homeBrowse')] },
+  { name: 'app AND page-subtype: five features, the healthy calm-hideShorts is left out', kind: 'home', rename: ['ytd-app', '[page-subtype]'],
+    expect: [pair('theme', 'app'), pair('layout-home', 'homeBrowse', 'homeGrid', 'homeGridContents'), pair('density', 'homeBrowse', 'homeGrid', 'homeGridContents'), pair('calm-hideHomeRecs', 'homeBrowse'), pair('calm-hideLive', 'homeBrowse')] },
   { name: 'guide: first selector renamed, the ytd-guide-renderer fallback still matches', kind: 'home', rename: ['tp-yt-app-drawer'], expect: [] },
   { name: 'guide: both selectors renamed', kind: 'home', rename: ['tp-yt-app-drawer', 'ytd-guide-renderer'], expect: [pair('calm-hideShorts', 'guide')] },
   { name: 'end screens: all three shapes renamed is NOT an alarm (the elements are legitimately absent on most healthy pages; the hide rule is CSS-only and fails safe)', kind: 'watch', rename: ['.ytp-ce-element', '.ytp-endscreen-content', '.ytp-ce-shadow'], expect: [] },
@@ -190,7 +190,7 @@ for (const c of RENAMES) {
 
 test('every feature in map.requires goes red when the elements of its required roles are really gone (no feature is inert)', () => {
   const where = { theme: 'home', 'layout-home': 'home', 'layout-watch': 'watch', density: 'home', 'calm-hideShorts': 'home', 'calm-hideHomeRecs': 'home',
-    'calm-hideComments': 'watch', 'calm-hideEndScreens': 'watch', 'calm-hideViewCounts': 'watch' };
+    'calm-hideComments': 'watch', 'calm-hideEndScreens': 'watch', 'calm-hideViewCounts': 'watch', 'calm-hideLive': 'home' };
   assert.deepEqual(Object.keys(MAP.requires).sort(), [...FEATURES].sort(), 'the map describes exactly the contract features');
   for (const feature of FEATURES) {
     const kind = where[feature];

@@ -217,7 +217,7 @@ export function usabilityProbe() {
 
 // ---- session ------------------------------------------------------------------------------------------------------------------
 
-export const calmOff = () => ({ hideShorts: false, hideHomeRecs: false, hideComments: false, hideEndScreens: false, hideViewCounts: false });
+export const calmOff = () => ({ hideShorts: false, hideHomeRecs: false, hideComments: false, hideEndScreens: false, hideViewCounts: false, hideLive: false });
 export const baseSettings = (patch = {}) => ({ schema: 1, themeId: 'cinema', accent: null, density: null, animations: true, calm: {}, telemetryOptIn: false, ...patch });
 
 /** Collects every request the extension could make: the service worker (CDP Network), the popup pages, and youtube pages (initiator). */

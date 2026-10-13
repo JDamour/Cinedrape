@@ -186,7 +186,7 @@ async function phaseF4(ctx, S) {
   check(P, 'free-render-themes', st.themes.length === 6 && st.themes.find((t) => t.id === 'cinema').checked === 'true' && JSON.stringify(lockedThemes) === JSON.stringify(['arcade', 'primetime', 'studio']), { checked: st.themes.filter((t) => t.checked === 'true').map((t) => t.id), locked: lockedThemes });
   check(P, 'free-render-density-locked', st.density.disabled === true && st.density.proTag, st.density);
   const calmLocked = st.calm.filter((c) => c.disabled === 'true').map((c) => c.k).sort();
-  check(P, 'free-render-calm-locked', JSON.stringify(calmLocked) === JSON.stringify(['hideComments', 'hideEndScreens', 'hideViewCounts']) && st.calm.every((c) => c.tag === (c.disabled === 'true')), { locked: calmLocked });
+  check(P, 'free-render-calm-locked', JSON.stringify(calmLocked) === JSON.stringify(['hideComments', 'hideEndScreens', 'hideLive', 'hideViewCounts']) && st.calm.every((c) => c.tag === (c.disabled === 'true')), { locked: calmLocked });
   check(P, 'free-render-activate-open', st.activate.open === true, st.activate);
   check(P, 'free-status-idle-in-own-window', /Open a YouTube tab/.test(st.status.text), st.status);
   check(P, 'free-footer', /Not affiliated with Google or YouTube/.test(await pop.evaluate(() => document.querySelector('.footer').textContent)) && /^Cinedrape v\d/.test(st.version), st.version);
@@ -365,17 +365,17 @@ async function phaseF4Pro(ctx, S) {
   const themeDensity = await (async () => { await pop.click('#density-reset'); await sleep(500); return ytAttr(yt, 'cd-density'); })();
   check(P, 'density-reset-uses-theme-density', (await settingsOf(ctx)).density === null && themeDensity === '4', { attr: themeDensity, note: 'Studio theme density is 4' });
 
-  // calm toggles (five), measured
+  // calm toggles (six), measured
   const calmLat = [];
-  for (const key of ['hideShorts', 'hideHomeRecs', 'hideComments', 'hideEndScreens', 'hideViewCounts']) {
+  for (const key of ['hideShorts', 'hideHomeRecs', 'hideComments', 'hideEndScreens', 'hideViewCounts', 'hideLive']) {
     const isOn = (await pop.evaluate(popupState)).calm.find((c) => c.k === key).checked === 'true';
     const m1 = await actAndMeasure(pop, yt, () => pop.click(`[data-calm="${key}"]`), { k: 'attr', n: `cd-calm-${key}`, v: isOn ? null : '' });
     calmLat.push(m1.effectMs);
     check(P, `calm-${key}-toggle`, m1.ok && m1.effectMs < 1000, m1);
   }
-  metric('calm toggle click->effect ms (5)', stats(calmLat));
+  metric('calm toggle click->effect ms (6)', stats(calmLat));
   // turn them all off again except none; leave a clean state
-  for (const key of ['hideShorts', 'hideHomeRecs', 'hideComments', 'hideEndScreens', 'hideViewCounts']) {
+  for (const key of ['hideShorts', 'hideHomeRecs', 'hideComments', 'hideEndScreens', 'hideViewCounts', 'hideLive']) {
     const on = (await ytAttr(yt, `cd-calm-${key}`)) !== null;
     if (on) await pop.click(`[data-calm="${key}"]`);
   }
@@ -466,9 +466,9 @@ async function keyboardAndAx(ctx, pop, yt, P, mode) {
   const switches = ctl.filter((n) => n.role === 'switch');
   const slider = ctl.find((n) => n.role === 'slider');
   check(P, `${mode}: AX radios expose checked state`, radios.length === 19 && radios.every((n) => typeof n.checked === 'boolean' || n.checked === 'mixed'), radios.map((n) => `${n.name}=${n.checked}`).join('; ').slice(0, 300));
-  check(P, `${mode}: AX switches expose checked state (6)`, switches.length === 6 && switches.every((n) => typeof n.checked === 'boolean'), switches.map((n) => `${n.name}=${n.checked}${n.disabled ? ' disabled' : ''}`).join('; ').slice(0, 400));
+  check(P, `${mode}: AX switches expose checked state (7)`, switches.length === 7 && switches.every((n) => typeof n.checked === 'boolean'), switches.map((n) => `${n.name}=${n.checked}${n.disabled ? ' disabled' : ''}`).join('; ').slice(0, 400));
   const lockedAx = ctl.filter((n) => n.disabled);
-  check(P, `${mode}: locked controls are exposed as disabled`, mode === 'free' ? lockedAx.filter((n) => n.role === 'radio').length === 3 && lockedAx.filter((n) => n.role === 'switch').length === 3 : lockedAx.filter((n) => ['radio', 'switch', 'slider'].includes(n.role)).length === 0, lockedAx.map((n) => `${n.role}:${n.name}`).join('; ').slice(0, 300));
+  check(P, `${mode}: locked controls are exposed as disabled`, mode === 'free' ? lockedAx.filter((n) => n.role === 'radio').length === 3 && lockedAx.filter((n) => n.role === 'switch').length === 4 : lockedAx.filter((n) => ['radio', 'switch', 'slider'].includes(n.role)).length === 0, lockedAx.map((n) => `${n.role}:${n.name}`).join('; ').slice(0, 300));
   check(P, `${mode}: AX slider has a name and a value text`, Boolean(slider && slider.name && (slider.valuetext || slider.value !== undefined)), slider && { name: slider.name, value: slider.value, valuetext: slider.valuetext, disabled: slider.disabled });
   const groups = nodes.filter((n) => n.role === 'radiogroup' || n.role === 'group');
   check(P, `${mode}: AX radiogroups are named`, groups.filter((n) => n.role === 'radiogroup').every((n) => n.name), groups.map((n) => `${n.role}:${n.name}`).slice(0, 8));
@@ -563,7 +563,7 @@ function bumpVersion(version, n) {
  */
 function expectedBroken(brokenRoles, pageType = 'watch') {
   const map = loadSourceMap();
-  const wanted = ['theme', 'layout-home', 'layout-watch', 'calm-hideShorts', 'calm-hideHomeRecs', 'calm-hideComments', 'calm-hideEndScreens', 'calm-hideViewCounts'];
+  const wanted = ['theme', 'layout-home', 'layout-watch', 'calm-hideShorts', 'calm-hideHomeRecs', 'calm-hideComments', 'calm-hideEndScreens', 'calm-hideViewCounts', 'calm-hideLive'];
   const onPage = new Set(map.pageRoles[pageType] || []);
   return wanted.filter((f) => (map.requires[f] || []).some((r) => onPage.has(r) && brokenRoles.includes(r))).sort();
 }
@@ -594,7 +594,7 @@ async function phaseF6(ctx, S) {
   if (S.yt) await S.yt.close().catch(() => {});
   if (S.bg) await S.bg.close().catch(() => {});
   await ctx.sw(swRemove, ['cd.selectorMap']);
-  await ctx.sw(swSet, { 'cd.settings': baseSettings({ themeId: 'cinema', calm: { hideShorts: true, hideHomeRecs: true, hideComments: true, hideEndScreens: true, hideViewCounts: true } }) });
+  await ctx.sw(swSet, { 'cd.settings': baseSettings({ themeId: 'cinema', calm: { hideShorts: true, hideHomeRecs: true, hideComments: true, hideEndScreens: true, hideViewCounts: true, hideLive: true } }) });
   if (!S.licence) { S.licence = await mintLicence({}); }
   await ctx.sw(swSet, { 'cd.licence': { ...S.licence, checkedAt: Date.now() } });
   const yt = S.yt = await ctx.newYouTube(WATCH_URL, { label: 'yt-watch' });

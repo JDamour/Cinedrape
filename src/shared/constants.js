@@ -6,10 +6,10 @@ export const ATTR = {            // attributes set on <html> by the engine
 };
 export const SRC_ATTR = 'cd-source';      // on a YouTube tile Cinedrape has mirrored into its own card
 export const PAGE_TYPES = ['home','watch','search','channel','subscriptions','history','playlist','shorts','other'];
-export const CALM_KEYS = ['hideShorts','hideHomeRecs','hideComments','hideEndScreens','hideViewCounts'];
+export const CALM_KEYS = ['hideShorts','hideHomeRecs','hideComments','hideEndScreens','hideViewCounts','hideLive'];
 export const FREE_CALM_KEYS = ['hideShorts','hideHomeRecs'];
 export const FEATURES = ['theme','layout-home','layout-watch','density',
-  'calm-hideShorts','calm-hideHomeRecs','calm-hideComments','calm-hideEndScreens','calm-hideViewCounts'];
+  'calm-hideShorts','calm-hideHomeRecs','calm-hideComments','calm-hideEndScreens','calm-hideViewCounts','calm-hideLive'];
 export const ALL_THEME_IDS = ['cinema','minimal','classic','primetime','studio','arcade'];
 export const FREE_THEME_IDS = ['cinema','minimal','classic'];
 export const LAYOUT_HOME = ['grid','rows','hero-rows'];
@@ -17,7 +17,7 @@ export const LAYOUT_WATCH = ['default','cinema','focus'];
 export const STORAGE_KEYS = { settings:'cd.settings', licence:'cd.licence', selectorMap:'cd.selectorMap',
   health:'cd.health', telemetry:'cd.telemetry', firstPaint:'cd.firstPaint' };
 export const DEFAULT_SETTINGS = { schema:1, themeId:'cinema', accent:null, density:null, animations:true,
-  textScale:null, calm:{ hideShorts:false, hideHomeRecs:false, hideComments:false, hideEndScreens:false, hideViewCounts:false },
+  textScale:null, calm:{ hideShorts:false, hideHomeRecs:false, hideComments:false, hideEndScreens:false, hideViewCounts:false, hideLive:false },
   telemetryOptIn:false };
 export const LIMITS = { cssMaxBytes:20480, contentMaxChars:100, offlineGraceMs:30*864e5,
   licenceRecheckMs:7*864e5, mapRefreshMs:6*36e5, maxBrowsersPerLicence:3 };

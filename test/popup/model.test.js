@@ -188,7 +188,7 @@ test('view: textScale is 1 (not custom) by default, and reflects stored valid sc
   assert.equal(bad.textScale.custom, false);
 });
 
-test('view: the calm keys are the five contract keys; exactly the non-free ones lock for free users', () => {
+test('view: the calm keys are the six contract keys; exactly the non-free ones lock for free users', () => {
   const v = view(undefined, FREE);
   assert.deepEqual(v.calm.map((c) => c.key), CALM_KEYS);
   assert.deepEqual(v.calm.filter((c) => !c.locked).map((c) => c.key), FREE_CALM_KEYS);
@@ -241,6 +241,8 @@ test('checkEntitlement blocks exactly what the tier forbids', () => {
   assert.equal(checkEntitlement({ calm: { hideComments: true } }, ctx(FREE)).kind, 'calm');
   assert.equal(checkEntitlement({ calm: { hideShorts: true, hideViewCounts: true } }, ctx(FREE)).key, 'hideViewCounts');
   assert.equal(checkEntitlement({ calm: { hideViewCounts: true } }, ctx(PRO)).ok, true);
+  assert.equal(checkEntitlement({ calm: { hideShorts: true, hideLive: true } }, ctx(FREE)).key, 'hideLive');
+  assert.equal(checkEntitlement({ calm: { hideLive: true } }, ctx(PRO)).ok, true);
   assert.equal(checkEntitlement({ accent: '#e8b04a', animations: false }, ctx(FREE)).ok, true, 'accent and animations are free');
   assert.equal(checkEntitlement({ themeId: 'studio', density: 3 }, ctx(FREE)).kind, 'theme', 'first violation wins');
 });
@@ -437,7 +439,7 @@ test('statusCopy: working, paused (exact wording), idle, unreachable, checking',
 test('statusCopy summarises many broken features instead of running on', () => {
   const many = summarizeStatus({ features: Object.fromEntries(FEATURES.map((f) => [f, 'broken'])) });
   const { text } = statusCopy('paused', { summary: many });
-  assert.match(text, /^Paused: Theme, Home layout, Watch page layout and 6 more — YouTube changed/);
+  assert.match(text, /^Paused: Theme, Home layout, Watch page layout and 7 more — YouTube changed/);
   assert.ok(text.length < 130);
 });
 

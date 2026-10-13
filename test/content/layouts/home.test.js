@@ -600,18 +600,25 @@ for (const [label, style] of STYLES) {
         assert.ok(watching, 'the viewer count is marked as watching');
         assert.equal(watching.textContent, '591 watching');
         assert.equal(watching.firstElementChild.classList.contains('cd-live-dot'), true, 'the watching text opens with the live dot');
+        assert.ok(card.hasAttribute('cd-live'), 'live card has cd-live attribute');
       }
+      const liveWrappers = p.contents.querySelectorAll('[cd-source][cd-live]');
+      assert.equal(liveWrappers.length, 2, 'mirrored live wrappers have cd-live');
       for (const card of cards.slice(2)) {
         assert.ok(card.querySelector('.cd-card-duration'), 'ordinary cards keep the duration pill');
         assert.equal(card.querySelector('.cd-live-badge'), null);
         assert.equal(card.querySelector('.cd-card-watching'), null);
+        assert.equal(card.hasAttribute('cd-live'), false, 'ordinary cards do not have cd-live');
       }
+      p.layout.unmount();
+      assert.equal(p.contents.querySelectorAll('[cd-live]').length, 0, 'unmount sweeps cd-live from wrappers');
     });
 
     test('hero-rows: a live tile wins the hero, shows the badge there and a "Watch live" call to action', () => {
       const p = setup({ tileStyle: style });
       const live = makeLive(p, 3);
       p.layout.mount();
+      assert.ok(p.root().querySelector('.cd-hero').hasAttribute('cd-live'), 'live hero has cd-live attribute');
       const hero = p.root().querySelector('.cd-hero a.cd-hero-link');
       const vParam = /v=([\w-]{11})/.exec(live[0].querySelector('a[href^="/watch"]').getAttribute('href'))[1];
       assert.ok(hero.getAttribute('href').includes(`v=${vParam}`), 'the first live tile is the hero');

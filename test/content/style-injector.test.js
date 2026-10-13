@@ -249,7 +249,7 @@ describe('first-paint cache', () => {
     for (const [name, values] of Object.entries({ 'cd-home': ['grid', 'rows', 'hero-rows'], 'cd-watch': ['default', 'cinema', 'focus'], 'cd-density': ['1', '2', '3', '4', '5'], 'cd-motion': ['on', 'off'], 'cd-textscale': ['0.9', '1', '1.1', '1.25', '1.5'] })) {
       for (const v of values) assert.deepEqual(sanitizePaintAttrs({ [name]: v }), { [name]: v });
     }
-    for (const key of ['hideshorts', 'hidehomerecs', 'hidecomments', 'hideendscreens', 'hideviewcounts']) assert.deepEqual(sanitizePaintAttrs({ [`cd-calm-${key}`]: '' }), { [`cd-calm-${key}`]: '' });
+    for (const key of ['hideshorts', 'hidehomerecs', 'hidecomments', 'hideendscreens', 'hideviewcounts', 'hidelive']) assert.deepEqual(sanitizePaintAttrs({ [`cd-calm-${key}`]: '' }), { [`cd-calm-${key}`]: '' });
     for (const bad of ['0.8', '2', 'foo', 1, null]) assert.equal(sanitizePaintAttrs({ 'cd-textscale': bad }), null);
     assert.equal(sanitizePaintAttrs({ constructor: 'x' }), null);
     assert.equal(sanitizePaintAttrs(JSON.parse('{"__proto__": {"cd-home": "grid"}}')), null);
@@ -282,7 +282,7 @@ test('everything the engine itself can build (6 themes x 3 home layouts x 3 watc
   for (const theme of THEMES) {
     for (const home of ['grid', 'rows', 'hero-rows']) {
       for (const watch of ['default', 'cinema', 'focus']) {
-        const base = computeEffectiveConfig({ settings: { themeId: theme.id, density: 4, calm: { hideShorts: true, hideHomeRecs: true, hideComments: true, hideEndScreens: true, hideViewCounts: true } }, licenceState: pro, themes: THEMES });
+        const base = computeEffectiveConfig({ settings: { themeId: theme.id, density: 4, calm: { hideShorts: true, hideHomeRecs: true, hideComments: true, hideEndScreens: true, hideViewCounts: true, hideLive: true } }, licenceState: pro, themes: THEMES });
         const { css } = composeStylesheet({ map, cfg: { ...base, home, watch } });
         assert.ok(css.length > 1000);
         assert.equal(isUnsafeCachedCss(css), false, `${theme.id} ${home} ${watch}`);

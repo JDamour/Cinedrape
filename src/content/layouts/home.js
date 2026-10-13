@@ -268,6 +268,7 @@ export function createHomeLayout(deps) {
     const a = el('a', 'cd-card');
     a.setAttribute('href', t.href);
     if (t.videoId) a.setAttribute('cd-video', t.videoId);
+    if (t.isLive) a.setAttribute('cd-live', '');
     const thumb = el('span', 'cd-card-thumb');
     const img = imageNode(t.thumb || derivedThumb(t.videoId, 'hqdefault'));
     img.setAttribute('loading', 'lazy');
@@ -285,6 +286,7 @@ export function createHomeLayout(deps) {
   function buildHero(entry) {
     const t = entry.tile;
     const wrap = el('div', 'cd-hero');
+    if (t.isLive) wrap.setAttribute('cd-live', '');
     const a = el('a', 'cd-hero-link');
     a.setAttribute('href', t.href);
     if (t.videoId) a.setAttribute('cd-video', t.videoId);
@@ -535,7 +537,11 @@ export function createHomeLayout(deps) {
   }
 
   function markSources(entries) {
-    for (const e of entries) e.wrapper.setAttribute(SRC_ATTR, token);
+    for (const e of entries) {
+      e.wrapper.setAttribute(SRC_ATTR, token);
+      if (e.tile && e.tile.isLive) e.wrapper.setAttribute('cd-live', '');
+      else e.wrapper.removeAttribute('cd-live');
+    }
   }
 
   // ---- thumbnails that arrive late -------------------------------------------------------------------------------------
@@ -776,7 +782,12 @@ export function createHomeLayout(deps) {
   function teardown() {
     stopObservers();
     for (const e of state.entries) {
-      try { if (e.wrapper.getAttribute(SRC_ATTR) === token) e.wrapper.removeAttribute(SRC_ATTR); } catch { /* wrapper gone */ }
+      try {
+        if (e.wrapper.getAttribute(SRC_ATTR) === token) {
+          e.wrapper.removeAttribute(SRC_ATTR);
+          e.wrapper.removeAttribute('cd-live');
+        }
+      } catch { /* wrapper gone */ }
     }
     if (state.root && state.root.parentNode) state.root.parentNode.removeChild(state.root);
     state.mounted = false;
@@ -802,7 +813,10 @@ export function createHomeLayout(deps) {
     for (const old of Array.from(host.children)) {
       if (old !== state.root && old.classList && old.classList.contains('cd-home')) host.removeChild(old);
     }
-    for (const n of Array.from(contents.querySelectorAll(`[${SRC_ATTR}]`))) n.removeAttribute(SRC_ATTR);
+    for (const n of Array.from(contents.querySelectorAll(`[${SRC_ATTR}], [cd-live]`))) {
+      n.removeAttribute(SRC_ATTR);
+      n.removeAttribute('cd-live');
+    }
   }
 
   function mount() {
@@ -883,7 +897,14 @@ export function createHomeLayout(deps) {
         state.byWrapper.delete(e.wrapper);
         if (state.byKey.get(e.key) === e) state.byKey.delete(e.key);
         // A recycled wrapper is read again below; if it no longer holds a video it goes back to YouTube's grid.
-        if (!gone) { try { if (e.wrapper.getAttribute(SRC_ATTR) === token) e.wrapper.removeAttribute(SRC_ATTR); } catch { /* wrapper gone */ } }
+        if (!gone) {
+          try {
+            if (e.wrapper.getAttribute(SRC_ATTR) === token) {
+              e.wrapper.removeAttribute(SRC_ATTR);
+              e.wrapper.removeAttribute('cd-live');
+            }
+          } catch { /* wrapper gone */ }
+        }
       }
       let existingLiveChanged = false;
       for (const e of state.entries) {
@@ -892,6 +913,8 @@ export function createHomeLayout(deps) {
           if (tile && tile.isLive !== e.tile.isLive) {
             e.tile.isLive = tile.isLive;
             e.tile.duration = tile.duration;
+            if (e.tile.isLive) e.wrapper.setAttribute('cd-live', '');
+            else e.wrapper.removeAttribute('cd-live');
             existingLiveChanged = true;
           }
         }

@@ -13,7 +13,7 @@ const execFileP = promisify(execFile);
 export { sleep };
 export const WATCH_ID = 'BzpdP2APcIM';
 export const WATCH_URL = `https://www.youtube.com/watch?v=${WATCH_ID}`;
-export const CALM_KEYS = ['hideShorts', 'hideHomeRecs', 'hideComments', 'hideEndScreens', 'hideViewCounts'];
+export const CALM_KEYS = ['hideShorts', 'hideHomeRecs', 'hideComments', 'hideEndScreens', 'hideViewCounts', 'hideLive'];
 
 // ---- service worker helpers (serialised into the worker: self-contained, never throw) ---------------------------------------
 

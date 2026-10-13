@@ -137,12 +137,12 @@ test('allowedCalmKeys: free gets exactly FREE_CALM_KEYS, Pro (active or grace) g
   allowedCalmKeys(FREE).push('hideComments');
   allowedCalmKeys(PRO).length = 0;
   assert.deepEqual(allowedCalmKeys(FREE), ['hideShorts', 'hideHomeRecs']);
-  assert.equal(allowedCalmKeys(PRO).length, 5);
+  assert.equal(allowedCalmKeys(PRO).length, 6);
   assert.deepEqual(FREE_CALM_KEYS, ['hideShorts', 'hideHomeRecs']);
 });
 
 test('isFeatureAllowed: every FEATURE x tier', () => {
-  const lockedForFree = ['density', 'calm-hideComments', 'calm-hideEndScreens', 'calm-hideViewCounts'];
+  const lockedForFree = ['density', 'calm-hideComments', 'calm-hideEndScreens', 'calm-hideViewCounts', 'calm-hideLive'];
   for (const f of FEATURES) {
     assert.equal(isFeatureAllowed(f, FREE), !lockedForFree.includes(f), `${f} / free`);
     assert.equal(isFeatureAllowed(f, EXPIRED), !lockedForFree.includes(f), `${f} / expired`);
@@ -162,7 +162,7 @@ test('free user with default settings: Cinema, its own layout and density, nothi
   assert.equal(cfg.theme, THEMES[0]);
   assert.deepEqual(cfg, {
     theme: THEMES[0], accent: null, animations: true, textScale: null, home: 'hero-rows', watch: 'cinema', density: 3,
-    calm: { hideShorts: false, hideHomeRecs: false, hideComments: false, hideEndScreens: false, hideViewCounts: false },
+    calm: { hideShorts: false, hideHomeRecs: false, hideComments: false, hideEndScreens: false, hideViewCounts: false, hideLive: false },
     disabled: [], pro: false,
   });
   assert.deepEqual(Object.keys(cfg), ['theme', 'accent', 'animations', 'textScale', 'home', 'watch', 'density', 'calm', 'disabled', 'pro']);
@@ -258,7 +258,7 @@ test('calm: tier x key table', () => {
 
 test('calm: free users with everything stored on only keep the two free toggles', () => {
   const all = settingsWith({ calm: Object.fromEntries(CALM_KEYS.map((k) => [k, true])) });
-  assert.deepEqual(compute(all, FREE).calm, { hideShorts: true, hideHomeRecs: true, hideComments: false, hideEndScreens: false, hideViewCounts: false });
+  assert.deepEqual(compute(all, FREE).calm, { hideShorts: true, hideHomeRecs: true, hideComments: false, hideEndScreens: false, hideViewCounts: false, hideLive: false });
   assert.deepEqual(compute(all, PRO).calm, Object.fromEntries(CALM_KEYS.map((k) => [k, true])));
   assert.equal(all.calm.hideComments, true, 'stored Pro toggles survive a lapse');
 });
@@ -266,8 +266,8 @@ test('calm: free users with everything stored on only keep the two free toggles'
 test('calm: a theme default applies only where the user has not set a boolean', () => {
   const quiet = theme('cinema', { calm: { hideShorts: true, hideComments: true } });
   const run = (calm, state) => computeEffectiveConfig({ settings: { ...DEFAULT_SETTINGS, calm }, licenceState: state, themes: [quiet] }).calm;
-  assert.deepEqual(run({}, PRO), { hideShorts: true, hideHomeRecs: false, hideComments: true, hideEndScreens: false, hideViewCounts: false });
-  assert.deepEqual(run({}, FREE), { hideShorts: true, hideHomeRecs: false, hideComments: false, hideEndScreens: false, hideViewCounts: false }, 'free filter still applies');
+  assert.deepEqual(run({}, PRO), { hideShorts: true, hideHomeRecs: false, hideComments: true, hideEndScreens: false, hideViewCounts: false, hideLive: false });
+  assert.deepEqual(run({}, FREE), { hideShorts: true, hideHomeRecs: false, hideComments: false, hideEndScreens: false, hideViewCounts: false, hideLive: false }, 'free filter still applies');
   assert.equal(run({ hideShorts: false }, PRO).hideShorts, false, 'an explicit off beats the theme default');
   assert.equal(run({ hideComments: false }, PRO).hideComments, false);
   for (const junk of ['yes', 1, 0, null, [], {}, undefined]) {
@@ -389,7 +389,7 @@ test('pure: frozen inputs are accepted, nothing is mutated, results are independ
   assert.deepEqual(b.disabled, []);
   assert.deepEqual(computeEffectiveConfig({ settings, licenceState: licence, themes }).calm, {
     // the stored calm object lists every key explicitly, so the theme's hideViewCounts default is shadowed
-    hideShorts: false, hideHomeRecs: false, hideComments: true, hideEndScreens: false, hideViewCounts: false,
+    hideShorts: false, hideHomeRecs: false, hideComments: true, hideEndScreens: false, hideViewCounts: false, hideLive: false,
   });
 });
 
@@ -407,7 +407,7 @@ test('computeEffectiveConfig tolerates being called with nothing', () => {
 test('full tier x feature matrix on a realistic stored profile', () => {
   const profile = settingsWith({
     themeId: 'primetime', density: 5, accent: '#33aaff', animations: false,
-    calm: { hideShorts: true, hideHomeRecs: true, hideComments: true, hideEndScreens: true, hideViewCounts: true },
+    calm: { hideShorts: true, hideHomeRecs: true, hideComments: true, hideEndScreens: true, hideViewCounts: true, hideLive: true },
   });
   const free = compute(profile, FREE);
   assert.deepEqual([free.theme.id, free.density, free.pro], ['cinema', 3, false]);

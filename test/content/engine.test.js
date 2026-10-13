@@ -347,7 +347,7 @@ describe('health', () => {
       assert.deepEqual(status.missingRoles, ['homeBrowse', 'homeGrid', 'homeGridContents']);
       assert.equal(mounted(env), false);
       assert.equal(env.document.querySelectorAll('[cd-source]').length, 0);
-      assert.ok(!env.style().textContent.includes('[cd-source]'), 'the layout rules are out of the stylesheet');
+      assert.ok(!env.style().textContent.includes('.cd-row-track'), 'the layout rules are out of the stylesheet');
       assert.ok(env.style().textContent.includes('--cd-bg'), 'the theme is still applied');
       assert.equal(env.attr('cd-theme'), 'cinema');
       assert.equal(noticeCount(env), 1);
@@ -362,7 +362,7 @@ describe('health', () => {
       await waitFor(() => !env.html.hasAttribute('cd-off-layout-home'), 'feature re-enabled');
       await waitFor(() => mounted(env), 'layout back');
       assert.equal(env.engine.getStatus().features['layout-home'], 'on');
-      assert.ok(env.style().textContent.includes('[cd-source]'));
+      assert.ok(env.style().textContent.includes('.cd-row-track'));
       assert.equal(noticeCount(env), 0, 'the "turned off" notice goes away once the feature works again');
     });
   });
@@ -414,7 +414,7 @@ describe('health', () => {
       assert.equal(mounted(env), false);
       assert.equal(env.document.querySelectorAll('[cd-source]').length, 0, 'rolled back');
       assert.equal(env.engine.getStatus().features['layout-home'], 'broken');
-      assert.ok(!env.style().textContent.includes('[cd-source]'));
+      assert.ok(!env.style().textContent.includes('.cd-row-track'));
       assert.equal(noticeCount(env), 1);
     });
   });

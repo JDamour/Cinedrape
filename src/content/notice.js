@@ -27,6 +27,7 @@ export const FEATURE_LABELS = Object.freeze({
   'calm-hideComments': 'Hide comments',
   'calm-hideEndScreens': 'Hide end screens',
   'calm-hideViewCounts': 'Hide view counts',
+  'calm-hideLive': 'Hide live streams',
 });
 
 const KNOWN = new Set(FEATURES);

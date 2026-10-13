@@ -12,7 +12,7 @@
 //
 // Performance: the selector lists come from the map and several are long, so each toggle emits ONE rule with a :is() union
 // and one guard instead of one guarded rule per selector (about 1.7 KB of guard each; the first-paint cache is 64 KB).
-import { ATTR, CALM_KEYS } from '../shared/constants.js';
+import { ATTR, CALM_KEYS, SRC_ATTR } from '../shared/constants.js';
 import { roleCss, safeHide, protectedCss } from '../shared/selector-map.js';
 
 const HIDE = '{display:none !important}';
@@ -190,6 +190,14 @@ function viewCounts(map, g) {
   return block('hideViewCounts', rules);
 }
 
+function liveStreams(map, g) {
+  const subjects = [
+    `[${SRC_ATTR}][cd-live]`,
+    '.cd-home [cd-live]',
+  ];
+  return block('hideLive', [hideRule(map, g, gateFor('hideLive'), subjects)]);
+}
+
 // ---- public API ----------------------------------------------------------------------------------------------------
 
 /**
@@ -203,7 +211,14 @@ export function buildCalmCss(map, cfg) {
   void cfg;
   const guards = createGuards(map);
   if (!guards) return '';
-  const blocks = [shorts(map, guards), homeRecs(map, guards), comments(map, guards), endScreens(map, guards), viewCounts(map, guards)];
+  const blocks = [
+    shorts(map, guards),
+    homeRecs(map, guards),
+    comments(map, guards),
+    endScreens(map, guards),
+    viewCounts(map, guards),
+    liveStreams(map, guards),
+  ];
   const css = blocks.filter(Boolean).join('\n');
   return css ? `${css}\n` : '';
 }

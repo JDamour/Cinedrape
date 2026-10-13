@@ -376,16 +376,16 @@ describe('applyCalmAttributes', () => {
     assert.ok(FEATURES.includes('calm-hideShorts'));
     const { document } = createPage('home', { tiles: 1 });
     const all = Object.fromEntries(CALM_KEYS.map((k) => [k, true]));
-    assert.deepEqual(applyCalmAttributes(document, all, ['calm-hideShorts', 'calm-hideViewCounts']), ['hideHomeRecs', 'hideComments', 'hideEndScreens']);
-    assert.deepEqual(attrs(document), ['hideHomeRecs', 'hideComments', 'hideEndScreens']);
+    assert.deepEqual(applyCalmAttributes(document, all, ['calm-hideShorts', 'calm-hideViewCounts']), ['hideHomeRecs', 'hideComments', 'hideEndScreens', 'hideLive']);
+    assert.deepEqual(attrs(document), ['hideHomeRecs', 'hideComments', 'hideEndScreens', 'hideLive']);
     applyCalmAttributes(document, all);
-    assert.equal(attrs(document).length, 5);
+    assert.equal(attrs(document).length, 6);
     applyCalmAttributes(document, all, new Set(['calm-hideComments']));
     assert.ok(!attrs(document).includes('hideComments'), 'a Set works as well as an array, and a broken feature switches itself off');
     applyCalmAttributes(document, all, ['theme', 'layout-home', 'density']);
-    assert.equal(attrs(document).length, 5, 'unrelated disabled features change nothing');
+    assert.equal(attrs(document).length, 6, 'unrelated disabled features change nothing');
     applyCalmAttributes(document, all, 'calm-hideShorts');
-    assert.equal(attrs(document).length, 5, 'a bare string is not a list of features');
+    assert.equal(attrs(document).length, 6, 'a bare string is not a list of features');
   });
 
   test('ignores unknown keys, inherited keys and non-true values; never touches other attributes', () => {
@@ -459,7 +459,7 @@ describe('applyCalmAttributes', () => {
 // ---- buildCalmCss: structure ------------------------------------------------------------------------------------------------
 
 describe('buildCalmCss structure', () => {
-  test('returns the same static stylesheet whatever cfg says, with a block for all five toggles', () => {
+  test('returns the same static stylesheet whatever cfg says, with a block for all six toggles', () => {
     assert.equal(typeof CSS, 'string');
     assert.ok(CSS.length > 1000);
     assert.equal(buildCalmCss(MAP), CSS);
@@ -471,7 +471,7 @@ describe('buildCalmCss structure', () => {
 
   test('every rule sits in the block of the toggle it is gated on, and nothing is ungated', () => {
     const blocks = CSS.split(/\/\* calm:(\w+) \*\/\n/).slice(1);
-    assert.equal(blocks.length / 2, 5, 'five marked blocks');
+    assert.equal(blocks.length / 2, 6, 'six marked blocks');
     for (let i = 0; i < blocks.length; i += 2) {
       const key = blocks[i];
       assert.ok(CALM_KEYS.includes(key), key);
@@ -505,8 +505,8 @@ describe('buildCalmCss structure', () => {
     void window;
   });
 
-  test('size stays small enough for the 64 KB first-paint cache (all five toggles together)', () => {
-    assert.ok(CSS.length < 24 * 1024, `calm CSS is ${CSS.length} bytes`);
+  test('size stays small enough for the 64 KB first-paint cache (all six toggles together)', () => {
+    assert.ok(CSS.length < 32 * 1024, `calm CSS is ${CSS.length} bytes`);
     const lines = CSS.split('\n').filter((l) => l && !l.startsWith('/*'));
     assert.equal(new Set(lines).size, lines.length, 'no duplicated rule');
   });
@@ -1238,6 +1238,61 @@ describe('hideViewCounts', () => {
     const roots = hiddenRoots(page.document);
     const expected = expectedViewElements(page.document);
     assert.deepEqual([...roots].map(label).sort(), expected.map(label).sort());
+  });
+});
+
+// ---- hideLive ---------------------------------------------------------------------------------------------------------------
+
+describe('hideLive', () => {
+  test('mirrored live wrappers and live cards inside .cd-home are hidden; non-live and ad elements stay', () => {
+    const page = setup('home', { tiles: 4, ads: 1 }, { on: ['hideLive'] });
+    const { document } = page;
+    const items = [...document.querySelectorAll('ytd-rich-item-renderer')];
+    assert.ok(items.length >= 4);
+    // Mark one wrapper as mirrored non-live, one as mirrored live
+    items[0].setAttribute('cd-source', 't1');
+    items[1].setAttribute('cd-source', 't1');
+    items[1].setAttribute('cd-live', '');
+
+    // Add cd-home with a regular card and a live card
+    const home = document.createElement('div');
+    home.className = 'cd-home';
+    const card1 = document.createElement('a');
+    card1.className = 'cd-card';
+    const card2 = document.createElement('a');
+    card2.className = 'cd-card';
+    card2.setAttribute('cd-live', '');
+    home.append(card1, card2);
+    document.body.appendChild(home);
+
+    const roots = hiddenRoots(document);
+    assert.ok(!effectivelyHidden(items[0], roots), 'non-live mirrored wrapper stays visible');
+    assert.ok(effectivelyHidden(items[1], roots), 'live mirrored wrapper is hidden');
+    assert.ok(!effectivelyHidden(card1, roots), 'non-live card stays visible');
+    assert.ok(effectivelyHidden(card2, roots), 'live card is hidden');
+  });
+
+  test('a live wrapper that carries an ad is protected by safeHide and stays visible', () => {
+    const page = setup('home', { tiles: 4, ads: 1 }, { on: ['hideLive'] });
+    const { document } = page;
+    const item = document.querySelector('ytd-rich-item-renderer');
+    item.setAttribute('cd-source', 't1');
+    item.setAttribute('cd-live', '');
+    const ad = document.createElement('ytd-ad-slot-renderer');
+    item.appendChild(ad);
+
+    const roots = hiddenRoots(document);
+    assert.ok(!effectivelyHidden(item, roots), 'wrapper with ad is preserved by safeHide guard');
+  });
+
+  test('off when toggle attribute is absent', () => {
+    const page = setup('home', { tiles: 2 }, { on: [] });
+    const { document } = page;
+    const item = document.querySelector('ytd-rich-item-renderer');
+    item.setAttribute('cd-source', 't1');
+    item.setAttribute('cd-live', '');
+    const roots = hiddenRoots(document);
+    assert.ok(!effectivelyHidden(item, roots), 'live item visible when toggle off');
   });
 });
 

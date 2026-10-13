@@ -98,6 +98,11 @@ export function installHelpers() {
       over: () => '',
       missed: () => Array.from(viewTargets()).filter(rendered),
     },
+    hideLive: {
+      intended: (e) => !!e.closest('.cd-home [cd-live], [cd-source][cd-live]'),
+      over: () => '',
+      missed: () => Array.from(document.querySelectorAll('.cd-home [cd-live], [cd-source][cd-live]')).filter(rendered),
+    },
   };
 
   window.__cdh = {

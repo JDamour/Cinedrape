@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "mapVersion": "2026.10.13.3",
+  "mapVersion": "2026.10.13.4",
   "issuedAt": "2026-10-13T00:00:00Z",
   "roles": {
     "app": [
@@ -336,6 +336,9 @@
     ],
     "calm-hideViewCounts": [
       "viewCounts"
+    ],
+    "calm-hideLive": [
+      "homeBrowse"
     ]
   },
   "protected": {

@@ -252,10 +252,10 @@ export const ATTR = {            // attributes set on <html> by the engine
 };
 export const SRC_ATTR = 'cd-source';      // on a YouTube tile Cinedrape has mirrored into its own card
 export const PAGE_TYPES = ['home','watch','search','channel','subscriptions','history','playlist','shorts','other'];
-export const CALM_KEYS = ['hideShorts','hideHomeRecs','hideComments','hideEndScreens','hideViewCounts'];
+export const CALM_KEYS = ['hideShorts','hideHomeRecs','hideComments','hideEndScreens','hideViewCounts','hideLive'];
 export const FREE_CALM_KEYS = ['hideShorts','hideHomeRecs'];
 export const FEATURES = ['theme','layout-home','layout-watch','density',
-  'calm-hideShorts','calm-hideHomeRecs','calm-hideComments','calm-hideEndScreens','calm-hideViewCounts'];
+  'calm-hideShorts','calm-hideHomeRecs','calm-hideComments','calm-hideEndScreens','calm-hideViewCounts','calm-hideLive'];
 export const ALL_THEME_IDS = ['cinema','minimal','classic','primetime','studio','arcade'];
 export const FREE_THEME_IDS = ['cinema','minimal','classic'];
 export const LAYOUT_HOME = ['grid','rows','hero-rows'];
@@ -263,7 +263,7 @@ export const LAYOUT_WATCH = ['default','cinema','focus'];
 export const STORAGE_KEYS = { settings:'cd.settings', licence:'cd.licence', selectorMap:'cd.selectorMap',
   health:'cd.health', telemetry:'cd.telemetry', firstPaint:'cd.firstPaint' };
 export const DEFAULT_SETTINGS = { schema:1, themeId:'cinema', accent:null, density:null, animations:true,
-  textScale:null, calm:{ hideShorts:false, hideHomeRecs:false, hideComments:false, hideEndScreens:false, hideViewCounts:false },
+  textScale:null, calm:{ hideShorts:false, hideHomeRecs:false, hideComments:false, hideEndScreens:false, hideViewCounts:false, hideLive:false },
   telemetryOptIn:false };
 export const LIMITS = { cssMaxBytes:20480, contentMaxChars:100, offlineGraceMs:30*864e5,
   licenceRecheckMs:7*864e5, mapRefreshMs:6*36e5, maxBrowsersPerLicence:3 };
@@ -312,6 +312,7 @@ A live tile (`extractTile`'s `isLive`: the bottom-overlay badge text is not a du
 `@keyframes` — transform only, never opacity) instead of the duration pill, marks its viewer count `cd-card-watching`
 (hidden by calm's hideViewCounts like `.cd-card-views`), and hero-rows prefers a live tile for the hero with a
 "Watch live" call to action. Dedicated `#cd-row-live` gathers live tiles at the top of the feed rows.
+The Pro calm toggle `hideLive` (`html[cd-calm-hidelive]`) hides mirrored live cards, the live hero, the `#cd-row-live` row, and mirrored YouTube wrappers marked `cd-live`.
 On watch pages (`ytd-watch-flexy`), when the viewer count matches live watching patterns (`isWatchLive`), the engine sets
 `html[cd-watch-live]`. `buildWatchLiveCss` restyles the info container / view count with `#cc0000` accents and a decorative
 pulsing live dot (`::before` with `cd-live-pulse`), leaving the player completely untouched.
