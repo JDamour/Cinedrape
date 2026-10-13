@@ -46,6 +46,27 @@ export const PAGES = {
     ready: ['ytd-watch-flexy:not([hidden]) #movie_player'],
     title: ['ytd-watch-metadata #title h1', 'h1.ytd-watch-metadata', 'h1'],
   },
+  subscriptions: {
+    url: 'https://www.youtube.com/feed/subscriptions',
+    full: false,
+    minSampled: 10,
+    ready: ['ytd-browse[page-subtype="subscriptions"]', 'ytd-feed-nudge-renderer', 'ytd-browse #contents'],
+    title: ['ytd-feed-nudge-renderer #title', 'yt-lockup-view-model a.ytLockupMetadataViewModelTitle', 'h1', '#title'],
+  },
+  history: {
+    url: 'https://www.youtube.com/feed/history',
+    full: false,
+    minSampled: 10,
+    ready: ['ytd-browse[page-subtype="history"]', 'ytd-feed-nudge-renderer', 'ytd-browse #contents'],
+    title: ['ytd-feed-nudge-renderer #title', 'ytd-video-renderer a#video-title', 'h1', '#title'],
+  },
+  playlist: {
+    url: 'https://www.youtube.com/playlist?list=PLrEnWoR732-BHrPp_AK4CDQtC545A_CRv',
+    full: false,
+    minSampled: 15,
+    ready: ['ytd-browse[page-subtype="playlist"]', 'ytd-playlist-video-renderer', 'ytd-playlist-header-renderer', 'ytd-playlist-video-list-renderer'],
+    title: ['ytd-playlist-header-renderer #title', 'ytd-playlist-video-renderer a#video-title', 'h1', '#title'],
+  },
 };
 
 export const FALLBACK = {
