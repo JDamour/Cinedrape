@@ -58,6 +58,7 @@ describe('boot and apply', () => {
         assert.equal(status.pageType, 'home');
         assert.equal(status.pro, false);
         assert.equal(status.mapVersion, MAP.mapVersion);
+        assert.equal(status.liveCount, 0);
         assert.deepEqual(status.missingRoles, []);
         assert.equal(status.features.theme, 'on');
         assert.equal(status.features['layout-home'], 'on');
@@ -275,12 +276,27 @@ describe('navigation', () => {
       assert.ok(health.watches.at(-1)[1].includes('theme') && health.watches.at(-1)[1].includes('layout-watch'));
       assert.equal(mounted(env), false, 'the home layout is gone off the home page');
       assert.equal(env.engine.getStatus().pageType, 'watch');
+      assert.equal(env.engine.getStatus().liveCount, null);
 
       const burstStart = composes;
       for (let i = 0; i < 25; i++) env.document.dispatchEvent(new env.window.CustomEvent('yt-navigate-finish', { bubbles: true }));
       env.window.dispatchEvent(new env.window.PopStateEvent('popstate'));
       await sleep(60);
       assert.equal(composes - burstStart, 1, '26 signals in one tick = one pass');
+    });
+  });
+
+  test('getStatus exposes feed liveCount when home layout is mounted, null when unmounted', async () => {
+    await withEnv('home', { page: { tiles: 6, tileStyle: 'home' } }, async (env) => {
+      const items = env.document.querySelectorAll('ytd-rich-item-renderer');
+      for (let i = 0; i < 2; i++) {
+        const badge = items[i].querySelector('.ytBadgeShapeText');
+        if (badge) badge.textContent = 'LIVE';
+      }
+      await env.engine.start();
+      await waitFor(() => mounted(env), 'mounted');
+      const st = env.engine.getStatus();
+      assert.equal(st.liveCount, 2);
     });
   });
 

@@ -191,9 +191,9 @@ const tileHtml = (id, title, style) => createTile({ id, title, channel: style ==
 
 // ---- 1. surface ----------------------------------------------------------------------------------------------------------------
 
-test('createHomeLayout exposes exactly mount/update/unmount/isMounted and needs a document, window and selectors', () => {
+test('createHomeLayout exposes exactly mount/update/unmount/isMounted/getLiveCount and needs a document, window and selectors', () => {
   const p = setup();
-  assert.deepEqual(Object.keys(p.layout).sort(), ['isMounted', 'mount', 'unmount', 'update']);
+  assert.deepEqual(Object.keys(p.layout).sort(), ['getLiveCount', 'isMounted', 'mount', 'unmount', 'update']);
   for (const bad of [undefined, null, {}, { doc: p.document }, { doc: p.document, win: p.window }, { doc: p.document, win: p.window, selectors: {} }]) {
     assert.throws(() => createHomeLayout(bad), TypeError);
   }
@@ -691,6 +691,16 @@ for (const [label, style] of STYLES) {
       pHero.layout.mount();
       assert.equal(pHero.root().querySelector('#cd-row-live'), null);
       assert.ok(pHero.root().querySelector('.cd-hero .cd-live-badge'));
+    });
+
+    test('layout.getLiveCount() returns count of non-duplicate live tiles when mounted, 0 when unmounted', () => {
+      const p = setup({ tileStyle: style }, { home: 'rows' });
+      assert.equal(p.layout.getLiveCount(), 0, '0 before mount');
+      makeLive(p, 3);
+      p.layout.mount();
+      assert.equal(p.layout.getLiveCount(), 3, '3 live tiles when mounted');
+      p.layout.unmount();
+      assert.equal(p.layout.getLiveCount(), 0, '0 after unmount');
     });
 
     test('live row participates in roving tabindex and arrow key navigation', () => {

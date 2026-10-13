@@ -965,5 +965,10 @@ export function createHomeLayout(deps) {
     return state.mounted;
   }
 
-  return { mount, update, unmount, isMounted };
+  function getLiveCount() {
+    if (!state.mounted) return 0;
+    return state.entries.filter((e) => e.tile && e.tile.isLive && !e.dup).length;
+  }
+
+  return { mount, update, unmount, isMounted, getLiveCount };
 }

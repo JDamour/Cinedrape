@@ -409,7 +409,7 @@ test('summarizeStatus lists broken features in contract order and labels unknown
 
 test('summarizeStatus accepts a wrapped reply and rejects things that are not statuses', () => {
   const inner = { themeId: 'minimal', pageType: 'watch', features: { theme: 'on' } };
-  assert.deepEqual(summarizeStatus({ ok: true, status: inner }), { broken: [], themeId: 'minimal', pageType: 'watch' });
+  assert.deepEqual(summarizeStatus({ ok: true, status: inner }), { broken: [], themeId: 'minimal', pageType: 'watch', liveCount: null });
   for (const bad of [undefined, null, 'ok', 5, [], {}, { features: 'x' }, { features: null }, { status: { features: [] } }, { features: [] }]) {
     assert.equal(summarizeStatus(bad), null, JSON.stringify(bad));
   }
@@ -441,6 +441,35 @@ test('statusCopy summarises many broken features instead of running on', () => {
   const { text } = statusCopy('paused', { summary: many });
   assert.match(text, /^Paused: Theme, Home layout, Watch page layout and 7 more — YouTube changed/);
   assert.ok(text.length < 130);
+});
+
+test('summarizeStatus and statusCopy handle feed liveCount (E6: Working — N live now)', () => {
+  const withLive = summarizeStatus({ themeId: 'cinema', pageType: 'home', features: { theme: 'on' }, liveCount: 4 });
+  assert.equal(withLive.liveCount, 4);
+  assert.deepEqual(statusCopy('ok', { summary: withLive, themes: FAKE_THEMES }), {
+    text: 'Working — 4 live now',
+    detail: 'Cinema theme on the Home page',
+  });
+
+  const withOne = summarizeStatus({ themeId: 'cinema', pageType: 'home', features: { theme: 'on' }, liveCount: 1 });
+  assert.equal(withOne.liveCount, 1);
+  assert.deepEqual(statusCopy('ok', { summary: withOne, themes: FAKE_THEMES }), {
+    text: 'Working — 1 live now',
+    detail: 'Cinema theme on the Home page',
+  });
+
+  const zeroLive = summarizeStatus({ themeId: 'cinema', pageType: 'home', features: { theme: 'on' }, liveCount: 0 });
+  assert.equal(zeroLive.liveCount, 0);
+  assert.deepEqual(statusCopy('ok', { summary: zeroLive, themes: FAKE_THEMES }), {
+    text: 'Working',
+    detail: 'Cinema theme on the Home page',
+  });
+
+  for (const bad of [-1, 2.5, '4', null, undefined, NaN, Infinity, {}]) {
+    const s = summarizeStatus({ themeId: 'cinema', pageType: 'home', features: { theme: 'on' }, liveCount: bad });
+    assert.equal(s.liveCount, null, `bad liveCount: ${bad}`);
+    assert.equal(statusCopy('ok', { summary: s, themes: FAKE_THEMES }).text, 'Working');
+  }
 });
 
 test('copy tables cover every contract name', () => {

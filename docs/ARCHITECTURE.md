@@ -451,7 +451,7 @@ is a hand-written guess): its primary link is a plain `/watch?v=<11 id character
 collapsed. Known limit: an ad with no marker, no ad-shaped name and only ordinary `/watch` links is structurally an ordinary tile. `extractTile` handles the three metadata shapes of §1 (`meta` = all metadata texts in
 order, `channel` = the channel text when the shape has one, else `''`).
 **content/layouts/home.js** — `createHomeLayout({doc, win, selectors, map, getConfig, onFail}) →
-{mount(): boolean, update(), unmount(), isMounted()}` and `buildHomeLayoutCss(map, cfg)`. Mirrors tiles into
+{mount(): boolean, update(), unmount(), isMounted(), getLiveCount(): number}` and `buildHomeLayoutCss(map, cfg)`. Mirrors tiles into
 `cd-hero`/`cd-row`s inside a `div.cd-home` placed before the YouTube grid; collapses *mirrored, non-ad* source tiles
 via `SRC_ATTR` rules (never `display:none` on the grid itself, never on ad items); keeps `continuation` in layout so
 infinite scroll works; appends new tiles as they arrive (MutationObserver on `homeGridContents`, rAF-batched);
@@ -497,7 +497,7 @@ paused: the notice is still shown once per feature per tab session). A verdict f
 verdict is also ignored for another theme and after 24 h (a theme that is off cannot re-test itself: it is retried once a day); a
 healthy settle of a page type removes that page type's entry, and the verdict never survives a healthy settle. Plan/sub/exp/iat
 come from the verified licence token's claims, never from `record.claims`.
-`getStatus() → {themeId, pageType, pro, features:{id:'on'|'off'|'broken'|'locked'}, missingRoles:string[], mapVersion}`.
+`getStatus() → {themeId, pageType, pro, features:{id:'on'|'off'|'broken'|'locked'}, missingRoles:string[], mapVersion, liveCount: number|null}`.
 **content/index.js** — wires real `chrome`, `document`, `window`; the only file with side effects at import time.
 
 **background/** — `service-worker.js` (registers alarms `cd-licence` weekly and `cd-map` every 6 h on install/startup,

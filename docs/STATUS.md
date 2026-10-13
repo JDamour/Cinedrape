@@ -16,9 +16,9 @@ npm run e2e:popup   real Chrome live YouTube popup, breakage, service worker & t
 `npm test` (full run, 38 test files):
 
 ```
-ℹ tests 1899
+ℹ tests 1903
 ℹ suites 76
-ℹ pass 1899
+ℹ pass 1903
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0

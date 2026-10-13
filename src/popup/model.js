@@ -465,6 +465,7 @@ export function summarizeStatus(raw) {
     broken: ids.map((id) => ({ id, label: hasOwn(FEATURE_LABELS, id) ? FEATURE_LABELS[id] : String(id).slice(0, 40) })),
     themeId: typeof status.themeId === 'string' ? status.themeId : null,
     pageType: PAGE_TYPES.includes(status.pageType) ? status.pageType : null,
+    liveCount: typeof status.liveCount === 'number' && Number.isInteger(status.liveCount) && status.liveCount >= 0 ? status.liveCount : null,
   };
 }
 
@@ -488,7 +489,10 @@ export function statusCopy(state, { summary = null, themes = [] } = {}) {
       const bits = [];
       if (theme) bits.push(`${typeof theme.name === 'string' && theme.name ? theme.name : theme.id} theme`);
       if (summary && summary.pageType) bits.push(`on ${PAGE_LABELS[summary.pageType]}`);
-      return { text: 'Working', detail: bits.join(' ') };
+      const text = summary && typeof summary.liveCount === 'number' && summary.liveCount > 0
+        ? `Working — ${summary.liveCount} live now`
+        : 'Working';
+      return { text, detail: bits.join(' ') };
     }
     default: return { text: '', detail: '' };
   }

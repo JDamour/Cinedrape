@@ -702,11 +702,14 @@ export function createEngine(deps = {}) {
     const features = {};
     if (!s || s.failed || !s.cfg) {
       for (const id of FEATURES) features[id] = 'off';
-      return { themeId: null, pageType: s ? s.pageType : 'other', pro: false, features, missingRoles: [], mapVersion: s && s.map ? s.map.mapVersion : null };
+      return { themeId: null, pageType: s ? s.pageType : 'other', pro: false, features, missingRoles: [], mapVersion: s && s.map ? s.map.mapVersion : null, liveCount: null };
     }
     const lic = effectiveLicence(s);
     for (const id of FEATURES) features[id] = featureState(s, id, lic);
-    return { themeId: s.cfg.theme.id, pageType: s.pageType, pro: s.cfg.pro, features, missingRoles: [...s.missing], mapVersion: s.map.mapVersion };
+    const liveCount = s.layout && typeof s.layout.isMounted === 'function' && s.layout.isMounted() && typeof s.layout.getLiveCount === 'function'
+      ? s.layout.getLiveCount()
+      : null;
+    return { themeId: s.cfg.theme.id, pageType: s.pageType, pro: s.cfg.pro, features, missingRoles: [...s.missing], mapVersion: s.map.mapVersion, liveCount };
   }
 
   return { start, stop, getStatus, recompute };
