@@ -156,9 +156,28 @@ entries (`isLive && !dup`); expose via getStatus; popup renders it when present.
 
 ### S10 — Theme store candidates (post-MVP, owner: product)
 
-From the audited usage (news + live-heavy viewer): a `Broadcast` theme (high-contrast dark, 16 px base, live-first hero,
-reduced motion default) is the strongest next theme. It must pass `validateTheme`, all contrast pairs, and the css-validator
-allow-list like every launch theme. Spec it when the feature set above settles — themes are data, so this is cheap after S6.
+From the audited usage (news + live-heavy viewer): the `Broadcast` theme (high-contrast dark, 16 px base, live-first hero,
+balanced density) is the primary store candidate. It passes `validateTheme`, all six WCAG AA contrast pairs, and the
+css-validator allow-list.
+
+- **Theme Metadata & Tier**:
+  - `id`: `"broadcast"`, `name`: `"Broadcast"`, `author`: `"Cinedrape"`, `version`: `"1.0.0"`, `tier`: `"pro"`.
+- **Tokens**:
+  - `type`: `family: "System"`, `baseSize: 16` (large high-legibility base type), `headingWeight: 700`.
+  - `shape`: `radius: 4` (crisp television monitor / studio console aesthetic), `shadow: true`, `spacing: 3`.
+  - `color`:
+    - `bg`: `#08080a` (near-black broadcast backdrop)
+    - `surface`: `#121217` (monitor frame / console surface)
+    - `text`: `#ffffff` (20.01:1 on bg, 18.67:1 on surface — AAA)
+    - `muted`: `#b0b0bc` (9.32:1 on bg, 8.69:1 on surface — AAA)
+    - `accent`: `#ff3b30` (studio live / breaking news red — 5.64:1 on bg, passes 3:1)
+    - `border`: `#686878` (steel bezel — 3.65:1 on bg, passes 3:1)
+- **Layout & Calm Defaults**:
+  - `layout`: `{ home: "hero-rows", watch: "cinema", density: 3 }` (hero-rows prioritizes live feed streams per S1).
+  - `calm`: `{}`.
+- **CSS**:
+  - Scoped strictly to `.cd-*` classes (`.cd-hero`, `.cd-hero-title`, `.cd-hero-meta`, `.cd-hero-cta`, `.cd-row-title`, `.cd-card`, `.cd-card-thumb`, `.cd-card-title`, `.cd-card-meta`, `.cd-card-duration`). Zero external URLs, zero comments, zero at-rules, zero hiding of YouTube elements.
+- **Verification**: Verified by `test/themes/broadcast-candidate.test.js` against the full theme and validator gates.
 
 ---
 

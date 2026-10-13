@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "id": "broadcast",
+  "name": "Broadcast",
+  "author": "Cinedrape",
+  "version": "1.0.0",
+  "tier": "pro",
+  "tokens": {
+    "color": {
+      "bg": "#08080a",
+      "surface": "#121217",
+      "text": "#ffffff",
+      "muted": "#b0b0bc",
+      "accent": "#ff3b30",
+      "border": "#686878"
+    },
+    "type": { "family": "System", "baseSize": 16, "headingWeight": 700 },
+    "shape": { "radius": 4, "shadow": true, "spacing": 3 }
+  },
+  "layout": { "home": "hero-rows", "watch": "cinema", "density": 3 },
+  "calm": {},
+  "css": ".cd-hero{border-radius:var(--cd-radius);border:1px solid var(--cd-border);background:var(--cd-surface)}\n.cd-hero-title{letter-spacing:-0.01em;font-weight:var(--cd-heading-weight)}\n.cd-hero-meta{color:var(--cd-muted)}\n.cd-hero-cta{background:var(--cd-accent);color:var(--cd-accent-text);border-radius:var(--cd-radius);font-weight:700}\n.cd-row-title{letter-spacing:0.06em;text-transform:uppercase;font-size:0.85em;color:var(--cd-muted);font-weight:700}\n.cd-card{border:1px solid var(--cd-border);border-radius:var(--cd-radius);background:var(--cd-surface)}\n.cd-card:hover{border-color:var(--cd-accent)}\n.cd-card-thumb{border-radius:var(--cd-radius)}\n.cd-card-title{font-weight:600}\n.cd-card-meta{color:var(--cd-muted)}\n.cd-card-duration{border-radius:2px;font-weight:700}"
+}

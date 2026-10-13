@@ -13,12 +13,12 @@ npm run e2e:home    real Chrome live YouTube features & calm mode (F1-F5)
 npm run e2e:popup   real Chrome live YouTube popup, breakage, service worker & trust audit (F4, F6)
 ```
 
-`npm test` (full run, 38 test files):
+`npm test` (full run, 39 test files):
 
 ```
-ℹ tests 1903
-ℹ suites 76
-ℹ pass 1903
+ℹ tests 1908
+ℹ suites 77
+ℹ pass 1908
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0

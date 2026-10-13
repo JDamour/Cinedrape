@@ -22,6 +22,7 @@ that completes a task. Last full audit: **13 Oct 2026**.
 | D13 | E4: Pro "Hide live streams" calm toggle (calm-hideLive, cd-live attributes on cards/hero/wrappers, selector-map 2026.10.13.4, calm.js safeHide) | S7 | unit 1898/1898; e2e:home 119 PASS; e2e:popup 235 PASS |
 | D14 | E5: Channel /streams tab live verification pass + YouTube New UI DOM facts recorded (LIVE-VERIFICATION.md, tiles.test.js stream locks verification) | S8 | unit 1899/1899; live probe on @LofiGirl, @NASA, @SkyNews /streams |
 | D15 | E6: Popup status line shows feed live count (`liveCount` on home layout via engine `getStatus()`, popup renders "Working — N live now") | S9 | unit 1903/1903; e2e:home 119 PASS; e2e:popup 235 PASS |
+| D16 | E7: `Broadcast` theme candidate authored and verified (broadcast.json, high-contrast dark, 16 px base, live-first hero, full theme gates) | S10 | broadcast-candidate.test.js 5/5 PASS; css-validator PASS |
 
 ## Open — bugs / known gaps (from STATUS.md "Known gaps", still true)
 
@@ -33,11 +34,9 @@ that completes a task. Last full audit: **13 Oct 2026**.
 | T6 | Grid-mode live tiles: S7's hideLive does not reach grid mode (no text matching in CSS); either accept + document or add engine-side marking for unmirrored wrappers | P3 | selectors + engine | Fail-closed decision recorded in S7 |
 | T7 | The matrix readability-rate gate (3%) is marginal against icon-only YouTube decorations: one creator-heart comment flipped `classic/watch/dark` (3.2%), gone on re-run. Either exclude icon-only/aria-hidden SVG samples from the rate or raise the gate's headroom | P3 | e2e harness owner | Repro: `node test/e2e/run.mjs --pro --mode dark --pages watch --themes classic --shots none` (not reproducible deterministically — it depends on which comments YouTube serves) |
 
-## Open — enhancements (spec'd, not started)
+## Open — enhancements (all spec'd enhancements complete)
 
-| ID | Task | Spec | Priority | Owner | First step |
-|---|---|---|---|---|---|
-| E7 | `Broadcast` theme candidate (live-first, high contrast, 16 px base) | S10 | P4 | skin | After S6 settles; must pass full theme gates |
+None (E1–E7 shipped).
 
 ## Recurring / every change
 
