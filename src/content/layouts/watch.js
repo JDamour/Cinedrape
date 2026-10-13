@@ -133,3 +133,96 @@ export function buildWatchLayoutCss(map, cfg) {
   if (mode === 'focus') return `${focusCss(map)}\n`;
   return '';
 }
+
+// ---- live watch presentation ------------------------------------------------------------------------------------------
+
+export const LIVE_WATCH_RE = /(?:\b(?:watching|waiting|spectateurs|mirando|espectadores|zuschauer|spettatori|assistindo|en directo|en vivo|en direct|live|dal vivo|ao vivo)\b|人が視聴中|ライブ配信中|시청\s*중|人正在(?:观看|觀看)|正在直播|зрител(?:ей|я)|прямо[йм]\s+эфир)/iu;
+
+/**
+ * Stylesheet for watch page live presentation under html[cd-watch-live].
+ * Restyles the info container / view count with a red accent and pulsing live dot.
+ * @param {object} map  selector map
+ * @param {{animations?:boolean, disabled?:string[]}} [cfg]
+ * @returns {string}
+ */
+export function buildWatchLiveCss(map, cfg) {
+  if (isFeatureDisabled(cfg, FEATURE)) return '';
+  const flexyTargets = inFlexy(map, 'viewCounts');
+  const filtered = flexyTargets.filter((t) => t.includes('watch-info-text') || t.includes('view-count') || t.includes('watch-metadata'));
+  const targets = filtered.length ? filtered : flexyTargets;
+  if (!targets.length) return '';
+  const S = `html[cd-theme][cd-page="watch"][${ATTR.watchLive}]:not([${ATTR.offPrefix}${FEATURE}]) ${FLEXY}:not([fullscreen])`;
+  const sel = targets.map((t) => `${S} ${t}`).join(',');
+  const out = [
+    '/* watch: live presentation. Viewer count accented with pulsing dot; player layout untouched. */',
+    `${sel}{color:#cc0000 !important;font-weight:600;display:inline-flex;align-items:center;gap:.4em}`,
+    `${sel}::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:#cc0000;flex-shrink:0}`,
+  ];
+  if (cfg && cfg.animations !== false) {
+    out.push(`${sel}::before{animation:cd-live-pulse 1.6s ease-in-out infinite}`);
+    out.push('@keyframes cd-live-pulse{0%,100%{transform:scale(1)}50%{transform:scale(.55)}}');
+  }
+  out.push(`@media (prefers-reduced-motion:reduce){\n${sel}::before{animation:none !important}\n}`);
+  return `${out.join('\n')}\n`;
+}
+
+/**
+ * Returns true when the watch page metadata indicates a live stream.
+ * @param {Document} doc
+ * @param {object} [selectors] createSelectors() instance
+ * @returns {boolean}
+ */
+export function isWatchLive(doc, selectors) {
+  if (!doc || typeof doc.querySelector !== 'function') return false;
+  const flexy = doc.querySelector('ytd-watch-flexy');
+  if (!flexy || flexy.hasAttribute('hidden')) return false;
+
+  let viewCountEls = [];
+  if (selectors && typeof selectors.findAll === 'function') {
+    try {
+      viewCountEls = selectors.findAll('viewCounts', flexy).filter((el) =>
+        el.closest('ytd-watch-info-text, ytd-watch-metadata, #info-container') || el.matches('ytd-video-view-count-renderer')
+      );
+    } catch { viewCountEls = []; }
+  }
+  if (!viewCountEls.length) {
+    viewCountEls = Array.from(flexy.querySelectorAll('ytd-watch-info-text #info-container #info > span:first-child, ytd-watch-info-text #view-count, ytd-video-view-count-renderer'));
+  }
+  for (const el of viewCountEls) {
+    const text = (el.textContent || '').trim();
+    if (text && LIVE_WATCH_RE.test(text)) return true;
+  }
+  const infoText = flexy.querySelector('ytd-watch-info-text');
+  if (infoText && LIVE_WATCH_RE.test(infoText.textContent || '')) return true;
+
+  return false;
+}
+
+/**
+ * Returns true when watch metadata has rendered (whether live or VOD).
+ * @param {Document} doc
+ * @param {object} [selectors] createSelectors() instance
+ * @returns {boolean}
+ */
+export function hasWatchMetadata(doc, selectors) {
+  if (!doc || typeof doc.querySelector !== 'function') return false;
+  const flexy = doc.querySelector('ytd-watch-flexy');
+  if (!flexy) return false;
+  let viewCountEls = [];
+  if (selectors && typeof selectors.findAll === 'function') {
+    try {
+      viewCountEls = selectors.findAll('viewCounts', flexy).filter((el) =>
+        el.closest('ytd-watch-info-text, ytd-watch-metadata, #info-container') || el.matches('ytd-video-view-count-renderer')
+      );
+    } catch { viewCountEls = []; }
+  }
+  if (!viewCountEls.length) {
+    viewCountEls = Array.from(flexy.querySelectorAll('ytd-watch-info-text #info-container #info > span:first-child, ytd-watch-info-text #view-count, ytd-video-view-count-renderer'));
+  }
+  for (const el of viewCountEls) {
+    if ((el.textContent || '').trim().length > 0) return true;
+  }
+  const infoText = flexy.querySelector('ytd-watch-info-text');
+  return !!infoText && (infoText.textContent || '').trim().length > 0;
+}
+

@@ -201,29 +201,30 @@ async function f3Rows(ctx) {
   const P = 'F3';
   await page.evaluate(() => window.scrollTo(0, 0));
   const geo = await page.evaluate(() => {
-    const t = document.querySelector('.cd-row-track');
+    const t = document.querySelector('.cd-row:not([cd-live]) .cd-row-track') || document.querySelector('.cd-row-track');
     if (!t) return null;
     t.scrollIntoView({ block: 'center' });
     return { sw: t.scrollWidth, cw: t.clientWidth, cards: t.querySelectorAll('.cd-card').length, rowVisible: getComputedStyle(document.querySelector('.cd-home')).getPropertyValue('--cd-row-visible') };
   });
   info(P, 'row-geometry', geo);
   if (!geo) { check(P, 'rows-present', false, null); return; }
-  const left = () => page.evaluate(() => document.querySelector('.cd-row-track').scrollLeft);
-  const center = await page.evaluate(() => { const r = document.querySelector('.cd-row-track').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + Math.min(r.height / 2, 120) }; });
+  const left = () => page.evaluate(() => (document.querySelector('.cd-row:not([cd-live]) .cd-row-track') || document.querySelector('.cd-row-track')).scrollLeft);
+  const center = await page.evaluate(() => { const r = (document.querySelector('.cd-row:not([cd-live]) .cd-row-track') || document.querySelector('.cd-row-track')).getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + Math.min(r.height / 2, 120) }; });
   // buttons
-  await page.evaluate(() => { document.querySelector('.cd-row-track').scrollLeft = 0; });
+  await page.evaluate(() => { (document.querySelector('.cd-row:not([cd-live]) .cd-row-track') || document.querySelector('.cd-row-track')).scrollLeft = 0; });
   await sleep(300);
-  const nextSel = '.cd-row:first-of-type .cd-row-next, .cd-row .cd-row-next';
+  const nextSel = '.cd-row:not([cd-live]) .cd-row-next, .cd-row .cd-row-next';
+  const prevSel = '.cd-row:not([cd-live]) .cd-row-prev, .cd-row .cd-row-prev';
   const l0 = await left();
   await page.click(nextSel);
   await sleep(900);
   const l1 = await left();
-  await page.click('.cd-row .cd-row-prev');
+  await page.click(prevSel);
   await sleep(900);
   const l2 = await left();
   check(P, 'row-buttons-scroll', l1 > l0 + 50 && l2 < l1 - 50, { start: l0, afterNext: l1, afterPrev: l2 });
   // wheel (horizontal delta and shift+wheel)
-  await page.evaluate(() => { document.querySelector('.cd-row-track').scrollLeft = 0; });
+  await page.evaluate(() => { (document.querySelector('.cd-row:not([cd-live]) .cd-row-track') || document.querySelector('.cd-row-track')).scrollLeft = 0; });
   await sleep(300);
   await page.mouse.move(center.x, center.y);
   await page.mouse.wheel({ deltaX: 400 });
@@ -237,7 +238,7 @@ async function f3Rows(ctx) {
   check(P, 'row-wheel-scrolls-horizontally', lw > 50, { afterHorizontalWheel: lw, afterShiftWheel: lw2 });
   info(P, 'row-shift-wheel', { before: lw, after: lw2 }, lw2 > lw ? 'shift+wheel scrolls the row' : 'shift+wheel does not move the row (the page scrolled instead)');
   // drag
-  await page.evaluate(() => { document.querySelector('.cd-row-track').scrollLeft = 0; window.__urlBefore = location.href; });
+  await page.evaluate(() => { (document.querySelector('.cd-row:not([cd-live]) .cd-row-track') || document.querySelector('.cd-row-track')).scrollLeft = 0; window.__urlBefore = location.href; });
   await sleep(300);
   await page.mouse.move(center.x + 200, center.y);
   await page.mouse.down();
@@ -248,11 +249,11 @@ async function f3Rows(ctx) {
   const urlSame = await page.evaluate(() => location.href === window.__urlBefore);
   check(P, 'row-drag-scrolls-without-opening-a-video', ld > 100 && urlSame, { scrollLeft: ld, urlUnchanged: urlSame });
   // keyboard
-  await page.evaluate(() => { const t = document.querySelector('.cd-row-track'); t.scrollLeft = 0; t.querySelector('.cd-card').focus(); });
+  await page.evaluate(() => { const t = document.querySelector('.cd-row:not([cd-live]) .cd-row-track') || document.querySelector('.cd-row-track'); t.scrollLeft = 0; t.querySelector('.cd-card').focus(); });
   await sleep(300);
   const act = () => page.evaluate(() => {
     const a = document.activeElement;
-    const t = document.querySelector('.cd-row-track');
+    const t = document.querySelector('.cd-row:not([cd-live]) .cd-row-track') || document.querySelector('.cd-row-track');
     const cards = Array.from(t.querySelectorAll('.cd-card'));
     const r = a.getBoundingClientRect(); const tr = t.getBoundingClientRect();
     const cs = getComputedStyle(a);
@@ -403,7 +404,7 @@ async function f3Density(ctx) {
   await ctx.set({ themeId: 'cinema', density: null });
   await until(page, () => document.querySelectorAll('.cd-card').length > 0, null, 5000);
   const rowsM = () => page.evaluate(() => {
-    const t = document.querySelector('.cd-row-track'); const tr = t.getBoundingClientRect();
+    const t = document.querySelector('.cd-row:not([cd-live]) .cd-row-track') || document.querySelector('.cd-row-track'); const tr = t.getBoundingClientRect();
     const cards = Array.from(t.querySelectorAll('.cd-card'));
     const full = cards.filter((c) => { const r = c.getBoundingClientRect(); return r.left >= tr.left - 1 && r.right <= tr.right + 1; });
     return { density: document.documentElement.getAttribute('cd-density'), rowVisibleVar: document.querySelector('.cd-home').style.getPropertyValue('--cd-row-visible'), cardW: Math.round(cards[0].getBoundingClientRect().width), fullyVisible: full.length, perSection: cards.length, sections: document.querySelectorAll('.cd-row').length, gap: getComputedStyle(t).columnGap };
@@ -606,7 +607,7 @@ function scrollRun([totalScreens, pxPerSec]) {
 }
 function rowScrollRun() {
   return new Promise((resolve) => {
-    const t = document.querySelector('.cd-row-track');
+    const t = document.querySelector('.cd-row:not([cd-live]) .cd-row-track') || document.querySelector('.cd-row-track');
     if (!t) { resolve({ deltas: [] }); return; }
     const max = t.scrollWidth - t.clientWidth;
     const deltas = []; let last = 0; let x = 0; let dir = 1; let travelled = 0;

@@ -145,13 +145,13 @@ const RENAMES = [
   { name: 'page manager: tag AND id renamed', kind: 'home', rename: ['ytd-page-manager', '#page-manager'], expect: [pair('theme', 'pageManager')] },
   { name: 'page manager: only the tag renamed, the #page-manager fallback keeps it alive', kind: 'home', rename: ['ytd-page-manager'], expect: [] },
   { name: 'page-subtype attribute renamed: the three features that need the home browse element, nothing else', kind: 'home', rename: ['[page-subtype]'],
-    expect: [pair('layout-home', 'homeBrowse'), pair('density', 'homeBrowse'), pair('calm-hideHomeRecs', 'homeBrowse')] },
+    expect: [pair('layout-home', 'homeBrowse', 'homeGrid', 'homeGridContents'), pair('density', 'homeBrowse', 'homeGrid', 'homeGridContents'), pair('calm-hideHomeRecs', 'homeBrowse')] },
   { name: 'same, with the real home tile shape', kind: 'home', opts: { tileStyle: 'home' }, rename: ['[page-subtype]'],
-    expect: [pair('layout-home', 'homeBrowse'), pair('density', 'homeBrowse'), pair('calm-hideHomeRecs', 'homeBrowse')] },
+    expect: [pair('layout-home', 'homeBrowse', 'homeGrid', 'homeGridContents'), pair('density', 'homeBrowse', 'homeGrid', 'homeGridContents'), pair('calm-hideHomeRecs', 'homeBrowse')] },
   { name: 'same, on the empty-state home page', kind: 'home', opts: { tiles: 0 }, rename: ['[page-subtype]'],
-    expect: [pair('layout-home', 'homeBrowse'), pair('density', 'homeBrowse'), pair('calm-hideHomeRecs', 'homeBrowse')] },
+    expect: [pair('layout-home', 'homeBrowse', 'homeGrid', 'homeGridContents'), pair('density', 'homeBrowse', 'homeGrid', 'homeGridContents'), pair('calm-hideHomeRecs', 'homeBrowse')] },
   { name: 'app AND page-subtype: four features, the healthy calm-hideShorts is left out', kind: 'home', rename: ['ytd-app', '[page-subtype]'],
-    expect: [pair('theme', 'app'), pair('layout-home', 'homeBrowse'), pair('density', 'homeBrowse'), pair('calm-hideHomeRecs', 'homeBrowse')] },
+    expect: [pair('theme', 'app'), pair('layout-home', 'homeBrowse', 'homeGrid', 'homeGridContents'), pair('density', 'homeBrowse', 'homeGrid', 'homeGridContents'), pair('calm-hideHomeRecs', 'homeBrowse')] },
   { name: 'guide: first selector renamed, the ytd-guide-renderer fallback still matches', kind: 'home', rename: ['tp-yt-app-drawer'], expect: [] },
   { name: 'guide: both selectors renamed', kind: 'home', rename: ['tp-yt-app-drawer', 'ytd-guide-renderer'], expect: [pair('calm-hideShorts', 'guide')] },
   { name: 'end screens: all three shapes renamed is NOT an alarm (the elements are legitimately absent on most healthy pages; the hide rule is CSS-only and fails safe)', kind: 'watch', rename: ['.ytp-ce-element', '.ytp-endscreen-content', '.ytp-ce-shadow'], expect: [] },
@@ -228,7 +228,7 @@ test('selectors without map() fall back to the map option; no map at all means n
   const p = page('home');
   const has = (role) => role === 'app';
   const withMap = createHealth({ doc: p.document, selectors: { has }, map: MAP });
-  assert.deepEqual(withMap.evaluate('home', ['theme', 'layout-home']), broken(pair('theme', 'pageManager'), pair('layout-home', 'homeBrowse')));
+  assert.deepEqual(withMap.evaluate('home', ['theme', 'layout-home']), broken(pair('theme', 'pageManager'), pair('layout-home', 'homeBrowse', 'homeGrid', 'homeGridContents')));
   const noMap = createHealth({ doc: p.document, selectors: { has } });
   assert.deepEqual(noMap.evaluate('home', FEATURES), OK);
   const weird = createHealth({ doc: p.document, selectors: { has, map: () => null }, map: { requires: { theme: 'app' }, pageRoles: { home: 5 } } });

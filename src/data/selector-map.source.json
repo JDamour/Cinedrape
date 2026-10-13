@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "mapVersion": "2026.10.12.2",
-  "issuedAt": "2026-10-12T00:00:00Z",
+  "mapVersion": "2026.10.13.3",
+  "issuedAt": "2026-10-13T00:00:00Z",
   "roles": {
     "app": [
       "ytd-app"
@@ -133,9 +133,9 @@
       "ytd-watch-info-text #view-count",
       "ytd-video-view-count-renderer",
       ".ytLockupViewModelHost:not(:has(yt-collection-thumbnail-view-model)):not(:has(.ytLockupMetadataViewModelAvatar)):not(:has(yt-decorated-avatar-view-model)) .ytContentMetadataViewModelMetadataRow:first-of-type:not(:has(.ytContentMetadataViewModelMetadataText ~ .ytContentMetadataViewModelMetadataText ~ .ytContentMetadataViewModelMetadataText)) > .ytContentMetadataViewModelMetadataText:not(.ytContentMetadataViewModelMetadataText ~ .ytContentMetadataViewModelMetadataText)",
-      ".ytLockupViewModelHost:not(:has(yt-collection-thumbnail-view-model)):has(.ytLockupMetadataViewModelAvatar) .ytContentMetadataViewModelMetadataRow:first-of-type:not(:has(~ .ytContentMetadataViewModelMetadataRow .ytContentMetadataViewModelMetadataText)):has(.ytContentMetadataViewModelMetadataText ~ .ytContentMetadataViewModelMetadataText):not(:has(.ytContentMetadataViewModelMetadataText ~ .ytContentMetadataViewModelMetadataText ~ .ytContentMetadataViewModelMetadataText)) > .ytContentMetadataViewModelMetadataText ~ .ytContentMetadataViewModelMetadataText",
-      ".ytLockupViewModelHost:not(:has(yt-collection-thumbnail-view-model)):has(.ytLockupMetadataViewModelAvatar) .ytContentMetadataViewModelMetadataRow:first-of-type:not(:has(~ .ytContentMetadataViewModelMetadataRow .ytContentMetadataViewModelMetadataText)):has(.ytContentMetadataViewModelMetadataText ~ .ytContentMetadataViewModelMetadataText ~ .ytContentMetadataViewModelMetadataText) > .ytContentMetadataViewModelMetadataText:has(~ .ytContentMetadataViewModelMetadataText):not(:has(~ .ytContentMetadataViewModelMetadataText ~ .ytContentMetadataViewModelMetadataText))",
-      ".ytLockupViewModelHost:not(:has(yt-collection-thumbnail-view-model)):has(.ytLockupMetadataViewModelAvatar) .ytContentMetadataViewModelMetadataRow:nth-of-type(2) > .ytContentMetadataViewModelMetadataText:not(.ytContentMetadataViewModelMetadataText ~ .ytContentMetadataViewModelMetadataText)",
+      ".ytLockupViewModelHost:not(:has(yt-collection-thumbnail-view-model)):has(.ytLockupMetadataViewModelAvatar, yt-decorated-avatar-view-model) .ytContentMetadataViewModelMetadataRow:first-of-type:not(:has(~ .ytContentMetadataViewModelMetadataRow .ytContentMetadataViewModelMetadataText)):has(.ytContentMetadataViewModelMetadataText ~ .ytContentMetadataViewModelMetadataText):not(:has(.ytContentMetadataViewModelMetadataText ~ .ytContentMetadataViewModelMetadataText ~ .ytContentMetadataViewModelMetadataText)) > .ytContentMetadataViewModelMetadataText ~ .ytContentMetadataViewModelMetadataText",
+      ".ytLockupViewModelHost:not(:has(yt-collection-thumbnail-view-model)):has(.ytLockupMetadataViewModelAvatar, yt-decorated-avatar-view-model) .ytContentMetadataViewModelMetadataRow:first-of-type:not(:has(~ .ytContentMetadataViewModelMetadataRow .ytContentMetadataViewModelMetadataText)):has(.ytContentMetadataViewModelMetadataText ~ .ytContentMetadataViewModelMetadataText ~ .ytContentMetadataViewModelMetadataText) > .ytContentMetadataViewModelMetadataText:has(~ .ytContentMetadataViewModelMetadataText):not(:has(~ .ytContentMetadataViewModelMetadataText ~ .ytContentMetadataViewModelMetadataText))",
+      ".ytLockupViewModelHost:not(:has(yt-collection-thumbnail-view-model)) .ytContentMetadataViewModelMetadataRow:nth-of-type(2) > .ytContentMetadataViewModelMetadataText:not(.ytContentMetadataViewModelMetadataText ~ .ytContentMetadataViewModelMetadataText)",
       ".ytLockupViewModelHost:not(:has(yt-collection-thumbnail-view-model)):not(:has(.ytLockupMetadataViewModelAvatar)):not(:has(yt-decorated-avatar-view-model)) .ytContentMetadataViewModelMetadataRow:first-of-type:not(:has(~ .ytContentMetadataViewModelMetadataRow .ytContentMetadataViewModelMetadataText)):has(.ytContentMetadataViewModelMetadataText ~ .ytContentMetadataViewModelMetadataText ~ .ytContentMetadataViewModelMetadataText) > .ytContentMetadataViewModelMetadataText:has(~ .ytContentMetadataViewModelMetadataText):not(:has(~ .ytContentMetadataViewModelMetadataText ~ .ytContentMetadataViewModelMetadataText))",
       "ytd-video-meta-block #metadata-line > span.inline-metadata-item:first-of-type"
     ],
@@ -306,7 +306,9 @@
       "pageManager"
     ],
     "layout-home": [
-      "homeBrowse"
+      "homeBrowse",
+      "homeGrid",
+      "homeGridContents"
     ],
     "layout-watch": [
       "watchFlexy",
@@ -316,7 +318,9 @@
       "watchSecondary"
     ],
     "density": [
-      "homeBrowse"
+      "homeBrowse",
+      "homeGrid",
+      "homeGridContents"
     ],
     "calm-hideShorts": [
       "guide"

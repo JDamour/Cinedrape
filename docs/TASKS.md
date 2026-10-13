@@ -14,14 +14,15 @@ that completes a task. Last full audit: **13 Oct 2026**.
 | D4 | Text floors: `.cd-card-meta` ≥ 12 px, live badge ≥ 11 px regardless of theme base size | S2 | home.test.js CSS assertions |
 | D5 | Last row never ends on a stub (splits only past `chunk + visible − 1`); one tab stop per row after every split | S3 | home.test.js density/late blocks |
 | D6 | Hero media `width:100%` — no empty band on short viewports | S3 | code comment + e2e cinema/home screenshot run |
-| D7 | Full audit re-run: `npm test` 1874/1874 · `build:strict` 72.0 KB gz (budget 150) · e2e:home 0 fail · e2e:popup 234 pass / 0 fail · theme matrix 35/36 visits clean, the 1 failed check non-reproducing YouTube content variance (T7) | — | `test/e2e/out/matrix/report.md`, `test/e2e/out/matrix-recheck/report.md` |
+| D8 | T1: Add `homeGrid` + `homeGridContents` to `requires["layout-home"]` and `requires.density` (mapVersion 2026.10.13.1) | — | unit 1874/1874; signed map; e2e:popup 234 PASS |
+| D9 | T2: Seed `calm: {}` in `ensureDefaults` (`service-worker.js`) so theme calm defaults apply until user sets one | — | service-worker.test.js (`SEEDED`); e2e:popup PASS |
+| D10 | E1: "Live now" dedicated row on home layout (≥ 2 live tiles, live dot, flex title, live tile exclusion from main feed rows) | S4 | unit 1886/1886; e2e:home 109 PASS; e2e:popup 234 PASS |
+| D11 | E2: Watch-page live presentation (html[cd-watch-live], watching-count restyle with pulsing dot, selector-map 2026.10.13.3) | S5 | unit 1890/1890; e2e:home 109 PASS; e2e:popup 234 PASS |
 
 ## Open — bugs / known gaps (from STATUS.md "Known gaps", still true)
 
 | ID | Task | Priority | Owner | Notes |
 |---|---|---|---|---|
-| T1 | Add `homeGrid` + `homeGridContents` to `requires["layout-home"]` and `requires.density` so grid-only renames raise the breakage notice | P1 | selectors | Map-data change only; bump `mapVersion`; re-run `npm run sign-map` + data tests |
-| T2 | Seed `calm: {}` in `DEFAULT_SETTINGS` (`service-worker.js`) so installed users get a theme's calm default (Minimal/Studio hideShorts) | P1 | background | One-line fix + service-worker test update |
 | T3 | Persist the health verdict beside the first-paint entry and reconcile on first settle, so a broken feature stops flashing on for ~6 s after every load | P2 | engine + health | Spec'd in STATUS known-gaps; needs a storage shape decision (see S6's attrs precedent) |
 | T4 | Replace dev keys before any store release (`npm run keys -- --force && npm run sign-map`); dev licences are test-only | P0 for release | owner | Blocking release, not development |
 | T5 | Write the privacy-policy page the store listing requires (ARCHITECTURE §7.9 items a–e) | P0 for release | owner | Must state localStorage footprint + future API_BASE token POST |
@@ -32,8 +33,6 @@ that completes a task. Last full audit: **13 Oct 2026**.
 
 | ID | Task | Spec | Priority | Owner | First step |
 |---|---|---|---|---|---|
-| E1 | "Live now" row on the home layout (≥ 2 live tiles → dedicated first row) | S4 | P1 | layouts | Membership-change check, then `home.test.js` cases |
-| E2 | Watch-page live presentation (`html[cd-watch-live]`, watching-count restyle) | S5 | P1 | layouts/watch + engine | Engine evidence + fixture test |
 | E3 | Text size control in the popup (0.9–1.5, free, first-paint attrs grow `cd-textscale`) | S6 | P2 | popup + tokens | `sanitizePaintAttrs` closed set, then tokens clamp |
 | E4 | `hideLive` calm toggle (Pro, mirrored wrappers only) | S7 | P3 | calm + constants + popup | Land T2 first; constants grow `calm-hideLive` |
 | E5 | Channel `/streams` tab live-verification pass + DOM facts recorded | S8 | P3 | selectors | Probe real tab, extend LIVE-VERIFICATION.md |

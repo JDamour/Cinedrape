@@ -297,6 +297,39 @@ describe('navigation', () => {
       assert.ok(env.document.querySelectorAll('.cd-hero, .cd-card').length >= 6);
     });
   });
+
+  test('on watch page, cd-watch-live is set for live streams and removed for VODs', async () => {
+    await withEnv('watch', { page: { tiles: 4 } }, async (env) => {
+      await env.engine.start();
+      assert.equal(env.attr('cd-page'), 'watch');
+      // Fixture is VOD (84k views) -> cd-watch-live is absent
+      assert.equal(env.attr('cd-watch-live'), null);
+
+      // Now update the view count text to live stream text
+      const viewSpan = env.document.querySelector('ytd-watch-info-text #info-container #info > span:first-child');
+      assert.ok(viewSpan);
+      viewSpan.textContent = '1,250 watching now';
+
+      // Trigger navigation / data event to re-evaluate
+      env.document.dispatchEvent(new env.window.CustomEvent('yt-page-data-updated', { bubbles: true }));
+      await waitFor(() => env.attr('cd-watch-live') !== null, 'cd-watch-live set');
+
+      // Now change back to VOD
+      viewSpan.textContent = '150k views';
+      env.document.dispatchEvent(new env.window.CustomEvent('yt-page-data-updated', { bubbles: true }));
+      await waitFor(() => env.attr('cd-watch-live') === null, 'cd-watch-live cleared');
+
+      // Now set live again
+      viewSpan.textContent = '2,000 watching';
+      env.document.dispatchEvent(new env.window.CustomEvent('yt-page-data-updated', { bubbles: true }));
+      await waitFor(() => env.attr('cd-watch-live') !== null, 'cd-watch-live set again');
+
+      // Navigate away to home -> cd-watch-live must be removed
+      navigateTo(env.page, 'home', { tiles: 8, tileStyle: 'home' });
+      await waitFor(() => env.attr('cd-page') === 'home', 'navigated to home');
+      assert.equal(env.attr('cd-watch-live'), null);
+    });
+  });
 });
 
 describe('health', () => {
@@ -311,7 +344,7 @@ describe('health', () => {
       assert.deepEqual(health.watches[0].slice(0, 2).map((x, i) => (i === 0 ? x : x.includes('layout-home'))), ['home', true]);
       const status = env.engine.getStatus();
       assert.equal(status.features['layout-home'], 'broken');
-      assert.deepEqual(status.missingRoles, ['homeBrowse']);
+      assert.deepEqual(status.missingRoles, ['homeBrowse', 'homeGrid', 'homeGridContents']);
       assert.equal(mounted(env), false);
       assert.equal(env.document.querySelectorAll('[cd-source]').length, 0);
       assert.ok(!env.style().textContent.includes('[cd-source]'), 'the layout rules are out of the stylesheet');

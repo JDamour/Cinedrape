@@ -628,6 +628,115 @@ for (const [label, style] of STYLES) {
       assert.equal(p.root().querySelector('.cd-live-badge'), null);
       assert.equal(p.root().querySelector('.cd-card-watching'), null);
       assert.equal(p.root().querySelector('.cd-hero-cta').textContent, 'Watch');
+      assert.equal(p.root().querySelector('#cd-row-live'), null);
+    });
+
+    test('rows: ≥ 2 live tiles creates #cd-row-live[cd-live] titled "Live now" preceding other rows', () => {
+      const p = setup({ tileStyle: style }, { home: 'rows' });
+      makeLive(p, 3);
+      p.layout.mount();
+      const root = p.root();
+      const liveRow = root.querySelector('#cd-row-live');
+      assert.ok(liveRow, 'live row exists');
+      assert.ok(liveRow.hasAttribute('cd-live'));
+      assert.equal(liveRow.getAttribute('role'), 'group');
+      const title = liveRow.querySelector('.cd-row-title');
+      assert.equal(title.textContent, 'Live now');
+      assert.ok(title.querySelector('.cd-live-dot'));
+      assert.equal(liveRow.getAttribute('aria-labelledby'), title.id);
+      assert.equal(root.querySelector('.cd-row'), liveRow, 'live row is the very first row');
+      const liveCards = [...liveRow.querySelectorAll('.cd-card')];
+      assert.equal(liveCards.length, 3);
+      assert.deepEqual(liveCards.map((c) => c.getAttribute('tabindex')), ['0', '-1', '-1'], 'roving tabindex inside live row');
+      const nextRow = liveRow.nextElementSibling;
+      assert.ok(nextRow && nextRow.classList.contains('cd-row'));
+      assert.equal(nextRow.hasAttribute('cd-live'), false);
+      assert.equal(nextRow.querySelector('.cd-row-title').textContent, 'Recommended');
+      assert.equal(nextRow.querySelectorAll('.cd-card .cd-live-badge').length, 0, 'non-live rows have no live cards');
+    });
+
+    test('hero-rows: ≥ 2 live tiles puts first in hero and remaining in #cd-row-live, followed by Recommended', () => {
+      const p = setup({ tileStyle: style }, { home: 'hero-rows' });
+      makeLive(p, 3);
+      p.layout.mount();
+      const root = p.root();
+      const hero = root.querySelector('.cd-hero');
+      assert.ok(hero, 'hero exists');
+      const liveRow = root.querySelector('#cd-row-live');
+      assert.ok(liveRow, 'live row exists');
+      const liveCards = [...liveRow.querySelectorAll('.cd-card')];
+      assert.equal(liveCards.length, 2, 'the other 2 live cards are in live row');
+      const nextRow = liveRow.nextElementSibling;
+      assert.ok(nextRow && nextRow.classList.contains('cd-row'));
+      assert.equal(nextRow.querySelector('.cd-row-title').textContent, 'Recommended');
+    });
+
+    test('feed with 1 live tile: produces no #cd-row-live in rows or hero-rows', () => {
+      const pRows = setup({ tileStyle: style }, { home: 'rows' });
+      makeLive(pRows, 1);
+      pRows.layout.mount();
+      assert.equal(pRows.root().querySelector('#cd-row-live'), null);
+      assert.equal(pRows.root().querySelector('.cd-row-title').textContent, 'Recommended');
+      assert.equal(pRows.root().querySelectorAll('.cd-card .cd-live-badge').length, 1);
+
+      const pHero = setup({ tileStyle: style }, { home: 'hero-rows' });
+      makeLive(pHero, 1);
+      pHero.layout.mount();
+      assert.equal(pHero.root().querySelector('#cd-row-live'), null);
+      assert.ok(pHero.root().querySelector('.cd-hero .cd-live-badge'));
+    });
+
+    test('live row participates in roving tabindex and arrow key navigation', () => {
+      const p = setup({ tileStyle: style }, { home: 'rows' });
+      p.scrolls = [];
+      p.window.HTMLElement.prototype.scrollIntoView = function scrollIntoView(o) { p.scrolls.push({ el: this, o }); };
+      makeLive(p, 3);
+      p.layout.mount();
+      const liveRow = p.root().querySelector('#cd-row-live');
+      const cards = [...liveRow.querySelectorAll('.cd-card')];
+      assert.equal(cards.length, 3);
+      cards[0].focus();
+      assert.equal(p.document.activeElement, cards[0]);
+      const ev = new p.window.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true });
+      cards[0].dispatchEvent(ev);
+      assert.equal(ev.defaultPrevented, true);
+      assert.equal(p.document.activeElement, cards[1]);
+      assert.deepEqual(cards.map((c) => c.getAttribute('tabindex')), ['-1', '0', '-1']);
+    });
+
+    test('live row prev/next buttons are wired to the track and scroll it', () => {
+      const p = setup({ tileStyle: style }, { home: 'rows' });
+      makeLive(p, 3);
+      p.layout.mount();
+      const liveRow = p.root().querySelector('#cd-row-live');
+      const track = liveRow.querySelector('.cd-row-track');
+      const prev = liveRow.querySelector('.cd-row-prev');
+      const next = liveRow.querySelector('.cd-row-next');
+      assert.equal(prev.getAttribute('aria-controls'), track.id);
+      assert.equal(next.getAttribute('aria-controls'), track.id);
+      const calls = [];
+      track.scrollBy = (o) => calls.push(o);
+      Object.defineProperty(track, 'clientWidth', { value: 600, configurable: true });
+      next.click();
+      prev.click();
+      assert.deepEqual(calls, [{ left: 540, behavior: 'smooth' }, { left: -540, behavior: 'smooth' }]);
+    });
+
+    test('sync() dynamically updates #cd-row-live when an existing stream goes live or offline', async () => {
+      const p = setup({ tiles: 8, tileStyle: style, ads: false }, { home: 'rows' });
+      p.layout.mount();
+      assert.equal(p.root().querySelector('#cd-row-live'), null);
+
+      const items = p.items();
+      items[0].querySelector('.ytBadgeShapeText').textContent = 'LIVE';
+      items[1].querySelector('.ytBadgeShapeText').textContent = 'LIVE';
+      items[0].appendChild(p.document.createTextNode(''));
+      await settle(p.window);
+
+      const liveRow = p.root().querySelector('#cd-row-live');
+      assert.ok(liveRow, '#cd-row-live created after existing tiles went live');
+      const liveCards = [...liveRow.querySelectorAll('.cd-card')];
+      assert.equal(liveCards.length, 2);
     });
   });
 }
@@ -637,10 +746,14 @@ describe('live CSS', () => {
     const css = buildHomeLayoutCss(MAP, { home: 'hero-rows', animations: true });
     assert.match(css, /@keyframes cd-live-pulse\{0%,100%\{transform:scale\(1\)\}50%\{transform:scale\(\.55\)\}\}/);
     assert.ok(css.includes('.cd-live-badge .cd-live-dot{'), 'the animation is scoped to the badge dot');
+    assert.ok(css.includes('.cd-row[cd-live] .cd-row-title{display:flex;align-items:center;gap:.45em}'), 'live row title style');
+    assert.ok(css.includes('.cd-row[cd-live] .cd-live-dot{animation:cd-live-pulse 1.6s ease-in-out infinite}'), 'live row dot pulse');
     assert.ok(css.includes('@media (prefers-reduced-motion:reduce)'), 'reduced-motion block present');
+    assert.ok(css.includes('.cd-row[cd-live] .cd-live-dot{animation:none}'), 'live row dot pulse disabled under reduced-motion');
     for (const banned of ['opacity', 'visibility', 'filter', 'clip', 'pointer-events', 'z-index', 'scale(0']) assert.ok(!css.includes(banned), banned);
     const off = buildHomeLayoutCss(MAP, { home: 'hero-rows', animations: false });
     assert.ok(!off.includes('cd-live-pulse'), 'no pulse keyframes when animations are off');
+    assert.ok(!off.includes('.cd-row[cd-live] .cd-live-dot{animation:cd-live-pulse'), 'no live row dot pulse animation when animations are off');
     assert.ok(off.includes('.cd-live-badge'), 'the badge itself is styled regardless');
     // The badge reads on both YouTube modes; the white-on-red pair is 5.9:1.
     assert.ok(css.includes('background:#cc0000'), 'fixed live red, not a theme variable that can fall below 4.5:1');

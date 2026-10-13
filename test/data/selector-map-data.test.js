@@ -199,7 +199,7 @@ test('file hygiene: valid JSON, LF, trailing newline, no duplicate keys, only th
   assert.deepEqual(Object.keys(MAP), TOP_KEYS, 'top-level keys, in contract order');
   assert.equal(MAP.schema, 1);
   assert.match(MAP.mapVersion, /^\d{4}\.\d{2}\.\d{2}\.\d+$/, 'mapVersion is date.counter so it is monotonic as a string-compare of fields');
-  assert.equal(MAP.mapVersion, '2026.10.12.2');
+  assert.equal(MAP.mapVersion, '2026.10.13.3');
   assert.match(MAP.issuedAt, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
   assert.equal(MAP.issuedAt.slice(0, 10), MAP.mapVersion.slice(0, 10).replaceAll('.', '-'), 'issuedAt day matches the mapVersion day');
   assert.ok(Number.isFinite(Date.parse(MAP.issuedAt)));
@@ -341,8 +341,6 @@ test('requires omits roles that are legitimately absent on healthy pages (the fa
     tileChannel: 'absent on the channel-grid tile shape (no channel row)',
     tileDuration: 'a premiere or upcoming stream has no duration badge',
     richItem: 'absent on an empty-state home and on every non-grid page',
-    homeGrid: 'logged-out empty-state home may render no grid (cannot be confirmed logged-out), the mount path reports failure instead',
-    homeGridContents: 'same as homeGrid',
     videoTile: 'absent on an empty-state page; tile mount failures are reported by the layout through health.record',
     shortsShelf: 'Shorts shelves come and go per result set',
     shortsTiles: 'same',
@@ -350,6 +348,11 @@ test('requires omits roles that are legitimately absent on healthy pages (the fa
     chips: 'three different renderers, absent on some channel tabs and on the watch page',
   };
   for (const [role, why] of Object.entries(reasons)) assert.ok(!required.has(role), `"${role}" must not be required: ${why}`);
+  // homeGrid and homeGridContents are intentionally required by layout-home and density: a grid rename must raise
+  // the breakage notice. The logged-out empty-state (no grid rendered) is the accepted trade-off; health.record
+  // already handles tile-mount failures for that path, and logged-in sessions always have the grid.
+  assert.ok(required.has('homeGrid'), 'homeGrid is required so grid renames raise the breakage notice');
+  assert.ok(required.has('homeGridContents'), 'homeGridContents is required for the same reason');
 });
 
 test('HONEST: every role a feature requires on a page matches that page\'s fixture (both home tile shapes, and with zero tiles)', () => {

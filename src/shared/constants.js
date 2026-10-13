@@ -1,7 +1,7 @@
 export const STYLE_ID = 'cinedrape-theme';
 export const CD_PREFIX = 'cd-';
 export const ATTR = {            // attributes set on <html> by the engine
-  theme: 'cd-theme', page: 'cd-page', home: 'cd-home', watch: 'cd-watch',
+  theme: 'cd-theme', page: 'cd-page', home: 'cd-home', watch: 'cd-watch', watchLive: 'cd-watch-live',
   density: 'cd-density', motion: 'cd-motion', calmPrefix: 'cd-calm-', offPrefix: 'cd-off-',
 };
 export const SRC_ATTR = 'cd-source';      // on a YouTube tile Cinedrape has mirrored into its own card

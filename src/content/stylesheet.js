@@ -5,7 +5,7 @@ import { validateTheme } from '../shared/theme-schema.js';
 import { buildSkinCss } from './skin.js';
 import { buildDensityCss } from './layouts/density.js';
 import { buildHomeLayoutCss } from './layouts/home.js';
-import { buildWatchLayoutCss } from './layouts/watch.js';
+import { buildWatchLayoutCss, buildWatchLiveCss } from './layouts/watch.js';
 import { buildCalmCss } from './calm.js';
 
 // id|mapVersion -> {css, ok, reason}. The css is compared too, so a different theme that reuses an id is judged again.
@@ -56,6 +56,7 @@ export function composeStylesheet({ map, cfg } = {}) {
   part('density', () => buildDensityCss(map, cfg));
   part('home layout', () => buildHomeLayoutCss(map, cfg));
   part('watch layout', () => buildWatchLayoutCss(map, cfg));
+  part('watch live', () => buildWatchLiveCss(map, cfg));
   part('calm', () => buildCalmCss(map, cfg));
   if (themeOn) {
     part('theme css', () => {

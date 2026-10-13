@@ -20,6 +20,7 @@ import { compareMapVersions, verifyEnvelope } from '../shared/signing.js';
 import { applyCalmAttributes } from './calm.js';
 import { createHealth } from './health.js';
 import { createHomeLayout } from './layouts/home.js';
+import { isWatchLive, hasWatchMetadata } from './layouts/watch.js';
 import { retireNotice, showNotice } from './notice.js';
 import { detectPageType, observeNavigation } from './page.js';
 import { createSelectors } from './selectors.js';
@@ -180,6 +181,7 @@ export function createEngine(deps = {}) {
     s.stopped = true;
     for (const off of s.cleanups.splice(0)) { try { off(); } catch { /* already detached */ } }
     stopMountWatch(s);
+    stopWatchLiveWatch(s);
     if (s.disposeWatch) { try { s.disposeWatch(); } catch { /* ignore */ } s.disposeWatch = null; }
     if (s.handle !== null && typeof win.cancelAnimationFrame === 'function') { try { win.cancelAnimationFrame(s.handle); } catch { /* ignore */ } }
     s.handle = null;
@@ -195,7 +197,7 @@ export function createEngine(deps = {}) {
     if (el) {
       for (const attr of Array.from(el.attributes)) {
         const name = attr.name;
-        if (name === ATTR.theme || name === ATTR.page || name === ATTR.home || name === ATTR.watch || name === ATTR.density
+        if (name === ATTR.theme || name === ATTR.page || name === ATTR.home || name === ATTR.watch || name === ATTR.watchLive || name === ATTR.density
           || name === ATTR.motion || name.startsWith(ATTR.calmPrefix) || name.startsWith(ATTR.offPrefix)) el.removeAttribute(name);
       }
     }
@@ -252,6 +254,7 @@ export function createEngine(deps = {}) {
     setAttr(ATTR.motion, cfg.animations ? 'on' : 'off');
     applyCalmAttributes(doc, cfg.calm, cfg.disabled);
     for (const feature of FEATURES) flagAttr(ATTR.offPrefix + feature, cfg.disabled.includes(feature));
+    syncWatchLive(s);
 
     if (css === '') {
       s.injector.clearFirstPaint();
@@ -319,6 +322,46 @@ export function createEngine(deps = {}) {
 
   function stopMountWatch(s) {
     if (s.mountObserver) { s.mountObserver.disconnect(); s.mountObserver = null; }
+  }
+
+  function stopWatchLiveWatch(s) {
+    if (s.watchLiveObserver) { s.watchLiveObserver.disconnect(); s.watchLiveObserver = null; }
+  }
+
+  function startWatchLiveWatch(s) {
+    const Observer = win.MutationObserver;
+    if (s.watchLiveObserver || !Observer || s.pageType !== 'watch') return;
+    const target = doc.querySelector('ytd-watch-flexy') || root();
+    if (!target) return;
+    s.watchLiveObserver = new Observer(() => {
+      if (st !== s || s.stopped || s.pageType !== 'watch') {
+        stopWatchLiveWatch(s);
+        return;
+      }
+      const live = isWatchLive(doc, s.selectors);
+      if (live) {
+        flagAttr(ATTR.watchLive, true);
+        stopWatchLiveWatch(s);
+      } else if (hasWatchMetadata(doc, s.selectors)) {
+        stopWatchLiveWatch(s);
+      }
+    });
+    s.watchLiveObserver.observe(target, { childList: true, subtree: true, characterData: true });
+  }
+
+  function syncWatchLive(s) {
+    if (s.pageType !== 'watch') {
+      stopWatchLiveWatch(s);
+      flagAttr(ATTR.watchLive, false);
+      return;
+    }
+    const isLive = isWatchLive(doc, s.selectors);
+    flagAttr(ATTR.watchLive, isLive);
+    if (!isLive && !hasWatchMetadata(doc, s.selectors)) {
+      startWatchLiveWatch(s);
+    } else {
+      stopWatchLiveWatch(s);
+    }
   }
 
   function layoutFailed(s, reason) {
@@ -525,7 +568,7 @@ export function createEngine(deps = {}) {
       bundledMap: null, map: null, selectors: null, health: null, layout: null,
       cfg: null, pageType: 'other', disabled: new Set(), missing: [], warnings: [],
       paintedKey: '', watchKey: '', navDirty: false, disposeWatch: null,
-      mountObserver: null, mountPending: false, notices: [], cleanups: [],
+      mountObserver: null, mountPending: false, watchLiveObserver: null, notices: [], cleanups: [],
       touched: new Set(), mapSeq: 0, ready: Promise.resolve(),
     };
   }

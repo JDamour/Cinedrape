@@ -247,7 +247,7 @@ position per shape), `playlistPanel` (the playlist lockup list), `masthead` skin
 export const STYLE_ID = 'cinedrape-theme';
 export const CD_PREFIX = 'cd-';
 export const ATTR = {            // attributes set on <html> by the engine
-  theme: 'cd-theme', page: 'cd-page', home: 'cd-home', watch: 'cd-watch',
+  theme: 'cd-theme', page: 'cd-page', home: 'cd-home', watch: 'cd-watch', watchLive: 'cd-watch-live',
   density: 'cd-density', motion: 'cd-motion', calmPrefix: 'cd-calm-', offPrefix: 'cd-off-',
 };
 export const SRC_ATTR = 'cd-source';      // on a YouTube tile Cinedrape has mirrored into its own card
@@ -298,7 +298,7 @@ Licence state: `{ plan:'free'|'pro', status:'none'|'active'|'grace'|'expired' }`
 
 ### 3.5 Page-level contract on `<html>`
 
-Engine sets attributes `cd-theme=<id>`, `cd-page`, `cd-home`, `cd-watch`, `cd-density`, `cd-motion=on|off`,
+Engine sets attributes `cd-theme=<id>`, `cd-page`, `cd-home`, `cd-watch`, `cd-watch-live` (present on live stream watch pages), `cd-density`, `cd-motion=on|off`,
 `cd-calm-<key>` (present = on), `cd-off-<feature>` (present = health-disabled).
 CSS variables written on `html[cd-theme]` (names fixed): `--cd-bg --cd-surface --cd-text --cd-muted --cd-accent
 --cd-accent-text --cd-border --cd-radius --cd-shadow --cd-space --cd-font-family --cd-font-size
@@ -310,8 +310,11 @@ A live tile (`extractTile`'s `isLive`: the bottom-overlay badge text is not a du
 `cd-live-badge` (fixed `#cc0000` pill, white text 5.9:1, decorative `cd-live-dot` that pulses via the `cd-live-pulse`
 `@keyframes` — transform only, never opacity) instead of the duration pill, marks its viewer count `cd-card-watching`
 (hidden by calm's hideViewCounts like `.cd-card-views`), and hero-rows prefers a live tile for the hero with a
-"Watch live" call to action. The pulse is emitted only when `cfg.animations !== false` and is disabled in the
-`prefers-reduced-motion` block.
+"Watch live" call to action. Dedicated `#cd-row-live` gathers live tiles at the top of the feed rows.
+On watch pages (`ytd-watch-flexy`), when the viewer count matches live watching patterns (`isWatchLive`), the engine sets
+`html[cd-watch-live]`. `buildWatchLiveCss` restyles the info container / view count with `#cc0000` accents and a decorative
+pulsing live dot (`::before` with `cd-live-pulse`), leaving the player completely untouched.
+The pulse is emitted only when `cfg.animations !== false` and is disabled in the `prefers-reduced-motion` block.
 
 ## 4. Module contracts
 
@@ -454,7 +457,8 @@ rows scroll with mouse (buttons, wheel/drag) and keyboard (←/→, Home/End, vi
 history/recs keep working); respects reduced motion; **mounts only after ≥1 card is built, and `unmount()` restores
 the original DOM exactly**.
 **content/layouts/watch.js** — `buildWatchLayoutCss(map, cfg) → string` (CSS only, `cinema` and `focus`; the player
-element is never moved or re-parented). **content/layouts/density.js** — `buildDensityCss(map, cfg)` (1 = compact … 5 = roomy;
+element is never moved or re-parented); `buildWatchLiveCss(map, cfg) → string` (live presentation under `html[cd-watch-live]`);
+`isWatchLive(doc, selectors) → boolean`. **content/layouts/density.js** — `buildDensityCss(map, cfg)` (1 = compact … 5 = roomy;
 sets `--cd-gap --cd-card-min --cd-row-gap`, and overrides `--ytd-rich-grid-items-per-row` with `!important` for the home grid).
 
 **content/calm.js** — `buildCalmCss(map, cfg) → string` (static CSS gated on `html[cd-calm-<key>]`, every hide rule via

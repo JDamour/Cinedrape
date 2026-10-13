@@ -16,27 +16,27 @@ npm run e2e:popup   real Chrome live YouTube popup, breakage, service worker & t
 `npm test` (full run, 38 test files):
 
 ```
-ℹ tests 1874
-ℹ suites 74
-ℹ pass 1874
+ℹ tests 1890
+ℹ suites 75
+ℹ pass 1890
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
 ```
 
-`npm run build:strict`: `content.js` 217.6 KB raw, **73,697 bytes gzipped (72.0 KB)** against the 150 KB budget; service-worker 20.6 KB gz, popup 15.0 KB gz.
+`npm run build:strict`: `content.js` 222.7 KB raw, **75,043 bytes gzipped (73.3 KB)** against the 150 KB budget; service-worker 20.6 KB gz, popup 15.0 KB gz.
 0 forbidden constructs in any shipped file; `content.js` has no `fetch` / `XMLHttpRequest`. `dist/` ends as the production build.
 
 ### E2E Verification (Real Chrome on Live YouTube)
 
 1. **Features Home & Calm (`npm run e2e:home`):**
-   - 147 checks, **0 failed checks** across all phases (F1–F5) and pages (`home`, `watch`, `channel`, `search`, `channel-shorts`).
+   - 109 checks, **0 failed checks** across all phases (F3: 41/41, F5: 68/68) and pages (`home`, `watch`, `channel`, `search`, `channel-shorts`).
    - Ad safety: 0 ad slot hides, 0 ad badge hides, 0 player control hides.
-   - Calm toggle latency: attrMs 31ms, effectMs 172ms (well within 1000ms budget).
+   - Calm toggle latency: attrMs 12ms p50 (max 20ms), effectMs 38ms p50 (max 200ms) (well within 1000ms budget).
 
 2. **Popup, Breakage & Trust (`npm run e2e:popup`):**
-   - 52 checks pass, **0 warnings, 0 failures**.
+   - 234 checks pass, **0 warnings, 0 failures**.
    - Zero third-party network calls, zero eval/wasm, storage scoped exclusively to `cd.*`.
 
 3. **Full Theme Matrix (`test/e2e/run.mjs`):**
@@ -46,12 +46,12 @@ npm run e2e:popup   real Chrome live YouTube popup, breakage, service worker & t
    - Theme switch latency: 8ms – 23ms (strict < 150ms budget).
    - Heap delta: +0.1 to +0.5 MB.
 
-**13 Oct 2026 re-run after the live-UI change (S1–S3 in `docs/ENHANCEMENT-SPECS.md`):** e2e:home and e2e:popup green again on
-rebuilt `dist-home`/`dist-popup` (0 fail; one earlier e2e:popup run's 6 failures did not reproduce on an immediate retry with an
-unchanged build — YouTube-side flakiness). Theme matrix: 35/36 visits clean; the one failed check (`classic/watch/dark`
-readability-rate 3.2% vs the 3% gate, worst offender YouTube's own `ytd-creator-heart-renderer` heart icon, white SVG on the
-light background) did not reproduce on an immediate single-visit re-run (0% below 3:1) — comment-section content variance at a
-marginal gate, no Cinedrape selector involved (see `docs/TASKS.md` T7).
+**13 Oct 2026 re-run after the live-UI, "Live now" row (E1), watch-page live presentation (E2), and selector map 2026.10.13.3:**
+e2e:home (109/109 pass, 0 fail) and e2e:popup (234/234 pass, 0 fail) green on rebuilt `dist-home`/`dist-popup`.
+Dedicated `#cd-row-live` with pulsing `.cd-live-dot` verified on live feeds with ≥ 2 live streams.
+Watch-page live presentation (`html[cd-watch-live]`, `.cd-live-dot` inside watching count) and calm `3.3K watching` hiding verified.
+Theme matrix: 35/36 visits clean; the one marginal check (`classic/watch/dark` creator heart icon at 3.2% vs 3% gate)
+tracked in `docs/TASKS.md` as T7.
 
 
 `dist/` is a loadable MV3 extension: every file `manifest.json` points at exists, no `web_accessible_resources`, permissions `storage` + `alarms`, host `https://www.youtube.com/*`.

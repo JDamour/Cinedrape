@@ -46,7 +46,7 @@ async function loadWatch(tag, source) {
 }
 
 const watch = await loadWatch('local', LOCAL_SELECTOR_MAP);
-const { buildWatchLayoutCss } = watch;
+const { buildWatchLayoutCss, buildWatchLiveCss, isWatchLive, hasWatchMetadata, LIVE_WATCH_RE } = watch;
 
 // ---- CSS reading helpers (independent of the code under test) ---------------------------------------------------------------------
 
@@ -459,9 +459,113 @@ describe('focus', () => {
   });
 });
 
-// ---- 4. differential against the real selector-map.js, when it exists -------------------------------------------------------------------
+// ---- 4. live watch presentation -------------------------------------------------------------------------------------------------------
+
+describe('live watch presentation', () => {
+  test('buildWatchLiveCss produces rules scoped under cd-watch-live and targets viewCounts', () => {
+    const css = buildWatchLiveCss(MAP, {});
+    assert.ok(css.length > 50);
+    assert.ok(css.includes('html[cd-theme][cd-page="watch"][cd-watch-live]:not([cd-off-layout-watch]) ytd-watch-flexy:not([fullscreen])'));
+    assert.ok(css.includes('#cc0000'));
+    assert.ok(css.includes('cd-live-pulse'));
+    assert.ok(css.includes('@keyframes cd-live-pulse'));
+    assert.ok(css.includes('prefers-reduced-motion:reduce'));
+
+    // Disabled when layout-watch is in disabled list
+    assert.equal(buildWatchLiveCss(MAP, { disabled: ['layout-watch'] }), '');
+
+    // Disabled when map has no viewCounts
+    const noViews = clone(MAP);
+    delete noViews.roles.viewCounts;
+    assert.equal(buildWatchLiveCss(noViews, {}), '');
+
+    // When animations: false, pulse animation and @keyframes are omitted
+    const noAnimCss = buildWatchLiveCss(MAP, { animations: false });
+    assert.ok(!noAnimCss.includes('@keyframes cd-live-pulse'));
+    assert.ok(!noAnimCss.includes('animation:cd-live-pulse'));
+    assert.ok(noAnimCss.includes('#cc0000'));
+
+    // The player is never touched
+    for (const banned of ['.ytp-', 'movie_player', 'ytd-player', '#player-container']) {
+      assert.ok(!css.includes(banned), banned);
+    }
+    assert.ok(!/(^|[^-\w])video($|[^-\w])/.test(css), 'video tag not targeted');
+  });
+
+  test('isWatchLive identifies live stream viewer count indicators and rejects VODs', () => {
+    assert.equal(isWatchLive(null), false);
+    assert.equal(isWatchLive({}), false);
+
+    const p = setup({ tiles: 4 });
+    const viewSpan = p.flexy.querySelector('ytd-watch-info-text #info-container #info > span:first-child');
+    assert.ok(viewSpan, 'viewSpan found in fixture');
+    // Default page has '84k views' (VOD)
+    assert.equal(isWatchLive(p.document), false);
+
+    // Live stream texts
+    const liveSamples = [
+      '591 watching',
+      '8,460 watching now',
+      '1.2K watching',
+      '25 watching right now',
+      '1,234 spectateurs',
+      '500 espectadores en directo',
+      '300 зрителей',
+      '150 waiting',
+      'Live stream started 20 minutes ago',
+    ];
+    for (const text of liveSamples) {
+      viewSpan.textContent = text;
+      assert.equal(isWatchLive(p.document), true, `Failed for text: "${text}"`);
+    }
+
+    // Non-live texts
+    const vodSamples = [
+      '1,234 views',
+      '84k views',
+      '1.2M views',
+      'Streamed 2 days ago',
+      'Premiered Sep 10, 2026',
+      'No views',
+    ];
+    for (const text of vodSamples) {
+      viewSpan.textContent = text;
+      assert.equal(isWatchLive(p.document), false, `Should be false for VOD text: "${text}"`);
+    }
+
+    // When flexy has hidden attribute, returns false
+    p.flexy.setAttribute('hidden', '');
+    viewSpan.textContent = '591 watching';
+    assert.equal(isWatchLive(p.document), false);
+    p.flexy.removeAttribute('hidden');
+  });
+
+  test('hasWatchMetadata returns true when view count or info text has rendered', () => {
+    assert.equal(hasWatchMetadata(null), false);
+    const p = setup({ tiles: 4 });
+    // Fixture already has '84k views', so metadata is present
+    assert.equal(hasWatchMetadata(p.document), true);
+
+    // Remove metadata elements
+    const infoText = p.flexy.querySelector('ytd-watch-info-text');
+    infoText.remove();
+    assert.equal(hasWatchMetadata(p.document), false);
+
+    const viewCountEl = p.document.createElement('ytd-video-view-count-renderer');
+    viewCountEl.textContent = '   ';
+    p.flexy.appendChild(viewCountEl);
+    assert.equal(hasWatchMetadata(p.document), false);
+
+    viewCountEl.textContent = '1,000 views';
+    assert.equal(hasWatchMetadata(p.document), true);
+  });
+});
+
+// ---- 5. differential against the real selector-map.js, when it exists -------------------------------------------------------------------
 
 test('when the real src/shared/selector-map.js exists, watch.js built on it produces the same CSS', { skip: !existsSync(REAL_SELECTOR_MAP) && 'src/shared/selector-map.js not written yet' }, async () => {
   const real = await loadWatch('real', null);
   for (const mode of ['cinema', 'focus', 'default']) assert.equal(real.buildWatchLayoutCss(MAP, { watch: mode }), buildWatchLayoutCss(MAP, { watch: mode }), mode);
+  assert.equal(real.buildWatchLiveCss(MAP, {}), buildWatchLiveCss(MAP, {}), 'live CSS matches');
 });
+

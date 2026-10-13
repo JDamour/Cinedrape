@@ -7,7 +7,7 @@ import { computeEffectiveConfig } from '../../src/shared/entitlements.js';
 import { buildSkinCss } from '../../src/content/skin.js';
 import { buildDensityCss } from '../../src/content/layouts/density.js';
 import { buildHomeLayoutCss } from '../../src/content/layouts/home.js';
-import { buildWatchLayoutCss } from '../../src/content/layouts/watch.js';
+import { buildWatchLayoutCss, buildWatchLiveCss } from '../../src/content/layouts/watch.js';
 import { buildCalmCss } from '../../src/content/calm.js';
 import { MAP, THEMES } from '../helpers/engine-env.js';
 
@@ -24,7 +24,7 @@ describe('composeStylesheet', () => {
     const expected = [
       buildTokenCss(cfg.theme, { accent: cfg.accent, animations: cfg.animations }, MAP),
       buildSkinCss(MAP, cfg), buildDensityCss(MAP, cfg), buildHomeLayoutCss(MAP, cfg),
-      buildWatchLayoutCss(MAP, cfg), buildCalmCss(MAP, cfg), cfg.theme.css,
+      buildWatchLayoutCss(MAP, cfg), buildWatchLiveCss(MAP, cfg), buildCalmCss(MAP, cfg), cfg.theme.css,
     ].map((s) => s.trim()).filter(Boolean).join('\n');
     assert.equal(css, expected);
     assert.deepEqual(warnings, []);

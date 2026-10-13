@@ -29,6 +29,7 @@ const FEATURE = 'layout-home';
 const MODES = Object.freeze(['rows', 'hero-rows']);
 const ROW_TITLE_FIRST = 'Recommended';
 const ROW_TITLE_NEXT = 'More to watch';
+const ROW_TITLE_LIVE = 'Live now';
 const HERO_CTA = 'Watch';
 const HERO_CTA_LIVE = 'Watch live';
 const ROW_WRAPPER = 'ytd-rich-grid-row';
@@ -133,9 +134,11 @@ export function buildHomeLayoutCss(map, cfg) {
   rule('.cd-live-badge .cd-live-dot', 'background:#fff');
   rule('.cd-card-watching', 'display:inline-flex;align-items:center;gap:.4em;font-weight:600');
   rule('.cd-hero-live', 'margin:0 0 .6em');
+  rule('.cd-row[cd-live] .cd-row-title', 'display:flex;align-items:center;gap:.45em');
   // The dot pulses unless the user turned animations off (the reduced-motion media block below is the second gate).
   if (cfg.animations !== false) {
     rule('.cd-live-badge .cd-live-dot', 'animation:cd-live-pulse 1.6s ease-in-out infinite');
+    rule('.cd-row[cd-live] .cd-live-dot', 'animation:cd-live-pulse 1.6s ease-in-out infinite');
     out.push('@keyframes cd-live-pulse{0%,100%{transform:scale(1)}50%{transform:scale(.55)}}');
   }
   rule('.cd-card-body', `display:block;padding:calc(${sp} * 1.5) ${sp}`);
@@ -147,7 +150,7 @@ export function buildHomeLayoutCss(map, cfg) {
   rule('.cd-card:hover .cd-card-title', 'text-decoration:underline');
 
   out.push(`@media (max-width:700px){\n${S} .cd-hero-body{position:static;max-width:none;border-radius:0}\n${S} .cd-hero-title{font-size:1.5em}\n}`);
-  out.push(`@media (prefers-reduced-motion:reduce){\n${S} .cd-card-thumb{transition:none}\n${S} .cd-live-badge .cd-live-dot{animation:none}\n}`);
+  out.push(`@media (prefers-reduced-motion:reduce){\n${S} .cd-card-thumb{transition:none}\n${S} .cd-live-badge .cd-live-dot{animation:none}\n${S} .cd-row[cd-live] .cd-live-dot{animation:none}\n}`);
   return `${out.join('\n')}\n`;
 }
 
@@ -187,7 +190,7 @@ export function createHomeLayout(deps) {
   const state = {
     mounted: false, root: null, contents: null, host: null,
     entries: [], byKey: new Map(), byWrapper: new Map(), byLink: new WeakMap(),
-    mode: '', density: 0, uid: 0,
+    mode: '', density: 0, uid: 0, liveRowKeys: '',
     mo: null, thumbMo: null, ro: null, raf: 0, navRaf: 0,
     drag: null, justDragged: false,
   };
@@ -225,8 +228,12 @@ export function createHomeLayout(deps) {
   function metaNode(tag, cls, tile) {
     const node = el(tag, cls);
     for (const p of metaParts(tile)) {
-      const span = el('span', p.cls, p.text);
-      if (p.cls === 'cd-card-watching') span.insertBefore(liveDot(), span.firstChild);
+      const span = el('span', p.cls);
+      if (p.cls === 'cd-card-watching') {
+        span.append(liveDot(), el('span', null, p.text));
+      } else {
+        span.textContent = p.text;
+      }
       node.append(span);
     }
     return node;
@@ -295,6 +302,33 @@ export function createHomeLayout(deps) {
     return wrap;
   }
 
+  function buildLiveRow() {
+    state.uid += 1;
+    const id = state.uid;
+    const row = el('div', 'cd-row');
+    row.id = 'cd-row-live';
+    row.setAttribute('cd-live', '');
+    row.setAttribute('role', 'group');
+    const title = el('h2', 'cd-row-title');
+    title.id = `cd-row-title-${id}`;
+    row.setAttribute('aria-labelledby', title.id);
+    title.append(liveDot(), doc.createTextNode(ROW_TITLE_LIVE));
+    const track = el('div', 'cd-row-track');
+    track.id = `cd-row-track-${id}`;
+    const nav = (cls, label, glyph) => {
+      const b = el('button', cls);
+      b.setAttribute('type', 'button');
+      b.setAttribute('aria-label', label);
+      b.setAttribute('aria-controls', track.id);
+      const g = el('span', null, glyph);
+      g.setAttribute('aria-hidden', 'true');
+      b.append(g);
+      return b;
+    };
+    row.append(title, nav('cd-row-prev', 'Scroll left', GLYPH_PREV), nav('cd-row-next', 'Scroll right', GLYPH_NEXT), track);
+    return { row, track };
+  }
+
   function buildRow(index) {
     state.uid += 1;
     const id = state.uid;
@@ -339,9 +373,9 @@ export function createHomeLayout(deps) {
    */
   function place(rootEl, entries, chunk, visible) {
     let added = 0;
-    let rows = rootEl.querySelectorAll('.cd-row').length;
+    let rows = rootEl.querySelectorAll('.cd-row:not([cd-live])').length;
     const lastEl = rootEl.lastElementChild;
-    let track = lastEl && lastEl.classList.contains('cd-row') ? lastEl.querySelector('.cd-row-track') : null;
+    let track = lastEl && lastEl.classList.contains('cd-row') && !lastEl.hasAttribute('cd-live') ? lastEl.querySelector('.cd-row-track') : null;
     const limit = chunk + Math.max(1, visible || 1) - 1;
     for (const entry of entries) {
       if (!track) {
@@ -368,6 +402,24 @@ export function createHomeLayout(deps) {
     return added;
   }
 
+  const liveKey = (list) => list.map((e) => e.tile.videoId || e.key).join(',');
+
+  function getLiveRowEntries(entries, mode) {
+    if (!MODES.includes(mode)) return [];
+    const live = entries.filter((e) => !e.dup);
+    const allLive = live.filter((e) => e.tile.isLive);
+    if (allLive.length < 2) return [];
+    let rest = live;
+    if (mode === 'hero-rows') {
+      const usable = (e) => e.tile.thumb || VIDEO_ID.test(e.tile.videoId || '');
+      const hero = live.find((e) => e.tile.isLive && usable(e))
+        || live.find((e) => e.tile.thumb)
+        || live.find((e) => VIDEO_ID.test(e.tile.videoId));
+      if (hero) rest = live.filter((e) => e !== hero);
+    }
+    return rest.filter((e) => e.tile.isLive);
+  }
+
   /** Fills `rootEl` for `entries`. The nodes stay detached; entries get their card / hero node. Returns the cards built. */
   function buildContent(rootEl, entries, mode, density) {
     for (const e of entries) { e.card = null; e.heroEl = null; }
@@ -387,7 +439,22 @@ export function createHomeLayout(deps) {
         heroBuilt = 1;
       }
     }
-    return place(rootEl, rest, rowChunkForDensity(density), rowVisibleForDensity(density)) + heroBuilt;
+    const liveRowEntries = getLiveRowEntries(entries, mode);
+    state.liveRowKeys = liveKey(liveRowEntries);
+    let liveCardsBuilt = 0;
+    if (liveRowEntries.length > 0) {
+      const lr = buildLiveRow();
+      rootEl.append(lr.row);
+      for (const entry of liveRowEntries) {
+        const card = buildCard(entry);
+        card.setAttribute('tabindex', cardsOf(lr.track).length === 0 ? '0' : '-1');
+        lr.track.append(card);
+        liveCardsBuilt += 1;
+      }
+      ensureTabStop(lr.track);
+    }
+    const nonLiveRest = liveRowEntries.length > 0 ? rest.filter((e) => !e.tile.isLive) : rest;
+    return liveCardsBuilt + place(rootEl, nonLiveRest, rowChunkForDensity(density), rowVisibleForDensity(density)) + heroBuilt;
   }
 
   function newRoot(mode, density) {
@@ -718,6 +785,7 @@ export function createHomeLayout(deps) {
     state.host = null;
     state.mode = '';
     state.density = 0;
+    state.liveRowKeys = '';
     state.drag = null;
     state.justDragged = false;
     resetData();
@@ -817,10 +885,21 @@ export function createHomeLayout(deps) {
         // A recycled wrapper is read again below; if it no longer holds a video it goes back to YouTube's grid.
         if (!gone) { try { if (e.wrapper.getAttribute(SRC_ATTR) === token) e.wrapper.removeAttribute(SRC_ATTR); } catch { /* wrapper gone */ } }
       }
+      let existingLiveChanged = false;
+      for (const e of state.entries) {
+        if (e.wrapper && !e.dup) {
+          const tile = extractTile(e.wrapper, selectors);
+          if (tile && tile.isLive !== e.tile.isLive) {
+            e.tile.isLive = tile.isLive;
+            e.tile.duration = tile.duration;
+            existingLiveChanged = true;
+          }
+        }
+      }
       const fresh = scan(state.contents);
       register(fresh);
       refreshThumbs();
-      if (removed) {
+      if (removed || existingLiveChanged) {
         markSources(fresh);
         // Re-read wrappers are appended by register(); cards must follow the order of the grid, and "the repeat" is whichever tile
         // comes later: a wrapper that was a repeat of a tile that has since been recycled now owns the card (seen on the real feed).
