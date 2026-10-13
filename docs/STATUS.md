@@ -16,16 +16,16 @@ npm run e2e:popup   real Chrome live YouTube popup, breakage, service worker & t
 `npm test` (full run, 38 test files):
 
 ```
-ℹ tests 1890
+ℹ tests 1895
 ℹ suites 75
-ℹ pass 1890
+ℹ pass 1895
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
 ```
 
-`npm run build:strict`: `content.js` 222.7 KB raw, **75,043 bytes gzipped (73.3 KB)** against the 150 KB budget; service-worker 20.6 KB gz, popup 15.0 KB gz.
+`npm run build:strict`: `content.js` 223.4 KB raw, **75,275 bytes gzipped (73.5 KB)** against the 150 KB budget; service-worker 20.7 KB gz, popup 15.2 KB gz.
 0 forbidden constructs in any shipped file; `content.js` has no `fetch` / `XMLHttpRequest`. `dist/` ends as the production build.
 
 ### E2E Verification (Real Chrome on Live YouTube)
@@ -46,10 +46,11 @@ npm run e2e:popup   real Chrome live YouTube popup, breakage, service worker & t
    - Theme switch latency: 8ms – 23ms (strict < 150ms budget).
    - Heap delta: +0.1 to +0.5 MB.
 
-**13 Oct 2026 re-run after the live-UI, "Live now" row (E1), watch-page live presentation (E2), and selector map 2026.10.13.3:**
+**13 Oct 2026 re-run after live-UI (E1/E2), text-size control (E3), and selector map 2026.10.13.3:**
 e2e:home (109/109 pass, 0 fail) and e2e:popup (234/234 pass, 0 fail) green on rebuilt `dist-home`/`dist-popup`.
 Dedicated `#cd-row-live` with pulsing `.cd-live-dot` verified on live feeds with ≥ 2 live streams.
 Watch-page live presentation (`html[cd-watch-live]`, `.cd-live-dot` inside watching count) and calm `3.3K watching` hiding verified.
+Free text-size control (5-step segmented control 0.9–1.5, `--cd-font-size` scaling clamped to [11, 22], `cd-textscale` in first-paint cache) verified in unit and e2e:popup AX audits.
 Theme matrix: 35/36 visits clean; the one marginal check (`classic/watch/dark` creator heart icon at 3.2% vs 3% gate)
 tracked in `docs/TASKS.md` as T7.
 

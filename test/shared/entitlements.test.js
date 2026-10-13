@@ -161,12 +161,22 @@ test('free user with default settings: Cinema, its own layout and density, nothi
   const cfg = compute(DEFAULT_SETTINGS, FREE);
   assert.equal(cfg.theme, THEMES[0]);
   assert.deepEqual(cfg, {
-    theme: THEMES[0], accent: null, animations: true, home: 'hero-rows', watch: 'cinema', density: 3,
+    theme: THEMES[0], accent: null, animations: true, textScale: null, home: 'hero-rows', watch: 'cinema', density: 3,
     calm: { hideShorts: false, hideHomeRecs: false, hideComments: false, hideEndScreens: false, hideViewCounts: false },
     disabled: [], pro: false,
   });
-  assert.deepEqual(Object.keys(cfg), ['theme', 'accent', 'animations', 'home', 'watch', 'density', 'calm', 'disabled', 'pro']);
+  assert.deepEqual(Object.keys(cfg), ['theme', 'accent', 'animations', 'textScale', 'home', 'watch', 'density', 'calm', 'disabled', 'pro']);
   assert.deepEqual(Object.keys(cfg.calm), CALM_KEYS);
+});
+
+test('textScale: allowed numbers are preserved for free and Pro users; invalid values fall back to null', () => {
+  for (const scale of [0.9, 1, 1.1, 1.25, 1.5]) {
+    assert.equal(compute({ ...DEFAULT_SETTINGS, textScale: scale }, FREE).textScale, scale);
+    assert.equal(compute({ ...DEFAULT_SETTINGS, textScale: scale }, PRO).textScale, scale);
+  }
+  for (const bad of [null, undefined, 0, 2, -1, '1.1', {}, [], NaN]) {
+    assert.equal(compute({ ...DEFAULT_SETTINGS, textScale: bad }, FREE).textScale, null);
+  }
 });
 
 test('every stored theme x licence state resolves to an allowed theme, and settings are untouched', () => {

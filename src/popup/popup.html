@@ -87,6 +87,18 @@
         <button type="button" id="density-unlock" class="btn btn-secondary btn-small" hidden>Activate Pro</button>
       </fieldset>
 
+      <fieldset id="textscale-group" class="group">
+        <legend id="textscale-legend">Text size</legend>
+        <div id="textscale" class="segmented" role="radiogroup" aria-labelledby="textscale-legend" aria-describedby="textscale-note">
+          <button type="button" class="segmented-btn" role="radio" aria-checked="false" data-scale="0.9" tabindex="-1">90%</button>
+          <button type="button" class="segmented-btn" role="radio" aria-checked="true" data-scale="1" tabindex="0">100%</button>
+          <button type="button" class="segmented-btn" role="radio" aria-checked="false" data-scale="1.1" tabindex="-1">110%</button>
+          <button type="button" class="segmented-btn" role="radio" aria-checked="false" data-scale="1.25" tabindex="-1">125%</button>
+          <button type="button" class="segmented-btn" role="radio" aria-checked="false" data-scale="1.5" tabindex="-1">150%</button>
+        </div>
+        <p id="textscale-note" class="hint">Adjusts text size across Cinedrape and YouTube.</p>
+      </fieldset>
+
       <div class="row" id="animations-row">
         <div class="row-text">
           <span id="animations-label" class="row-title">Animations</span>

@@ -2,7 +2,7 @@ export const STYLE_ID = 'cinedrape-theme';
 export const CD_PREFIX = 'cd-';
 export const ATTR = {            // attributes set on <html> by the engine
   theme: 'cd-theme', page: 'cd-page', home: 'cd-home', watch: 'cd-watch', watchLive: 'cd-watch-live',
-  density: 'cd-density', motion: 'cd-motion', calmPrefix: 'cd-calm-', offPrefix: 'cd-off-',
+  density: 'cd-density', motion: 'cd-motion', textScale: 'cd-textscale', calmPrefix: 'cd-calm-', offPrefix: 'cd-off-',
 };
 export const SRC_ATTR = 'cd-source';      // on a YouTube tile Cinedrape has mirrored into its own card
 export const PAGE_TYPES = ['home','watch','search','channel','subscriptions','history','playlist','shorts','other'];
@@ -17,7 +17,7 @@ export const LAYOUT_WATCH = ['default','cinema','focus'];
 export const STORAGE_KEYS = { settings:'cd.settings', licence:'cd.licence', selectorMap:'cd.selectorMap',
   health:'cd.health', telemetry:'cd.telemetry', firstPaint:'cd.firstPaint' };
 export const DEFAULT_SETTINGS = { schema:1, themeId:'cinema', accent:null, density:null, animations:true,
-  calm:{ hideShorts:false, hideHomeRecs:false, hideComments:false, hideEndScreens:false, hideViewCounts:false },
+  textScale:null, calm:{ hideShorts:false, hideHomeRecs:false, hideComments:false, hideEndScreens:false, hideViewCounts:false },
   telemetryOptIn:false };
 export const LIMITS = { cssMaxBytes:20480, contentMaxChars:100, offlineGraceMs:30*864e5,
   licenceRecheckMs:7*864e5, mapRefreshMs:6*36e5, maxBrowsersPerLicence:3 };

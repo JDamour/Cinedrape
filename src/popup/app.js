@@ -53,6 +53,7 @@ export function createPopup({ doc, chrome, themes = [], now = Date.now, requestT
     accentHelp: byId('accent-help'), accentError: byId('accent-error'), accentWarning: byId('accent-warning'),
     density: byId('density'), densityValue: byId('density-value'), densityPro: byId('density-pro'), densityNote: byId('density-note'),
     densityUnlock: byId('density-unlock'), densityReset: byId('density-reset'),
+    textScale: byId('textscale'),
     animations: byId('animations'),
     calmList: byId('calm-list'),
     proState: byId('pro-state'), proStateIcon: byId('pro-state-icon'), proStateText: byId('pro-state-text'), proDetail: byId('pro-detail'),
@@ -265,6 +266,15 @@ export function createPopup({ doc, chrome, themes = [], now = Date.now, requestT
     }
   }
 
+  function syncTextScale() {
+    const current = view.textScale.value;
+    for (const btn of radios(els.textScale)) {
+      const scale = Number(btn.dataset.scale);
+      btn.setAttribute('aria-checked', String(scale === current));
+    }
+    setRovingTabStop(els.textScale);
+  }
+
   function syncAnimations() {
     makeSwitchState(els.animations, { on: view.animations, locked: false });
   }
@@ -307,6 +317,7 @@ export function createPopup({ doc, chrome, themes = [], now = Date.now, requestT
     syncThemes();
     syncAccent();
     syncDensity();
+    syncTextScale();
     syncAnimations();
     syncCalm();
     syncLicence();
@@ -574,6 +585,13 @@ export function createPopup({ doc, chrome, themes = [], now = Date.now, requestT
       els.density.focus();
     });
     listen(els.densityUnlock, 'click', goToActivate);
+
+    const chooseScale = (btn) => commit({ textScale: Number(btn.dataset.scale) });
+    listen(els.textScale, 'click', (event) => {
+      const btn = event.target.closest('[role="radio"]');
+      if (btn && els.textScale.contains(btn)) chooseScale(btn);
+    });
+    listen(els.textScale, 'keydown', onRadioKeydown(els.textScale, chooseScale));
 
     listen(els.animations, 'click', () => {
       if (els.animations.getAttribute('aria-disabled') === 'true') return;

@@ -689,6 +689,32 @@ describe('first paint', () => {
     });
   });
 
+  test('textScale: cd-textscale attribute flows from settings to html, into paintAttrs, and applies from firstPaint cache', async () => {
+    await withEnv('home', { page: HOME, stored: { settings: { themeId: 'cinema', textScale: 1.25 } } }, async (env) => {
+      await env.engine.start();
+      assert.equal(env.attr('cd-textscale'), '1.25');
+      const fp = JSON.parse(env.window.localStorage.getItem(FIRST_PAINT_LS_KEY));
+      assert.equal(fp.attrs['cd-textscale'], '1.25');
+    });
+
+    // When textScale is null/unset, cd-textscale is not set on html
+    await withEnv('home', { page: HOME, stored: { settings: { themeId: 'cinema', textScale: null } } }, async (env) => {
+      await env.engine.start();
+      assert.equal(env.attr('cd-textscale'), null);
+      const fp = JSON.parse(env.window.localStorage.getItem(FIRST_PAINT_LS_KEY));
+      assert.equal(fp.attrs['cd-textscale'], undefined);
+    });
+
+    // Applied from firstPaint cache at boot
+    const entry = (attrs) => JSON.stringify({ v: 1, key: 'cinema:feedbeef', css: 'html[cd-theme] { font-size: 17.5px }', attrs });
+    await withEnv('home', { page: HOME }, async (env) => {
+      env.window.localStorage.setItem(FIRST_PAINT_LS_KEY, entry({ 'cd-home': 'hero-rows', 'cd-watch': 'cinema', 'cd-density': '3', 'cd-motion': 'on', 'cd-textscale': '1.25' }));
+      const started = env.engine.start();
+      assert.equal(env.attr('cd-textscale'), '1.25');
+      await started;
+    });
+  });
+
   test('a stale cache (another theme) is replaced by the real state and the cache is rewritten', async () => {
     await withEnv('home', { page: HOME, stored: { settings: { themeId: 'classic' } } }, async (env) => {
       env.window.localStorage.setItem(FIRST_PAINT_LS_KEY, JSON.stringify({ v: 1, key: 'minimal:deadbeef', css: 'html[cd-theme] body { color: red }' }));

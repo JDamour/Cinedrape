@@ -178,6 +178,9 @@ export function deriveTokens(theme, user, map) {
   const radius = Math.round(num(own(shape, 'radius'), 12, 0, 32));
   const spacing = Math.round(num(own(shape, 'spacing'), 3, 1, 5));
   const baseSize = num(own(type, 'baseSize'), 14, 12, 20); // the schema's own range
+  const userScale = own(user, 'textScale');
+  const scale = typeof userScale === 'number' && Number.isFinite(userScale) && userScale > 0 ? userScale : 1;
+  const scaledSize = clamp(baseSize * scale, 11, 22);
   const weight = Math.round(num(own(type, 'headingWeight'), 700, 100, 900));
   const motion = own(user, 'animations') === false ? 0 : MOTION_MS;
 
@@ -201,8 +204,8 @@ export function deriveTokens(theme, user, map) {
     '--cd-shadow': shadowFor(own(shape, 'shadow') === true, dark),
     '--cd-space': `${SPACING_PX[spacing - 1]}px`,
     '--cd-font-family': fontStack(own(type, 'family')),
-    '--cd-font-size': `${fmt(baseSize)}px`,
-    '--cd-font-scale': fmt(baseSize / 14),
+    '--cd-font-size': `${fmt(scaledSize)}px`,
+    '--cd-font-scale': fmt(scaledSize / 14),
     '--cd-heading-weight': String(weight),
     '--cd-duration': `${motion}ms`,
     'color-scheme': dark ? 'dark' : 'light',

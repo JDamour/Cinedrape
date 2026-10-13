@@ -302,6 +302,43 @@ button { cursor: pointer; }
 .density-readout { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-top: 4px; font-weight: 600; }
 #density-unlock { margin-top: 8px; }
 
+/* ---- text size segmented control ---- */
+
+.segmented {
+  display: flex;
+  background: var(--surface);
+  border: 1px solid var(--control-line);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+}
+.segmented-btn {
+  flex: 1;
+  padding: 6px 0;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background var(--duration, 120ms) ease, color var(--duration, 120ms) ease;
+}
+.segmented-btn:hover {
+  color: var(--text);
+}
+.segmented-btn[aria-checked="true"] {
+  background: var(--bg);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+.segmented-btn:focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: -1px;
+}
+
 /* ---- rows and switches ---- */
 
 .row {
@@ -456,7 +493,7 @@ button { cursor: pointer; }
 }
 
 @media (forced-colors: active) {
-  .theme-card[aria-checked="true"], .swatch[aria-checked="true"] { outline: 2px solid Highlight; }
+  .theme-card[aria-checked="true"], .swatch[aria-checked="true"], .segmented-btn[aria-checked="true"] { outline: 2px solid Highlight; }
   .switch[aria-checked="true"] .switch-track { background: Highlight; }
   .switch[aria-checked="true"] .switch-thumb { background: HighlightText; }
   .logo-bg { fill: CanvasText; }

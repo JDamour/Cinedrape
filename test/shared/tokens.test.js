@@ -216,6 +216,46 @@ describe('deriveTokens: the --cd-* variables', () => {
     assert.equal(d({}, { headingWeight: NaN })['--cd-heading-weight'], '700');
   });
 
+  test('textScale multiplies baseSize, clamps into [11, 22], and defaults to 1 for null or junk', () => {
+    // Cinema default baseSize is 14
+    assert.equal(deriveTokens(byId.cinema, { textScale: 1 }, MAP)['--cd-font-size'], '14px');
+    assert.equal(deriveTokens(byId.cinema, { textScale: 1 }, MAP)['--cd-font-scale'], '1');
+    assert.equal(deriveTokens(byId.cinema, { textScale: null }, MAP)['--cd-font-size'], '14px');
+    assert.equal(deriveTokens(byId.cinema, { textScale: undefined }, MAP)['--cd-font-size'], '14px');
+    assert.equal(deriveTokens(byId.cinema, {}, MAP)['--cd-font-size'], '14px');
+
+    // Discrete scales
+    assert.equal(deriveTokens(byId.cinema, { textScale: 0.9 }, MAP)['--cd-font-size'], '12.6px');
+    assert.equal(deriveTokens(byId.cinema, { textScale: 0.9 }, MAP)['--cd-font-scale'], '0.9');
+    assert.equal(deriveTokens(byId.cinema, { textScale: 1.1 }, MAP)['--cd-font-size'], '15.4px');
+    assert.equal(deriveTokens(byId.cinema, { textScale: 1.1 }, MAP)['--cd-font-scale'], '1.1');
+    assert.equal(deriveTokens(byId.cinema, { textScale: 1.25 }, MAP)['--cd-font-size'], '17.5px');
+    assert.equal(deriveTokens(byId.cinema, { textScale: 1.25 }, MAP)['--cd-font-scale'], '1.25');
+    assert.equal(deriveTokens(byId.cinema, { textScale: 1.5 }, MAP)['--cd-font-size'], '21px');
+    assert.equal(deriveTokens(byId.cinema, { textScale: 1.5 }, MAP)['--cd-font-scale'], '1.5');
+
+    // Clamping to [11, 22]
+    // Extreme large: baseSize 20 * 1.5 = 30 -> clamped to 22px
+    const bigTheme = withTokens('cinema', { type: { baseSize: 20 } });
+    assert.equal(deriveTokens(bigTheme, { textScale: 1.5 }, MAP)['--cd-font-size'], '22px');
+    assert.equal(deriveTokens(bigTheme, { textScale: 1.5 }, MAP)['--cd-font-scale'], '1.57');
+
+    // Extreme small: baseSize 12 * 0.9 = 10.8 -> clamped to 11px
+    const smallTheme = withTokens('cinema', { type: { baseSize: 12 } });
+    assert.equal(deriveTokens(smallTheme, { textScale: 0.9 }, MAP)['--cd-font-size'], '11px');
+    assert.equal(deriveTokens(smallTheme, { textScale: 0.9 }, MAP)['--cd-font-scale'], '0.79');
+
+    // Junk scales default to 1 (unscaled)
+    for (const bad of [0, -1, NaN, Infinity, '1.5', {}, [], true, false]) {
+      assert.equal(deriveTokens(byId.cinema, { textScale: bad }, MAP)['--cd-font-size'], '14px', `junk textScale ${String(bad)}`);
+    }
+
+    // buildTokenCss emits the scaled size
+    const css = buildTokenCss(byId.cinema, { textScale: 1.25 }, MAP);
+    assert.match(css, /--cd-font-size:17\.5px/);
+    assert.match(css, /--cd-font-scale:1\.25/);
+  });
+
   test('shadow is none unless the theme asks for it, and is dark or light to suit the background', () => {
     assert.equal(deriveTokens(withTokens('cinema', { shape: { shadow: false } }), {}, MAP)['--cd-shadow'], 'none');
     for (const bad of [1, 'true', null, undefined]) {

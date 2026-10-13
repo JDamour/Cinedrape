@@ -248,7 +248,7 @@ export const STYLE_ID = 'cinedrape-theme';
 export const CD_PREFIX = 'cd-';
 export const ATTR = {            // attributes set on <html> by the engine
   theme: 'cd-theme', page: 'cd-page', home: 'cd-home', watch: 'cd-watch', watchLive: 'cd-watch-live',
-  density: 'cd-density', motion: 'cd-motion', calmPrefix: 'cd-calm-', offPrefix: 'cd-off-',
+  density: 'cd-density', motion: 'cd-motion', textScale: 'cd-textscale', calmPrefix: 'cd-calm-', offPrefix: 'cd-off-',
 };
 export const SRC_ATTR = 'cd-source';      // on a YouTube tile Cinedrape has mirrored into its own card
 export const PAGE_TYPES = ['home','watch','search','channel','subscriptions','history','playlist','shorts','other'];
@@ -263,7 +263,7 @@ export const LAYOUT_WATCH = ['default','cinema','focus'];
 export const STORAGE_KEYS = { settings:'cd.settings', licence:'cd.licence', selectorMap:'cd.selectorMap',
   health:'cd.health', telemetry:'cd.telemetry', firstPaint:'cd.firstPaint' };
 export const DEFAULT_SETTINGS = { schema:1, themeId:'cinema', accent:null, density:null, animations:true,
-  calm:{ hideShorts:false, hideHomeRecs:false, hideComments:false, hideEndScreens:false, hideViewCounts:false },
+  textScale:null, calm:{ hideShorts:false, hideHomeRecs:false, hideComments:false, hideEndScreens:false, hideViewCounts:false },
   telemetryOptIn:false };
 export const LIMITS = { cssMaxBytes:20480, contentMaxChars:100, offlineGraceMs:30*864e5,
   licenceRecheckMs:7*864e5, mapRefreshMs:6*36e5, maxBrowsersPerLicence:3 };
@@ -285,6 +285,7 @@ export const FIRST_PAINT_LS_KEY = 'cd:v1:firstPaint';   // localStorage key used
   theme: NormalizedTheme,                // already tier-checked: if the stored theme is Pro and the user is free → fall back to 'cinema'
   accent: '#rrggbb' | null,
   animations: boolean,                   // also forced false when prefers-reduced-motion (engine decides)
+  textScale: 0.9 | 1 | 1.1 | 1.25 | 1.5 | null, // free accessibility scale (null = theme default 1)
   home: 'grid'|'rows'|'hero-rows',
   watch: 'default'|'cinema'|'focus',
   density: 1|2|3|4|5,                    // settings.density ?? theme.layout.density; free users get the theme's own value
@@ -299,7 +300,7 @@ Licence state: `{ plan:'free'|'pro', status:'none'|'active'|'grace'|'expired' }`
 ### 3.5 Page-level contract on `<html>`
 
 Engine sets attributes `cd-theme=<id>`, `cd-page`, `cd-home`, `cd-watch`, `cd-watch-live` (present on live stream watch pages), `cd-density`, `cd-motion=on|off`,
-`cd-calm-<key>` (present = on), `cd-off-<feature>` (present = health-disabled).
+`cd-textscale` (present when textScale is set: 0.9, 1, 1.1, 1.25, 1.5), `cd-calm-<key>` (present = on), `cd-off-<feature>` (present = health-disabled).
 CSS variables written on `html[cd-theme]` (names fixed): `--cd-bg --cd-surface --cd-text --cd-muted --cd-accent
 --cd-accent-text --cd-border --cd-radius --cd-shadow --cd-space --cd-font-family --cd-font-size
 --cd-heading-weight --cd-gap --cd-card-min --cd-row-gap --cd-duration`.

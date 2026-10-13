@@ -45,6 +45,7 @@ export function normalizeSettings(raw) {
   if (raw.accent === null || typeof raw.accent === 'string') out.accent = raw.accent;
   if (raw.density === null || (Number.isInteger(raw.density) && raw.density >= 1 && raw.density <= 5)) out.density = raw.density;
   if (typeof raw.animations === 'boolean') out.animations = raw.animations;
+  if (raw.textScale === null || (typeof raw.textScale === 'number' && [0.9, 1, 1.1, 1.25, 1.5].includes(raw.textScale))) out.textScale = raw.textScale;
   if (typeof raw.telemetryOptIn === 'boolean') out.telemetryOptIn = raw.telemetryOptIn;
   if (isPlain(raw.calm)) for (const key of CALM_KEYS) if (typeof raw.calm[key] === 'boolean') out.calm[key] = raw.calm[key];
   return out;
@@ -56,6 +57,7 @@ function paintAttrs(cfg) {
   const attrs = {
     [ATTR.home]: cfg.home, [ATTR.watch]: cfg.watch, [ATTR.density]: String(cfg.density), [ATTR.motion]: cfg.animations ? 'on' : 'off',
   };
+  if (cfg.textScale !== null && cfg.textScale !== undefined) attrs[ATTR.textScale] = String(cfg.textScale);
   for (const key of CALM_KEYS) if (cfg.calm[key] === true && !cfg.disabled.includes(`calm-${key}`)) attrs[(ATTR.calmPrefix + key).toLowerCase()] = '';
   return attrs;
 }
@@ -198,7 +200,7 @@ export function createEngine(deps = {}) {
       for (const attr of Array.from(el.attributes)) {
         const name = attr.name;
         if (name === ATTR.theme || name === ATTR.page || name === ATTR.home || name === ATTR.watch || name === ATTR.watchLive || name === ATTR.density
-          || name === ATTR.motion || name.startsWith(ATTR.calmPrefix) || name.startsWith(ATTR.offPrefix)) el.removeAttribute(name);
+          || name === ATTR.motion || name === ATTR.textScale || name.startsWith(ATTR.calmPrefix) || name.startsWith(ATTR.offPrefix)) el.removeAttribute(name);
       }
     }
   }
@@ -252,6 +254,8 @@ export function createEngine(deps = {}) {
     setAttr(ATTR.watch, cfg.watch);
     setAttr(ATTR.density, String(cfg.density));
     setAttr(ATTR.motion, cfg.animations ? 'on' : 'off');
+    if (cfg.textScale !== null && cfg.textScale !== undefined) setAttr(ATTR.textScale, String(cfg.textScale));
+    else { const el = root(); if (el) el.removeAttribute(ATTR.textScale); }
     applyCalmAttributes(doc, cfg.calm, cfg.disabled);
     for (const feature of FEATURES) flagAttr(ATTR.offPrefix + feature, cfg.disabled.includes(feature));
     syncWatchLive(s);

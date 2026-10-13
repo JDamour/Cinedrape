@@ -7,7 +7,7 @@ import {
 import { contrastRatio } from '../../src/shared/contrast.js';
 import {
   ACCENT_SWATCHES, CALM_COPY, DENSITY_LABELS, FEATURE_LABELS, LICENCE_COPY, PAGE_LABELS,
-  accentWarning, activationErrorCopy, checkEntitlement, deriveView, licenceFromRecord, licenceKey, lockedCopy, mergeSettings,
+  accentWarning, activationErrorCopy, checkEntitlement, deriveView, isTextScale, licenceFromRecord, licenceKey, lockedCopy, mergeSettings,
   normalizeToken, parseActivateResponse, parseHex, parseLicence, safeCssColor, sanitizePatch, statusCopy,
   strictHex, summarizeStatus, usableThemes, withDefaults,
 } from '../../src/popup/model.js';
@@ -50,6 +50,12 @@ test('sanitizePatch accepts every valid setting and normalises the accent', () =
   assert.deepEqual(sanitizePatch({ density: 5 }), { ok: true, patch: { density: 5 } });
   assert.deepEqual(sanitizePatch({ density: null }), { ok: true, patch: { density: null } });
   assert.deepEqual(sanitizePatch({ animations: false }), { ok: true, patch: { animations: false } });
+  assert.deepEqual(sanitizePatch({ textScale: 0.9 }), { ok: true, patch: { textScale: 0.9 } });
+  assert.deepEqual(sanitizePatch({ textScale: 1 }), { ok: true, patch: { textScale: 1 } });
+  assert.deepEqual(sanitizePatch({ textScale: 1.1 }), { ok: true, patch: { textScale: 1.1 } });
+  assert.deepEqual(sanitizePatch({ textScale: 1.25 }), { ok: true, patch: { textScale: 1.25 } });
+  assert.deepEqual(sanitizePatch({ textScale: 1.5 }), { ok: true, patch: { textScale: 1.5 } });
+  assert.deepEqual(sanitizePatch({ textScale: null }), { ok: true, patch: { textScale: null } });
   assert.deepEqual(sanitizePatch({ calm: { hideShorts: true } }), { ok: true, patch: { calm: { hideShorts: true } } });
   for (const id of ALL_THEME_IDS) assert.equal(sanitizePatch({ themeId: id }).ok, true);
 });
@@ -61,6 +67,7 @@ test('sanitizePatch rejects invalid values and unknown keys', () => {
     { accent: 'red' }, { accent: '#fff' }, { accent: '#12345' }, { accent: 'e8b04a' }, { accent: '#e8b04a; x:y' }, { accent: 12 },
     { density: 0 }, { density: 6 }, { density: -1 }, { density: 2.5 }, { density: '3' }, { density: NaN }, { density: Infinity }, { density: true },
     { animations: 'true' }, { animations: 1 }, { animations: null }, { animations: undefined },
+    { textScale: 0.8 }, { textScale: 2 }, { textScale: -1 }, { textScale: '1' }, { textScale: NaN }, { textScale: Infinity }, { textScale: true },
     { calm: { hideEverything: true } }, { calm: { hideShorts: 'yes' } }, { calm: { __proto__x: true } }, { calm: [] }, { calm: null }, { calm: 'hideShorts' },
     { schema: 2 }, { telemetryOptIn: true }, { constructor: 1 }, { __proto__: { themeId: 'cinema' }, nope: 1 },
     {}, null, undefined, 'themeId', 5, [],
@@ -163,6 +170,22 @@ test('view: density is the theme default until Pro sets one', () => {
   assert.equal(view({ themeId: 'classic', density: 5 }, PRO).density.value, 5);
   assert.equal(view({ themeId: 'classic', density: 5 }, PRO).density.label, DENSITY_LABELS[4]);
   assert.equal(view({ themeId: 'classic' }, FREE).density.locked, true);
+});
+
+test('view: textScale is 1 (not custom) by default, and reflects stored valid scale', () => {
+  const def = view(undefined, FREE);
+  assert.equal(def.textScale.value, 1);
+  assert.equal(def.textScale.custom, false);
+
+  for (const s of [0.9, 1, 1.1, 1.25, 1.5]) {
+    const v = view({ textScale: s }, FREE);
+    assert.equal(v.textScale.value, s);
+    assert.equal(v.textScale.custom, true);
+  }
+
+  const bad = view({ textScale: 2.5 }, FREE);
+  assert.equal(bad.textScale.value, 1);
+  assert.equal(bad.textScale.custom, false);
 });
 
 test('view: the calm keys are the five contract keys; exactly the non-free ones lock for free users', () => {

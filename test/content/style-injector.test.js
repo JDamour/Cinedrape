@@ -246,10 +246,11 @@ describe('first-paint cache', () => {
   });
 
   test('sanitizePaintAttrs: every allowed value of every attribute passes, and nothing inherited or prototype-shaped does', () => {
-    for (const [name, values] of Object.entries({ 'cd-home': ['grid', 'rows', 'hero-rows'], 'cd-watch': ['default', 'cinema', 'focus'], 'cd-density': ['1', '2', '3', '4', '5'], 'cd-motion': ['on', 'off'] })) {
+    for (const [name, values] of Object.entries({ 'cd-home': ['grid', 'rows', 'hero-rows'], 'cd-watch': ['default', 'cinema', 'focus'], 'cd-density': ['1', '2', '3', '4', '5'], 'cd-motion': ['on', 'off'], 'cd-textscale': ['0.9', '1', '1.1', '1.25', '1.5'] })) {
       for (const v of values) assert.deepEqual(sanitizePaintAttrs({ [name]: v }), { [name]: v });
     }
     for (const key of ['hideshorts', 'hidehomerecs', 'hidecomments', 'hideendscreens', 'hideviewcounts']) assert.deepEqual(sanitizePaintAttrs({ [`cd-calm-${key}`]: '' }), { [`cd-calm-${key}`]: '' });
+    for (const bad of ['0.8', '2', 'foo', 1, null]) assert.equal(sanitizePaintAttrs({ 'cd-textscale': bad }), null);
     assert.equal(sanitizePaintAttrs({ constructor: 'x' }), null);
     assert.equal(sanitizePaintAttrs(JSON.parse('{"__proto__": {"cd-home": "grid"}}')), null);
     assert.equal(sanitizePaintAttrs(undefined), null);

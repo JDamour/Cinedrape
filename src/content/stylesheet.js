@@ -51,7 +51,7 @@ export function composeStylesheet({ map, cfg } = {}) {
   };
 
   const themeOn = !!theme && !isDisabled(cfg, 'theme');
-  if (themeOn) part('tokens', () => buildTokenCss(theme, { accent: cfg.accent, animations: cfg.animations }, map));
+  if (themeOn) part('tokens', () => buildTokenCss(theme, { accent: cfg.accent, animations: cfg.animations, textScale: cfg.textScale }, map));
   part('skin', () => buildSkinCss(map, cfg));
   part('density', () => buildDensityCss(map, cfg));
   part('home layout', () => buildHomeLayoutCss(map, cfg));

@@ -465,7 +465,7 @@ async function keyboardAndAx(ctx, pop, yt, P, mode) {
   const radios = ctl.filter((n) => n.role === 'radio');
   const switches = ctl.filter((n) => n.role === 'switch');
   const slider = ctl.find((n) => n.role === 'slider');
-  check(P, `${mode}: AX radios expose checked state`, radios.length === 14 && radios.every((n) => typeof n.checked === 'boolean' || n.checked === 'mixed'), radios.map((n) => `${n.name}=${n.checked}`).join('; ').slice(0, 300));
+  check(P, `${mode}: AX radios expose checked state`, radios.length === 19 && radios.every((n) => typeof n.checked === 'boolean' || n.checked === 'mixed'), radios.map((n) => `${n.name}=${n.checked}`).join('; ').slice(0, 300));
   check(P, `${mode}: AX switches expose checked state (6)`, switches.length === 6 && switches.every((n) => typeof n.checked === 'boolean'), switches.map((n) => `${n.name}=${n.checked}${n.disabled ? ' disabled' : ''}`).join('; ').slice(0, 400));
   const lockedAx = ctl.filter((n) => n.disabled);
   check(P, `${mode}: locked controls are exposed as disabled`, mode === 'free' ? lockedAx.filter((n) => n.role === 'radio').length === 3 && lockedAx.filter((n) => n.role === 'switch').length === 3 : lockedAx.filter((n) => ['radio', 'switch', 'slider'].includes(n.role)).length === 0, lockedAx.map((n) => `${n.role}:${n.name}`).join('; ').slice(0, 300));
@@ -1016,7 +1016,7 @@ async function phaseTrust(ctx, S) {
   metric('cookies in the profile (domain|name)', cookies);
   // value of the first-paint key: css only, no identifiers
   const fpv = await yt.evaluate(() => { try { const v = JSON.parse(localStorage.getItem('cd:v1:firstPaint')); return { keys: Object.keys(v), key: v.key, attrNames: Object.keys(v.attrs || {}), cssBytes: (v.css || '').length, hasUrlOrImport: /@import|url\(\s*['"]?https?:/i.test(v.css || ''), hasLicenceOrEmail: /@|licen|token|eyJ/i.test((v.css || '').replace(/@media|@supports|@keyframes|@container|@layer|@property/g, '')) }; } catch (e) { return { error: String(e) }; } });
-  check(P, 'first-paint cache value is css + key + the cd-* attribute set only (no token, no identity)', fpv.keys && JSON.stringify(fpv.keys) === JSON.stringify(['v', 'key', 'css', 'attrs']) && fpv.attrNames.every((n) => /^cd-(home|watch|density|motion|calm-[a-z]+)$/.test(n)) && !fpv.hasUrlOrImport && !fpv.hasLicenceOrEmail, fpv);
+  check(P, 'first-paint cache value is css + key + the cd-* attribute set only (no token, no identity)', fpv.keys && JSON.stringify(fpv.keys) === JSON.stringify(['v', 'key', 'css', 'attrs']) && fpv.attrNames.every((n) => /^cd-(home|watch|density|motion|textscale|calm-[a-z]+)$/.test(n)) && !fpv.hasUrlOrImport && !fpv.hasLicenceOrEmail, fpv);
   metric('page storage keys that look like Cinedrape', cdKeys);
 
   // control profile: nothing but YouTube's own keys without the extension

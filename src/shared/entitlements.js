@@ -110,12 +110,15 @@ export function computeEffectiveConfig(input) {
 
   const accentColour = parseColor(own(settings, 'accent'));
   const animations = own(settings, 'animations');
+  const rawScale = own(settings, 'textScale');
+  const textScale = typeof rawScale === 'number' && [0.9, 1, 1.1, 1.25, 1.5].includes(rawScale) ? rawScale : null;
   const off = Array.isArray(disabled) ? disabled.filter((f) => FEATURES.includes(f)) : [];
 
   return {
     theme,
     accent: accentColour && accentColour.a === 1 ? toHex(accentColour) : null,
     animations: typeof animations === 'boolean' ? animations : DEFAULT_SETTINGS.animations,
+    textScale,
     home: pickEnum(own(layout, 'home'), LAYOUT_HOME),
     watch: pickEnum(own(layout, 'watch'), LAYOUT_WATCH),
     density: pro && override !== null ? override : themeDensity,

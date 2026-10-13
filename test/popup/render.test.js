@@ -415,11 +415,11 @@ for (const [name, opts] of STATES) {
       // Groups: every fieldset has a legend; every radio sits in a radiogroup with exactly one tab stop.
       for (const fs of doc.querySelectorAll('fieldset')) assert.ok(fs.querySelector(':scope > legend'), `fieldset #${fs.id} needs a legend`);
       const groups = [...doc.querySelectorAll('[role="radiogroup"]')];
-      assert.equal(groups.length, 2);
+      assert.equal(groups.length, 3);
       for (const group of groups) {
         assert.ok(accessibleName(group), 'radiogroup is named');
         const radios = [...group.querySelectorAll('[role="radio"]')];
-        assert.ok(radios.length >= 6);
+        assert.ok(radios.length >= 5);
         assert.equal(radios.filter((r) => r.tabIndex === 0).length, 1, 'one tab stop per group');
         for (const r of radios) assert.ok(['true', 'false'].includes(r.getAttribute('aria-checked')));
       }
@@ -465,6 +465,26 @@ test('named controls read as people would expect', async () => {
 test('the Calm card says ads and sponsorship labels are never hidden', async () => {
   const t = await mount();
   try { assert.match(text(t.$('calm-note')), /Ads and sponsorship labels are never hidden/); } finally { t.close(); }
+});
+
+test('text size: five steps in segmented control, 100% selected by default, clicking a step writes setting', async () => {
+  const t = await mount({ licence: FREE });
+  try {
+    const group = t.$('textscale');
+    assert.equal(group.getAttribute('role'), 'radiogroup');
+    assert.equal(accessibleName(group), 'Text size');
+    const buttons = [...group.querySelectorAll('[role="radio"]')];
+    assert.deepEqual(buttons.map((b) => b.dataset.scale), ['0.9', '1', '1.1', '1.25', '1.5']);
+    assert.deepEqual(buttons.map((b) => b.textContent.trim()), ['90%', '100%', '110%', '125%', '150%']);
+    assert.deepEqual(buttons.map((b) => b.getAttribute('aria-checked')), ['false', 'true', 'false', 'false', 'false']);
+    assert.deepEqual(buttons.map((b) => b.tabIndex), [-1, 0, -1, -1, -1]);
+
+    // Click 125%
+    t.click(buttons[3]);
+    await t.settle();
+    assert.equal(buttons[3].getAttribute('aria-checked'), 'true');
+    assert.equal((await t.stored()).textScale, 1.25);
+  } finally { t.close(); }
 });
 
 test('rendering is read-only: opening the popup never writes to storage', async () => {

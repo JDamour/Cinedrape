@@ -28,6 +28,7 @@ const ATTR_VALUES = new Map([
   [ATTR.watch, new Set(LAYOUT_WATCH)],
   [ATTR.density, new Set(['1', '2', '3', '4', '5'])],
   [ATTR.motion, new Set(['on', 'off'])],
+  [ATTR.textScale, new Set(['0.9', '1', '1.1', '1.25', '1.5'])],
 ]);
 for (const key of CALM_KEYS) ATTR_VALUES.set((ATTR.calmPrefix + key).toLowerCase(), new Set(['']));
 

@@ -80,6 +80,8 @@ export function strictHex(input) {
 }
 
 export const isDensity = (n) => Number.isInteger(n) && n >= 1 && n <= 5;
+export const TEXT_SCALES = Object.freeze([0.9, 1, 1.1, 1.25, 1.5]);
+export const isTextScale = (n) => typeof n === 'number' && TEXT_SCALES.includes(n);
 
 /** Colour strings from theme data are only applied to swatches when they are plainly colours. */
 export function safeCssColor(value) {
@@ -121,6 +123,10 @@ export function sanitizePatch(patch) {
       case 'animations':
         if (typeof value !== 'boolean') return { ok: false, error: 'Animations must be on or off.' };
         out.animations = value;
+        break;
+      case 'textScale':
+        if (value !== null && !isTextScale(value)) return { ok: false, error: 'Text size must be 0.9, 1, 1.1, 1.25, or 1.5.' };
+        out.textScale = value;
         break;
       case 'calm': {
         if (!isPlainObject(value)) return { ok: false, error: 'Calm settings are invalid.' };
@@ -378,6 +384,10 @@ export function deriveView({ settings, licence, licenceKnown = true, themes }) {
     themeAccent: effectiveTheme && effectiveTheme.tokens && effectiveTheme.tokens.color ? effectiveTheme.tokens.color.accent : null,
     accent: cfg.accent,
     animations: cfg.animations,
+    textScale: {
+      value: isTextScale(stored.textScale) ? stored.textScale : 1,
+      custom: isTextScale(stored.textScale),
+    },
     density: {
       value: cfg.density,
       label: DENSITY_LABELS[cfg.density - 1],
