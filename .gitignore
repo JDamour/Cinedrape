@@ -4,3 +4,4 @@ dist-*
 .keys
 test/e2e/out
 *.log
+release
