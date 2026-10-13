@@ -17,7 +17,7 @@
 // chrome.storage answers (milliseconds; applyAll rewrites the entry, failOpen and stop() clear it); (2) a page script on
 // youtube.com can already add any style it likes, so a forged entry gains it nothing it did not have; (3) it carries no
 // entitlement: Pro is decided from the signed licence, never from this value.
-import { ATTR, CALM_KEYS, FIRST_PAINT_LS_KEY, LAYOUT_HOME, LAYOUT_WATCH, STYLE_ID } from '../shared/constants.js';
+import { ALL_THEME_IDS, ATTR, CALM_KEYS, FEATURES, FIRST_PAINT_LS_KEY, LAYOUT_HOME, LAYOUT_WATCH, PAGE_TYPES, STYLE_ID } from '../shared/constants.js';
 
 export const FIRST_PAINT_MAX_BYTES = 64 * 1024;
 
@@ -46,6 +46,29 @@ export function sanitizePaintAttrs(raw) {
     out[name] = raw[name];
   }
   return out;
+}
+
+/**
+ * The health verdict if it matches the expected structure and allowed values, else null.
+ * Validated strictly because any script on the origin can write to localStorage.
+ * @returns {{mapVersion:string, themeId:string, broken:string[], pages:Record<string,string[]>, unreadable:boolean, at:number}|null}
+ */
+export function sanitizePaintVerdict(raw) {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  if (!isString(raw.mapVersion) || raw.mapVersion === '' || raw.mapVersion.length > 40) return null;
+  if (!isString(raw.themeId) || !ALL_THEME_IDS.includes(raw.themeId)) return null;
+  if (typeof raw.at !== 'number' || !Number.isFinite(raw.at) || raw.at < 0) return null;
+  const features = (list) => (Array.isArray(list) ? [...new Set(list.filter((f) => isString(f) && FEATURES.includes(f)))].sort() : []);
+  const pages = {};
+  if (raw.pages !== null && typeof raw.pages === 'object' && !Array.isArray(raw.pages)) {
+    for (const key of Object.keys(raw.pages)) {
+      if (PAGE_TYPES.includes(key) && Array.isArray(raw.pages[key])) {
+        pages[key] = features(raw.pages[key]);
+      }
+    }
+  }
+  const broken = [...new Set([...features(raw.broken), ...Object.values(pages).flat()])].sort();
+  return { mapVersion: raw.mapVersion, themeId: raw.themeId, broken, pages, unreadable: raw.unreadable === true, at: raw.at };
 }
 
 // The cache is a localStorage value any script on the origin can write, so refuse anything the theme validator would refuse
@@ -103,8 +126,9 @@ const isString = (v) => typeof v === 'string';
 /**
  * @param {{doc: Document, win?: Window}} deps
  * @returns {{apply(css:string): 'style'|'adopted'|'none', remove(): void, mode(): 'style'|'adopted'|'none',
- *   readFirstPaint(): ({key:string, css:string, attrs?:Record<string,string>}|null),
- *   writeFirstPaint(key:string, css:string, attrs?:Record<string,string>): boolean, clearFirstPaint(): void}}
+ *   readFirstPaint(): ({key:string, css:string, attrs?:Record<string,string>, verdict?:object}|null),
+ *   writeFirstPaint(key:string, css:string, attrs?:Record<string,string>, verdict?:object): boolean,
+ *   writeFirstPaintVerdict(verdict?:object|null): boolean, clearFirstPaint(): void}}
  */
 export function createStyleInjector({ doc, win } = {}) {
   if (!doc) throw new TypeError('createStyleInjector({doc}) needs a document');
@@ -214,20 +238,48 @@ export function createStyleInjector({ doc, win } = {}) {
         const attrs = sanitizePaintAttrs(data.attrs);
         if (attrs) out.attrs = attrs;
       }
+      if (data.verdict !== undefined) {
+        const verdict = sanitizePaintVerdict(data.verdict);
+        if (verdict) out.verdict = verdict;
+      }
       return out;
     } catch {
       return null;
     }
   }
 
-  function writeFirstPaint(key, css, attrs) {
+  function writeFirstPaint(key, css, attrs, verdict) {
     try {
       const ls = storage();
       if (!ls || !isString(key) || key === '' || !isString(css) || css === '') return false;
-      const clean = attrs === undefined ? undefined : sanitizePaintAttrs(attrs);
-      const raw = JSON.stringify(clean ? { v: 1, key, css, attrs: clean } : { v: 1, key, css });
+      const cleanAttrs = attrs === undefined ? undefined : sanitizePaintAttrs(attrs);
+      const cleanVerdict = verdict === undefined || verdict === null ? undefined : sanitizePaintVerdict(verdict);
+      const entry = { v: 1, key, css };
+      if (cleanAttrs) entry.attrs = cleanAttrs;
+      if (cleanVerdict) entry.verdict = cleanVerdict;
+      const raw = JSON.stringify(entry);
       if (raw.length > FIRST_PAINT_MAX_BYTES) { clearFirstPaint(); return false; }
       ls.setItem(FIRST_PAINT_LS_KEY, raw);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function writeFirstPaintVerdict(verdict) {
+    try {
+      const ls = storage();
+      if (!ls) return false;
+      const raw = ls.getItem(FIRST_PAINT_LS_KEY);
+      if (!isString(raw) || raw === '' || raw.length > FIRST_PAINT_MAX_BYTES) return false;
+      const data = JSON.parse(raw);
+      if (!data || typeof data !== 'object' || data.v !== 1 || !isString(data.key) || !isString(data.css)) return false;
+      const cleanVerdict = verdict === undefined || verdict === null ? undefined : sanitizePaintVerdict(verdict);
+      if (cleanVerdict) data.verdict = cleanVerdict;
+      else delete data.verdict;
+      const updated = JSON.stringify(data);
+      if (updated.length > FIRST_PAINT_MAX_BYTES) return false;
+      ls.setItem(FIRST_PAINT_LS_KEY, updated);
       return true;
     } catch {
       return false;
@@ -241,5 +293,5 @@ export function createStyleInjector({ doc, win } = {}) {
     } catch { /* blocked storage: nothing was cached */ }
   }
 
-  return { apply, remove, mode: () => currentMode, readFirstPaint, writeFirstPaint, clearFirstPaint };
+  return { apply, remove, mode: () => currentMode, readFirstPaint, writeFirstPaint, writeFirstPaintVerdict, clearFirstPaint };
 }

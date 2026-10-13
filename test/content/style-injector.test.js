@@ -2,7 +2,7 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
-import { createStyleInjector, sanitizePaintAttrs, isUnsafeCachedCss, FIRST_PAINT_MAX_BYTES } from '../../src/content/style-injector.js';
+import { createStyleInjector, sanitizePaintAttrs, sanitizePaintVerdict, isUnsafeCachedCss, FIRST_PAINT_MAX_BYTES } from '../../src/content/style-injector.js';
 import { FIRST_PAINT_LS_KEY, STYLE_ID } from '../../src/shared/constants.js';
 import { composeStylesheet } from '../../src/content/stylesheet.js';
 import { computeEffectiveConfig } from '../../src/shared/entitlements.js';
@@ -255,6 +255,67 @@ describe('first-paint cache', () => {
     assert.equal(sanitizePaintAttrs(JSON.parse('{"__proto__": {"cd-home": "grid"}}')), null);
     assert.equal(sanitizePaintAttrs(undefined), null);
     assert.equal(sanitizePaintAttrs(Object.create({ 'cd-home': 'grid' })).constructor, Object, 'inherited keys are not read: an empty set results');
+  });
+
+  const VERDICT = {
+    mapVersion: '2026.10.13.4', themeId: 'cinema', broken: ['layout-home'], pages: { home: ['layout-home'] }, unreadable: false, at: 12345678,
+  };
+
+  test('health verdict travels beside {key, css, attrs}: written, read back, updated, cleared, and absent when none was given', () => {
+    const t = make();
+    try {
+      assert.equal(t.injector.writeFirstPaint('cinema:abc', CSS, ATTRS, VERDICT), true);
+      assert.deepEqual(JSON.parse(t.window.localStorage.getItem(FIRST_PAINT_LS_KEY)), { v: 1, key: 'cinema:abc', css: CSS, attrs: ATTRS, verdict: VERDICT });
+      assert.deepEqual(t.injector.readFirstPaint(), { key: 'cinema:abc', css: CSS, attrs: ATTRS, verdict: VERDICT });
+
+      // Updating verdict on an existing entry
+      const nextVerdict = { ...VERDICT, broken: ['calm-hideShorts', 'layout-home'], pages: { home: ['calm-hideShorts', 'layout-home'] } };
+      assert.equal(t.injector.writeFirstPaintVerdict(nextVerdict), true);
+      assert.deepEqual(t.injector.readFirstPaint(), { key: 'cinema:abc', css: CSS, attrs: ATTRS, verdict: nextVerdict });
+
+      // Clearing verdict on a healthy settle
+      assert.equal(t.injector.writeFirstPaintVerdict(null), true);
+      assert.deepEqual(t.injector.readFirstPaint(), { key: 'cinema:abc', css: CSS, attrs: ATTRS }, 'verdict removed from entry');
+      assert.equal(JSON.parse(t.window.localStorage.getItem(FIRST_PAINT_LS_KEY)).verdict, undefined);
+
+      // Clearing when no entry exists returns false
+      t.injector.clearFirstPaint();
+      assert.equal(t.injector.writeFirstPaintVerdict(VERDICT), false);
+    } finally { t.close(); }
+  });
+
+  test('sanitizePaintVerdict: valid shape passes; invalid or tampered verdicts are rejected field by field', () => {
+    assert.deepEqual(sanitizePaintVerdict(VERDICT), VERDICT);
+    assert.equal(sanitizePaintVerdict(null), null);
+    assert.equal(sanitizePaintVerdict('junk'), null);
+    assert.equal(sanitizePaintVerdict([]), null);
+    assert.equal(sanitizePaintVerdict({ ...VERDICT, mapVersion: '' }), null);
+    assert.equal(sanitizePaintVerdict({ ...VERDICT, mapVersion: 'a'.repeat(45) }), null);
+    assert.equal(sanitizePaintVerdict({ ...VERDICT, themeId: 'unknown-theme' }), null);
+    assert.equal(sanitizePaintVerdict({ ...VERDICT, at: -1 }), null);
+    assert.equal(sanitizePaintVerdict({ ...VERDICT, at: Infinity }), null);
+    assert.equal(sanitizePaintVerdict({ ...VERDICT, at: 'now' }), null);
+
+    // Bad features in pages or broken are dropped, valid ones kept
+    const dirty = { ...VERDICT, broken: ['layout-home', 'evil-feature'], pages: { home: ['layout-home', 'evil-feature'], evilPage: ['layout-home'] } };
+    const cleaned = sanitizePaintVerdict(dirty);
+    assert.deepEqual(cleaned.broken, ['layout-home']);
+    assert.deepEqual(cleaned.pages, { home: ['layout-home'] });
+    assert.equal(cleaned.pages.evilPage, undefined);
+
+    // Prototype pollution is rejected
+    assert.equal(sanitizePaintVerdict(JSON.parse('{"__proto__": {"mapVersion": "1"}}')), null);
+  });
+
+  test('a tampered verdict in storage does not spoil the cached css or attrs', () => {
+    const t = make();
+    try {
+      put(t, { v: 1, key: 'cinema:x', css: CSS, attrs: ATTRS, verdict: 'tampered-payload' });
+      assert.deepEqual(t.injector.readFirstPaint(), { key: 'cinema:x', css: CSS, attrs: ATTRS }, 'css and attrs survive bad verdict');
+
+      put(t, { v: 1, key: 'cinema:x', css: CSS, attrs: ATTRS, verdict: { mapVersion: 'ok', themeId: 'bad-theme', broken: [], pages: {}, at: 1 } });
+      assert.deepEqual(t.injector.readFirstPaint(), { key: 'cinema:x', css: CSS, attrs: ATTRS });
+    } finally { t.close(); }
   });
 
   test('blocked or throwing storage: reads give null, writes give false, nothing throws', () => {

@@ -25,7 +25,7 @@ import { retireNotice, showNotice } from './notice.js';
 import { detectPageType, observeNavigation } from './page.js';
 import { createSelectors } from './selectors.js';
 import { composeStylesheet } from './stylesheet.js';
-import { createStyleInjector } from './style-injector.js';
+import { createStyleInjector, sanitizePaintVerdict } from './style-injector.js';
 
 const REDUCED_MOTION = '(prefers-reduced-motion: reduce)';
 const LAYOUT_ROLES = ['homeGrid', 'homeGridContents', 'richItem', 'videoTile'];
@@ -64,21 +64,9 @@ function paintAttrs(cfg) {
 
 /**
  * The stored health verdict, validated field by field (anything else in storage is junk and means "no verdict").
- * Shape: {mapVersion, themeId, broken:[feature], pages:{<pageType>:[feature]}, unreadable?:true, at:ms}. `pages` is what each page type
- * last settled to (a feature judged only on the watch page must not be re-enabled by a healthy home page); `broken` is their union.
- * @returns {{mapVersion:string, themeId:string, broken:string[], pages:Record<string,string[]>, unreadable:boolean, at:number}|null}
+ * Shape: {mapVersion, themeId, broken:[feature], pages:{<pageType>:[feature]}, unreadable?:true, at:ms}.
  */
-export function normalizeVerdict(raw) {
-  if (!isPlain(raw)) return null;
-  const features = (list) => (Array.isArray(list) ? [...new Set(list.filter((f) => typeof f === 'string' && FEATURES.includes(f)))].sort() : []);
-  if (typeof raw.mapVersion !== 'string' || raw.mapVersion === '' || raw.mapVersion.length > 40) return null;
-  if (typeof raw.themeId !== 'string' || !ALL_THEME_IDS.includes(raw.themeId)) return null;
-  if (typeof raw.at !== 'number' || !Number.isFinite(raw.at) || raw.at < 0) return null;
-  const pages = {};
-  if (isPlain(raw.pages)) for (const type of PAGE_TYPES) if (Array.isArray(raw.pages[type])) pages[type] = features(raw.pages[type]);
-  const broken = [...new Set([...features(raw.broken), ...Object.values(pages).flat()])].sort();
-  return { mapVersion: raw.mapVersion, themeId: raw.themeId, broken, pages, unreadable: raw.unreadable === true, at: raw.at };
-}
+export const normalizeVerdict = sanitizePaintVerdict;
 
 /** FNV-1a: a short fingerprint of the stylesheet (and the attributes that go with it) for the first-paint key. */
 function fingerprint(text) {
@@ -266,7 +254,7 @@ export function createEngine(deps = {}) {
     } else {
       const attrs = paintAttrs(cfg);
       const key = `${cfg.theme.id}:${fingerprint(css + '\n' + JSON.stringify(attrs))}`;
-      if (key !== s.paintedKey) s.paintedKey = s.injector.writeFirstPaint(key, css, attrs) ? key : '';
+      if (key !== s.paintedKey) s.paintedKey = s.injector.writeFirstPaint(key, css, attrs, s.verdict) ? key : '';
     }
 
     // Health first: watch() forgets what layouts recorded, so a layout that fails during this pass must report after it.
@@ -438,6 +426,7 @@ export function createEngine(deps = {}) {
       const done = next === null ? area.remove(STORAGE_KEYS.health) : area.set({ [STORAGE_KEYS.health]: next });
       if (done && typeof done.catch === 'function') done.catch(() => {});
     } catch { /* storage unavailable: the verdict is only an optimisation */ }
+    s.injector.writeFirstPaintVerdict(next);
   }
 
   /**
@@ -619,9 +608,15 @@ export function createEngine(deps = {}) {
       if (st !== s || s.stopped) return;
       if (seq === s.mapSeq) useMap(s, map);
     }
-    s.verdict = normalizeVerdict(got[STORAGE_KEYS.health]);
+    const storageVerdict = normalizeVerdict(got[STORAGE_KEYS.health]);
+    if (storageVerdict !== null) {
+      s.verdict = storageVerdict;
+      s.disabled = initialDisabled(s, s.verdict);
+      s.injector.writeFirstPaintVerdict(storageVerdict);
+    } else if (!s.verdict) {
+      s.verdict = null;
+    }
     s.pageType = detectPageType(doc, loc);
-    if (s.verdict) s.disabled = initialDisabled(s, s.verdict);
     s.loaded = true;
     applyAll(s);
     verifyLicence(s);
@@ -649,12 +644,32 @@ export function createEngine(deps = {}) {
       const painted = s.injector.readFirstPaint();
       const themeId = painted ? painted.key.split(':')[0] : '';
       if (painted && ALL_THEME_IDS.includes(themeId)) {
-        // Style and attributes in the same task, before anything paints: the css is keyed on cd-theme/cd-home/cd-calm-*, so a look
-        // without them would be half-styled until chrome.storage answers, and then restyle.
-        s.injector.apply(painted.css);
-        setAttr(ATTR.theme, themeId);
-        if (painted.attrs) for (const [name, value] of Object.entries(painted.attrs)) setAttr(name, value);
-        s.paintedKey = painted.key;
+        // If the first-paint entry carries a verdict, seed s.verdict and s.disabled synchronously
+        // so broken features never flash on before chrome.storage answers or health settles.
+        if (painted.verdict) {
+          s.verdict = painted.verdict;
+          s.disabled = initialDisabled(s, painted.verdict);
+        }
+        const themeDisabled = s.disabled.has('theme');
+        if (!themeDisabled) {
+          s.injector.apply(painted.css);
+          setAttr(ATTR.theme, themeId);
+          s.paintedKey = painted.key;
+        }
+        for (const feature of s.disabled) flagAttr(ATTR.offPrefix + feature, true);
+        if (painted.attrs) {
+          for (const [name, value] of Object.entries(painted.attrs)) {
+            if (name === ATTR.home && s.disabled.has('layout-home')) { setAttr(ATTR.home, 'grid'); continue; }
+            if (name === ATTR.watch && s.disabled.has('layout-watch')) { setAttr(ATTR.watch, 'default'); continue; }
+            if (name === ATTR.density && s.disabled.has('density')) continue;
+            if (name.startsWith(ATTR.calmPrefix)) {
+              const calmKey = name.slice(ATTR.calmPrefix.length);
+              const matched = CALM_KEYS.find((k) => k.toLowerCase() === calmKey);
+              if (matched && s.disabled.has(`calm-${matched}`)) continue;
+            }
+            setAttr(name, value);
+          }
+        }
       }
       listen(s);
     } catch (err) {
@@ -700,9 +715,13 @@ export function createEngine(deps = {}) {
   function getStatus() {
     const s = st;
     const features = {};
-    if (!s || s.failed || !s.cfg) {
+    if (!s || s.failed) {
       for (const id of FEATURES) features[id] = 'off';
       return { themeId: null, pageType: s ? s.pageType : 'other', pro: false, features, missingRoles: [], mapVersion: s && s.map ? s.map.mapVersion : null, liveCount: null };
+    }
+    if (!s.cfg) {
+      for (const id of FEATURES) features[id] = s.disabled.has(id) ? 'broken' : 'off';
+      return { themeId: null, pageType: s.pageType, pro: false, features, missingRoles: [...s.missing], mapVersion: s.map ? s.map.mapVersion : null, liveCount: null };
     }
     const lic = effectiveLicence(s);
     for (const id of FEATURES) features[id] = featureState(s, id, lic);

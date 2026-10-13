@@ -16,9 +16,9 @@ npm run e2e:popup   real Chrome live YouTube popup, breakage, service worker & t
 `npm test` (full run, 39 test files):
 
 ```
-ℹ tests 1908
+ℹ tests 1912
 ℹ suites 77
-ℹ pass 1908
+ℹ pass 1912
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
@@ -104,7 +104,6 @@ Engine decisions (new, recorded in ARCHITECTURE.md section 4):
 - **Grid-only renames are not detected.** `requires["layout-home"]` and `requires.density` list only `homeBrowse`. If YouTube renames just `ytd-rich-grid-renderer` or its `#contents`, the layout silently does not mount (YouTube's own grid stays, so nothing breaks) and no notice is shown. Fix is map data: add `homeGrid` and `homeGridContents` to those `requires` lists (selectors owner).
 - **Installed users never get a theme's calm default.** `service-worker.js` seeds `DEFAULT_SETTINGS` on install, whose `calm` has five explicit `false` values, which beat the theme default (Minimal/Studio `hideShorts`). Fix: seed `calm: {}` (background owner).
 - **Real-browser only, not covered by unit tests:** the CSP fallback to `adoptedStyleSheets`, first-paint timing (< 50 ms), memory (< 30 MB), smooth row scrolling, rAF behaviour in background tabs (a settings change in a hidden tab is applied when the tab is shown), geometry. That is the e2e run.
-- **A persistently broken feature is re-enabled for the health settle time after every full page load.** The health verdict is not persisted across loads, so with a broken `app` role the theme shows for about 6 s and then pauses again (within a session the verdict is kept across navigations). Fix would store the last verdict beside the first-paint entry and reconcile on the first settled health result (engine and health owner).
 - **Timing-sensitive unit tests under CPU load:** Hardened using best-of-N sampling without loosening any product budget thresholds (theme switch < 150ms, validator < 20ms, calm toggles < 1000ms). Full test suite passes 100% reliably under concurrency (`npm test`: 88/88 passed).
 - **Dev keys.** `.keys/` holds throw-away pairs; the owner must replace them (`npm run keys -- --force`, then `npm run sign-map`) before any store release, and licences minted with `licence:dev` are for testing only.
 - The selector map refresh is inert without an `API_BASE`; there is no network flush of anonymous health counters in the MVP.

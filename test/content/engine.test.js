@@ -985,4 +985,62 @@ describe('persisted health verdict and the readability sentinel', () => {
       assert.equal(env.attr('cd-theme'), 'minimal');
     });
   });
+
+  test('T3: first-paint cache carries the health verdict; broken features are disabled synchronously at start() with no UI flash, and reconcile on first settle', async () => {
+    const verdict = {
+      mapVersion: MAP.mapVersion, themeId: 'cinema', broken: ['layout-home'], pages: { home: ['layout-home'] }, unreadable: false, at: Date.now(),
+    };
+    const css = 'html[cd-theme] body { color: red }';
+    const attrs = { 'cd-home': 'hero-rows', 'cd-watch': 'focus', 'cd-density': '3', 'cd-motion': 'on' };
+
+    // 1. Broken layout-home in first-paint cache: disabled synchronously at start() before storage resolves.
+    await withEnv('home', { page: RENAMED, engine: { healthTimeoutMs: 60000 } }, async (env) => {
+      env.window.localStorage.setItem(FIRST_PAINT_LS_KEY, JSON.stringify({ v: 1, key: 'cinema:abc', css, attrs, verdict }));
+      const ready = env.engine.start();
+      // Synchronous assertions BEFORE ready promise resolves:
+      assert.equal(env.html.hasAttribute('cd-off-layout-home'), true, 'cd-off-layout-home set synchronously');
+      assert.equal(env.attr('cd-home'), 'grid', 'cd-home fell back to grid, not hero-rows');
+      assert.equal(mounted(env), false, 'layout not mounted');
+      assert.equal(env.engine.getStatus().features['layout-home'], 'broken', 'status reports broken immediately');
+
+      await ready;
+      assert.equal(mounted(env), false, 'still not mounted after load');
+      const cached = JSON.parse(env.window.localStorage.getItem(FIRST_PAINT_LS_KEY));
+      assert.deepEqual(cached.verdict.broken, ['layout-home'], 'verdict kept in first-paint cache');
+    });
+
+    // 2. Broken theme in first-paint cache: theme disabled synchronously at start() before storage resolves.
+    const themeVerdict = {
+      mapVersion: MAP.mapVersion, themeId: 'cinema', broken: ['theme'], pages: { home: ['theme'] }, unreadable: false, at: Date.now(),
+    };
+    await withEnv('home', { page: HOME, engine: { healthTimeoutMs: 60000 } }, async (env) => {
+      env.window.localStorage.setItem(FIRST_PAINT_LS_KEY, JSON.stringify({ v: 1, key: 'cinema:abc', css, attrs, verdict: themeVerdict }));
+      const ready = env.engine.start();
+      // Synchronous assertions BEFORE ready promise resolves:
+      assert.equal(env.html.hasAttribute('cd-off-theme'), true, 'cd-off-theme set synchronously');
+      assert.equal(env.html.hasAttribute('cd-theme'), false, 'cd-theme NOT set');
+      assert.equal(env.style(), null, 'style not injected');
+      assert.equal(env.engine.getStatus().features.theme, 'broken');
+
+      await ready;
+    });
+
+    // 3. Reconcile on first settle: healthy settle on HOME removes the broken verdict from localStorage and chrome.storage.local.
+    await withEnv('home', { page: HOME, engine: { healthTimeoutMs: 30 } }, async (env) => {
+      env.window.localStorage.setItem(FIRST_PAINT_LS_KEY, JSON.stringify({ v: 1, key: 'cinema:abc', css, attrs, verdict }));
+      const ready = env.engine.start();
+      // Synchronously broken from cache at start:
+      assert.equal(env.html.hasAttribute('cd-off-layout-home'), true);
+      assert.equal(env.engine.getStatus().features['layout-home'], 'broken');
+      await ready;
+      // After healthy settle:
+      await waitFor(() => !env.html.hasAttribute('cd-off-layout-home'), 'cd-off-layout-home removed by healthy settle');
+      await waitFor(() => mounted(env), 'layout mounted');
+      await waitFor(async () => (await verdictOf(env)) === undefined, 'verdict removed from storage.local');
+      const raw = env.window.localStorage.getItem(FIRST_PAINT_LS_KEY);
+      assert.ok(raw, 'first-paint cache exists');
+      assert.equal(JSON.parse(raw).verdict, undefined, 'verdict cleared from first-paint cache in localStorage');
+    });
+  });
 });
+

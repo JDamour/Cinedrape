@@ -483,16 +483,17 @@ the engine replaces it with its own composed css as soon as `chrome.storage` ans
 power of an inline style, and that it carries no entitlement). `attrs` is the set of `<html>` attributes the css is keyed on (`cd-home cd-watch cd-density cd-motion cd-calm-*`, names lower case); the engine
 applies them in the same synchronous step as the css, so the first frame is already the final look and nothing restyles when storage answers. They are
 validated strictly (`sanitizePaintAttrs`: known names, closed value sets, one bad member rejects the whole set; `cd-theme` comes from the key, `cd-page` from the
-URL, `cd-off-*` is re-derived by the health check). The engine's `key` is `<themeId>:<fnv1a(css + attrs)>`, read synchronously at `document_start`.
+URL). In addition, the health verdict `{mapVersion, themeId, broken:[feature], pages:{<pageType>:[feature]}, unreadable, at}` is stored beside `{key, css, attrs}` (`sanitizePaintVerdict`),
+so broken features are marked `cd-off-*` synchronously at `document_start` before any style or layout mounts and never flash on after full reloads. The engine's `key` is `<themeId>:<fnv1a(css + attrs)>`, read synchronously at `document_start`.
 **content/engine.js** — `createEngine({doc, win, chrome, loc, now, themes, bundledEnvelope, publicKeys}) →
 {start(), stop(), getStatus(), recompute()}` (test seams: `compose`, `createHealth`, `healthTimeoutMs`); orchestrates state,
 navigation, health, feature mount/unmount, `chrome.storage.onChanged` (one pass per animation frame), `MSG.GET_STATUS` replies,
 fail-open (any exception removes everything the engine added and logs one `console.warn`), `stop()` (leaves the DOM byte-identical).
 Settings live in `chrome.storage.local`; `settings.calm` keeps only what the user stored, so a theme's calm default applies until then.
-**Health verdict persistence.** At every settle the engine stores `STORAGE_KEYS.health` = `{mapVersion, themeId, broken:[feature],
-pages:{<pageType>:[feature]}, unreadable, at}` (removed when every page type is healthy). The next page load starts from it: the
-disabled set of the page type being loaded (else the union) is applied BEFORE the first pass, so a persistently broken feature does
-not flash on for the 6 s settle time after every load, and the first settled result replaces it (`onSettled` also announces what is
+**Health verdict persistence.** At every settle the engine stores `STORAGE_KEYS.health` in `chrome.storage.local` AND beside the first-paint entry in `localStorage`
+(removed from both when every page type is healthy). The next page load starts from it synchronously at `document_start`: the
+disabled set of the page type being loaded (else the union) is applied BEFORE the first paint, so a persistently broken feature does
+not flash on even for a single frame after a load, and the first settled health result reconciles it (`onSettled` also announces what is
 paused: the notice is still shown once per feature per tab session). A verdict for another `mapVersion` is ignored; a readability
 verdict is also ignored for another theme and after 24 h (a theme that is off cannot re-test itself: it is retried once a day); a
 healthy settle of a page type removes that page type's entry, and the verdict never survives a healthy settle. Plan/sub/exp/iat
