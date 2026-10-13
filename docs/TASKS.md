@@ -24,6 +24,8 @@ that completes a task. Last full audit: **13 Oct 2026**.
 | D15 | E6: Popup status line shows feed live count (`liveCount` on home layout via engine `getStatus()`, popup renders "Working — N live now") | S9 | unit 1903/1903; e2e:home 119 PASS; e2e:popup 235 PASS |
 | D16 | E7: `Broadcast` theme candidate authored and verified (broadcast.json, high-contrast dark, 16 px base, live-first hero, full theme gates) | S10 | broadcast-candidate.test.js 5/5 PASS; css-validator PASS |
 | D17 | T3: Health verdict persisted beside first-paint entry ({v:1,key,css,attrs,verdict}), applied synchronously at start(), reconciled on first settle | — | unit 1912/1912; e2e:popup 235 PASS |
+| D18 | T6: Grid-mode live tiles documented as fail-closed limitation (popup copy "works with rows layouts", ARCHITECTURE §3.5) | S7 | model.js, ARCHITECTURE.md §3.5 |
+| D19 | T7: Readability-rate gate headroom (3.5%) & creator-heart comments excluded in e2e audit harness (accommodates YouTube New UI comments) | — | test/e2e-harness.test.js 14/14 PASS; audit.mjs |
 
 ## Open — bugs / known gaps (from STATUS.md "Known gaps", still true)
 
@@ -31,8 +33,6 @@ that completes a task. Last full audit: **13 Oct 2026**.
 |---|---|---|---|---|
 | T4 | Replace dev keys before any store release (`npm run keys -- --force && npm run sign-map`); dev licences are test-only | P0 for release | owner | Blocking release, not development |
 | T5 | Write the privacy-policy page the store listing requires (ARCHITECTURE §7.9 items a–e) | P0 for release | owner | Must state localStorage footprint + future API_BASE token POST |
-| T6 | Grid-mode live tiles: S7's hideLive does not reach grid mode (no text matching in CSS); either accept + document or add engine-side marking for unmirrored wrappers | P3 | selectors + engine | Fail-closed decision recorded in S7 |
-| T7 | The matrix readability-rate gate (3%) is marginal against icon-only YouTube decorations: one creator-heart comment flipped `classic/watch/dark` (3.2%), gone on re-run. Either exclude icon-only/aria-hidden SVG samples from the rate or raise the gate's headroom | P3 | e2e harness owner | Repro: `node test/e2e/run.mjs --pro --mode dark --pages watch --themes classic --shots none` (not reproducible deterministically — it depends on which comments YouTube serves) |
 
 ## Open — enhancements (all spec'd enhancements complete)
 

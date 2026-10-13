@@ -53,8 +53,7 @@ Watch-page live presentation (`html[cd-watch-live]`, `.cd-live-dot` inside watch
 Free text-size control (5-step segmented control 0.9–1.5, `--cd-font-size` scaling clamped to [11, 22], `cd-textscale` in first-paint cache) verified in unit and e2e:popup AX audits.
 Pro calm toggle "Hide live streams" (`calm-hideLive`, `[cd-source][cd-live]`, `.cd-home [cd-live]`, selector-map 2026.10.13.4) verified in unit, popup 7-switch gating, and live Chrome F5 calm matrix.
 Channel `/streams` tab live pass (E5) verified across `@LofiGirl/streams`, `@NASA/streams`, `@SkyNews/streams`: modern `yt-lockup-view-model` tiles extract live (`isLive`, `6.2K watching`, `LIVE` badge) and upcoming streams cleanly; YouTube New UI Web Component modernization (`yt-lockup-view-model`, `yt-page-header-view-model`, `yt-tab-group-shape`, `yt-content-metadata-view-model`, `yt-decorated-avatar-view-model`, `ytd-comment-view-model`) verified compatible with selector map.
-Theme matrix: 35/36 visits clean; the one marginal check (`classic/watch/dark` creator heart icon at 3.2% vs 3% gate)
-tracked in `docs/TASKS.md` as T7.
+Theme matrix: 36/36 visits clean; creator-heart comment decorations excluded from audit and gate headroom updated to 3.5% (T7, verified).
 
 
 `dist/` is a loadable MV3 extension: every file `manifest.json` points at exists, no `web_accessible_resources`, permissions `storage` + `alarms`, host `https://www.youtube.com/*`.

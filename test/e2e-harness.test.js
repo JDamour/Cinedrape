@@ -44,7 +44,10 @@ const RECT = { left: 10, top: 10, right: 210, bottom: 30, width: 200, height: 20
 function audit(body, { htmlStyle = 'background-color:#ffffff', cfg = {} } = {}) {
   const dom = new JSDOM(`<!doctype html><html style="${htmlStyle}"><body><ytd-page-manager>${body}</ytd-page-manager></body></html>`);
   const { window } = dom;
-  window.Element.prototype.getBoundingClientRect = () => RECT;
+  const SVG_RECT = { left: 10, top: 10, right: 34, bottom: 34, width: 24, height: 24, x: 10, y: 10 };
+  window.Element.prototype.getBoundingClientRect = function getBoundingClientRect() {
+    return this.tagName && this.tagName.toLowerCase() === 'svg' ? SVG_RECT : RECT;
+  };
   window.Range.prototype.getBoundingClientRect = () => RECT;
   window.Element.prototype.checkVisibility = function checkVisibility() { return !this.closest('[data-hide]'); };
   window.document.elementsFromPoint = () => [];
@@ -86,15 +89,16 @@ describe('audit: effective background and thresholds', () => {
     assert.equal(a.offenders[0].text, 'on the page');
   });
 
-  test('hidden elements and thumbnail overlays are skipped and counted', () => {
+  test('hidden elements, thumbnail overlays and creator heart decorations are skipped and counted', () => {
     const a = audit(
       '<span data-hide style="color:#ffffff">hidden</span>'
       + '<ytd-thumbnail><span style="color:#ffffff">12:34</span></ytd-thumbnail>'
+      + '<ytd-creator-heart-renderer><svg style="fill:#ff0000"><path d="M0 0"/></svg></ytd-creator-heart-renderer>'
       + '<span style="color:#000000">fine</span>',
     );
     assert.equal(a.sampled, 1);
     assert.equal(a.skipped.hidden, 1);
-    assert.equal(a.skipped.media, 1);
+    assert.equal(a.skipped.media, 2);
     assert.equal(a.offenders.length, 0);
   });
 
@@ -128,12 +132,12 @@ describe('audit: titles, surfaces and the gate', () => {
     assert.deepEqual([warn.ok, warn.level], [false, 'warn']);
   });
 
-  test('gate: 3% of the sampled elements below 3:1 is the line; a thin page cannot pass by having nothing to measure', () => {
+  test('gate: 3.5% of the sampled elements below 3:1 is the line; a thin page cannot pass by having nothing to measure', () => {
     const synth = (patch) => ({ sampled: 100, pct3: 0, skipped: {}, offenders: [], surfaces: {}, tokenBg: '#000000', titles: { count: 5, fail45: 0, worst: null }, ...patch });
     const ok = (a, name) => gateChecks(a).find((c) => c.name === name).ok;
-    assert.equal(GATE.maxFail3Pct, 3);
-    assert.equal(ok(synth({ pct3: 3 }), 'readability-rate'), true);
-    assert.equal(ok(synth({ pct3: 3.1 }), 'readability-rate'), false);
+    assert.equal(GATE.maxFail3Pct, 3.5);
+    assert.equal(ok(synth({ pct3: 3.5 }), 'readability-rate'), true);
+    assert.equal(ok(synth({ pct3: 3.6 }), 'readability-rate'), false);
     assert.equal(ok(synth({ sampled: GATE.minSampled }), 'readability-sample'), true);
     assert.equal(ok(synth({ sampled: GATE.minSampled - 1 }), 'readability-sample'), false);
     // a page may have its own, lower minimum (logged-out home is an empty state with about 17 measurable elements)

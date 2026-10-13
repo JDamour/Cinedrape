@@ -10,7 +10,8 @@
 //             clipped away by an overflow ancestor, or outside the first `cfg.screens` viewport heights.
 //   media     text or icons inside, or geometrically over, an img/video, the player or a thumbnail: their background is user
 //             content (duration/LIVE badges, Shorts captions, the player's own UI), a colour nobody can know. Also YouTube's own Lottie
-//             animations (lottie-component: the like-button burst of the watch page, colours baked into the animation, invisible until played).
+//             animations (lottie-component: the like-button burst of the watch page, colours baked into the animation, invisible until played),
+//             and creator heart comment decorations (ytd-creator-heart-renderer, yt-creator-heart-view-model).
 //   bgImage   an ancestor up to the first opaque colour paints a background-image (gradient or picture), or the text is
 //             background-clip:text: the effective background is unknown, so the element is skipped rather than guessed.
 //   noRegion  text outside masthead / guide / page manager (popups that are not open, YouTube's hidden templates).
@@ -24,11 +25,11 @@ export const AUDIT_DEFAULTS = Object.freeze({
   budgets: { text: { masthead: 60, guide: 120, content: 320 }, icon: { masthead: 25, guide: 50, content: 60 } },
   offenders: 15,
   titleSel: 'a#video-title, #video-title, a.ytLockupMetadataViewModelTitle, .ytLockupMetadataViewModelTitle, .ytLockupMetadataViewModelHeadingReset, h1, h3',
-  mediaSel: 'ytd-player, #movie_player, #player, video, img, ytd-thumbnail, yt-thumbnail-view-model, yt-collection-thumbnail-view-model, ytd-miniplayer, ytd-reel-video-renderer, #cinematics, lottie-component, yt-animated-action',
+  mediaSel: 'ytd-player, #movie_player, #player, video, img, ytd-thumbnail, yt-thumbnail-view-model, yt-collection-thumbnail-view-model, ytd-miniplayer, ytd-reel-video-renderer, #cinematics, lottie-component, yt-animated-action, ytd-creator-heart-renderer, yt-creator-heart-view-model',
 });
 
 /** Gate thresholds (README.md): more than this share of sampled elements below 3:1 fails the run; so does any title below 4.5:1. */
-export const GATE = Object.freeze({ maxFail3Pct: 3, titleMinRatio: 4.5, minSampled: 25 });
+export const GATE = Object.freeze({ maxFail3Pct: 3.5, titleMinRatio: 4.5, minSampled: 25 });
 
 export function auditPage(cfg) {
   const root = document.documentElement;

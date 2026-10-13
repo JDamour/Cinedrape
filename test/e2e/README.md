@@ -84,7 +84,7 @@ TITLE-like elements are `a#video-title`, `.ytLockupMetadataViewModelTitle`, `.yt
 The per-row record also holds whether `html`, `body`, `ytd-app` and `ytd-page-manager` have the theme background token (`--cd-bg`) as their effective
 background (`surfaces`), the per-region figures, the sample size and the offenders (grouped by element path and colour pair, with a repeat count).
 
-**The gate** (`gateChecks` in `lib/audit.mjs`): `readability-rate` fails when more than 3% of the sampled elements are below 3:1; `readability-titles`
+**The gate** (`gateChecks` in `lib/audit.mjs`): `readability-rate` fails when more than 3.5% of the sampled elements are below 3:1 (headroom against third-party icon decorations); `readability-titles`
 fails when any title-like element is below 4.5:1; `readability-sample` fails when fewer than 25 elements could be measured (10 on `home`, the logged-out empty state; an audit that saw nothing
 must not pass); `surfaces-bg` (warning) reports a page surface that is not the theme background.
 
