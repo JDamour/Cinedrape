@@ -26,13 +26,13 @@ that completes a task. Last full audit: **13 Oct 2026**.
 | D17 | T3: Health verdict persisted beside first-paint entry ({v:1,key,css,attrs,verdict}), applied synchronously at start(), reconciled on first settle | — | unit 1912/1912; e2e:popup 235 PASS |
 | D18 | T6: Grid-mode live tiles documented as fail-closed limitation (popup copy "works with rows layouts", ARCHITECTURE §3.5) | S7 | model.js, ARCHITECTURE.md §3.5 |
 | D19 | T7: Readability-rate gate headroom (3.5%) & creator-heart comments excluded in e2e audit harness (accommodates YouTube New UI comments) | — | test/e2e-harness.test.js 14/14 PASS; audit.mjs |
+| D20 | T5: Write store privacy-policy page (ARCHITECTURE §7.9 items a–e) | — | docs/PRIVACY.md |
 
 ## Open — bugs / known gaps (from STATUS.md "Known gaps", still true)
 
 | ID | Task | Priority | Owner | Notes |
 |---|---|---|---|---|
 | T4 | Replace dev keys before any store release (`npm run keys -- --force && npm run sign-map`); dev licences are test-only | P0 for release | owner | Blocking release, not development |
-| T5 | Write the privacy-policy page the store listing requires (ARCHITECTURE §7.9 items a–e) | P0 for release | owner | Must state localStorage footprint + future API_BASE token POST |
 
 ## Open — enhancements (all spec'd enhancements complete)
 
