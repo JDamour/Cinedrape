@@ -6,7 +6,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CALM_KEYS, LAYOUT_HOME, LAYOUT_WATCH, LIMITS } from '../../src/shared/constants.js';
 import {
-  FONT_STACKS, LATEST_SCHEMA, migrateTheme, utf8ByteLength, validateTheme,
+  FONT_STACKS, LATEST_SCHEMA, exportTheme, importTheme, migrateTheme, utf8ByteLength, validateTheme,
 } from '../../src/shared/theme-schema.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -855,3 +855,78 @@ test('contrast is enforced independently of the css: a theme with no css at all 
   assert.equal(res.theme, null);
   assert.ok(res.errors.some((e) => e.path === 'tokens.color.text'));
 });
+
+// ---- S11: exportTheme and importTheme --------------------------------------------------------------------
+
+test('exportTheme serialises a valid theme to Schema v1 formatted JSON', () => {
+  assert.throws(() => exportTheme(null), TypeError);
+  assert.throws(() => exportTheme('not an object'), TypeError);
+
+  const json = exportTheme(SPEC_EXAMPLE);
+  assert.equal(typeof json, 'string');
+  const parsed = JSON.parse(json);
+  assert.equal(parsed.schema, 1);
+  assert.equal(parsed.id, 'cinema');
+  assert.equal(parsed.name, 'Cinema');
+  assert.equal(parsed.tier, 'free');
+  assert.equal(parsed.tokens.color.accent, '#e8b04a');
+  assert.equal(parsed.layout.home, 'hero-rows');
+  assert.equal(parsed.css, SPEC_EXAMPLE.css);
+});
+
+test('exportTheme incorporates user overrides cleanly', () => {
+  const overrides = {
+    id: 'my-custom-cinema',
+    name: 'My Custom Cinema',
+    author: 'Tester',
+    accent: '#3ddc97',
+    density: 5,
+    home: 'rows',
+    watch: 'focus',
+    calm: { hideShorts: true, hideComments: true },
+    css: '.cd-hero { border-radius: 20px; }',
+  };
+  const json = exportTheme(SPEC_EXAMPLE, overrides);
+  const parsed = JSON.parse(json);
+  assert.equal(parsed.id, 'my-custom-cinema');
+  assert.equal(parsed.name, 'My Custom Cinema');
+  assert.equal(parsed.author, 'Tester');
+  assert.equal(parsed.tokens.color.accent, '#3ddc97');
+  assert.equal(parsed.layout.density, 5);
+  assert.equal(parsed.layout.home, 'rows');
+  assert.equal(parsed.layout.watch, 'focus');
+  assert.equal(parsed.calm.hideShorts, true);
+  assert.equal(parsed.calm.hideComments, true);
+  assert.equal(parsed.css, '.cd-hero { border-radius: 20px; }');
+});
+
+test('importTheme rejects non-string input or oversized payloads', () => {
+  const nonStr = importTheme(12345);
+  assert.equal(nonStr.ok, false);
+  assert.equal(nonStr.theme, null);
+  assert.match(nonStr.errors[0].message, /JSON string/);
+
+  const huge = ' '.repeat(LIMITS.maxCustomThemeBytes + 1);
+  const tooBig = importTheme(huge);
+  assert.equal(tooBig.ok, false);
+  assert.equal(tooBig.theme, null);
+  assert.match(tooBig.errors[0].message, /exceeds maximum allowed size/);
+});
+
+test('importTheme rejects unparseable JSON with syntax error message', () => {
+  const broken = importTheme('{ invalid json: true, ');
+  assert.equal(broken.ok, false);
+  assert.equal(broken.theme, null);
+  assert.match(broken.errors[0].message, /Invalid JSON/);
+});
+
+test('importTheme round-trip: exports and imports successfully with full validation', () => {
+  const exported = exportTheme(SPEC_EXAMPLE, { accent: '#3ddc97' });
+  const imported = importTheme(exported, { selectorMap: REAL_MAP });
+  assert.equal(imported.ok, true);
+  assert.ok(imported.theme);
+  assert.equal(imported.theme.id, 'cinema');
+  assert.equal(imported.theme.tokens.color.accent, '#3ddc97');
+  assert.equal(imported.cssValidated, true);
+});
+

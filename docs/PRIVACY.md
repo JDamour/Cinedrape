@@ -21,7 +21,12 @@ Cinedrape is designed with a strict **local-first, privacy-by-default architectu
 Cinedrape stores configuration settings locally in Chrome's sandboxed extension storage under `cd.*` keys:
 - `cd.settings`: Your chosen theme ID, layout density, text scale, accent color, and Calm mode toggle preferences.
 - `cd.licence`: If you activate Cinedrape Pro, your pasted cryptographic licence token is stored here. The token contains standard entitlement claims, including an expiration timestamp (`exp`) and a subscriber identifier (`sub`, typically your purchase email address).
-- `cd.map`: Cached signed selector map (cryptographically signed via Ed25519) for layout compatibility.
+- `cd.selectorMap`: Cached signed selector map (cryptographically signed via ECDSA P-256) for layout and selector compatibility.
+- `cd.customThemes`: Your saved custom theme configurations (colors, typography, shapes, layouts, calm defaults, and validated scoped CSS). Stored purely locally on your device.
+- `cd.profiles`: Your saved named setting snapshots (configurations of themes, layouts, and calm toggles).
+- `cd.schedule`: Local time-based scheduling preferences (day and night profile selections with device-local boundary times).
+- `cd.editorDraft`: Transient local draft in progress within the visual theme editor.
+- `cd.backup`: Safety snapshot created before schema migrations of profile and theme collections.
 - `cd.health`: Transient selector health status tracking whether YouTube DOM elements match expected roles.
 
 This storage is private to the extension and cannot be read by any website (including YouTube).
@@ -40,7 +45,7 @@ To eliminate styling flicker and ensure instant first paint when navigating YouT
 ## 3. Data Retention and Uninstallation
 
 - **When you uninstall Cinedrape:**
-  - All extension storage in `chrome.storage.local` (including `cd.settings`, `cd.licence`, and `cd.map`) is **immediately and permanently removed by Chrome**.
+  - All extension storage in `chrome.storage.local` (including `cd.settings`, `cd.licence`, `cd.selectorMap`, `cd.customThemes`, `cd.profiles`, `cd.schedule`, `cd.editorDraft`, `cd.backup`, and `cd.health`) is **immediately and permanently removed by Chrome**.
 - **Origin-level remnants (Item 7.9.b):**
   - Because browser extensions do not control persistent website cookies or storage upon removal, `localStorage['cd:v1:firstPaint']` (maximum 64 KB) and `sessionStorage['cd:v1:noticeShown']` remain in your browser's site cache for `youtube.com` until cleared by your browser's standard site data cleanup or via `Clear browsing data`.
 
@@ -49,7 +54,7 @@ To eliminate styling flicker and ensure instant first paint when navigating YouT
 ## 4. Licence Tokens & Identity (Item 7.9.c)
 
 - Pro licence tokens are cryptographically signed offline tokens.
-- When you paste an activation token into the popup, Cinedrape validates its Ed25519 cryptographic signature locally against bundled public keys.
+- When you paste an activation token into the popup, Cinedrape validates its ECDSA P-256 cryptographic signature locally against bundled public keys.
 - The licence token includes the subscriber claim (`sub`, representing your purchase email address or identifier).
 - Active YouTube tabs read this licence record locally to unlock Pro features (e.g. Pro themes, density control, advanced calm toggles).
 
@@ -57,13 +62,13 @@ To eliminate styling flicker and ensure instant first paint when navigating YouT
 
 ## 5. Network Activity & Future Services (Item 7.9.d)
 
-### Current MVP Release
+### Current Release
 - **No external network requests:** The extension content script and popup make zero outbound network requests (`fetch` and `XMLHttpRequest` are completely absent from `content.js`).
-- The background service worker contains no configured `API_BASE` endpoint and conducts no telemetry, phone-home, or update requests.
+- The background service worker contains no configured `API_BASE` endpoint and conducts no telemetry, phone-home, or update requests. All selector map updates and licensing tokens in this release operate entirely locally and through extension package updates.
 
 ### Future Licence Sync & Selector Map Updates
 - If a licensing server endpoint (`API_BASE`) is configured in future versions:
-  - Cinedrape may perform a weekly HTTPS POST request containing your licence token to re-check licence validity and download updated signed selector maps.
+  - Cinedrape may perform a periodic HTTPS POST request containing your licence token to re-check licence validity and download updated signed selector maps.
   - This request will transmit the token (including the `sub` subscriber claim) to verify your licence state against our payment records.
   - Notice will be provided in release notes prior to enabling any remote licensing server.
 
@@ -72,8 +77,8 @@ To eliminate styling flicker and ensure instant first paint when navigating YouT
 ## 6. Permissions Justification
 
 Cinedrape requests only the minimal permissions required for its functionality:
-- `storage`: Required to store your theme preferences and Pro licence locally.
-- `alarms`: Required for scheduling local periodic health check audits and selector map checks.
+- `storage`: Required to store your theme preferences, profiles, local schedules, custom themes, and Pro licence locally.
+- `alarms`: Required for local time-based profile scheduling and periodic selector map verification.
 - Host permissions (`https://www.youtube.com/*`): Required to inject presentation styles, calm filters, and theme layouts onto YouTube.
 
 ---

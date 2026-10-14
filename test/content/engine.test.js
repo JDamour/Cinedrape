@@ -1044,3 +1044,56 @@ describe('persisted health verdict and the readability sentinel', () => {
   });
 });
 
+describe('custom themes (S11)', () => {
+  const CUSTOM_THEME = {
+    schema: 1,
+    id: 'cyber-glow',
+    name: 'Cyber Glow',
+    author: 'Community',
+    version: '1.0.0',
+    tier: 'free',
+    tokens: {
+      color: { bg: '#080810', surface: '#121220', text: '#f0f0ff', muted: '#8080a0', accent: '#00ffcc', border: '#656572' },
+      type: { family: 'System', baseSize: 14, headingWeight: 600 },
+      shape: { radius: 8, shadow: true, spacing: 3 },
+    },
+    layout: { home: 'grid', watch: 'default', density: 3 },
+    calm: {},
+    css: '.cd-hero h1 { letter-spacing: 0.05em; }',
+  };
+
+  test('engine loads custom themes from storage and applies them if selected', async () => {
+    await withEnv('home', { page: HOME }, async (env) => {
+      await env.chrome.storage.local.set({
+        [STORAGE_KEYS.customThemes]: { 'cyber-glow': CUSTOM_THEME },
+        [STORAGE_KEYS.settings]: { themeId: 'cyber-glow' },
+      });
+      await env.engine.start();
+      assert.equal(env.attr('cd-theme'), 'cyber-glow');
+      assert.equal(env.engine.getStatus().themeId, 'cyber-glow');
+      assert.ok(env.style().textContent.includes('#00ffcc'));
+    });
+  });
+
+  test('live update of custom themes applies without page reload', async () => {
+    await withEnv('home', { page: HOME }, async (env) => {
+      await env.engine.start();
+      assert.equal(env.attr('cd-theme'), 'cinema');
+
+      await env.chrome.storage.local.set({
+        [STORAGE_KEYS.customThemes]: { 'cyber-glow': CUSTOM_THEME },
+        [STORAGE_KEYS.settings]: { themeId: 'cyber-glow' },
+      });
+      await waitFor(() => env.attr('cd-theme') === 'cyber-glow', 'switched to custom theme');
+      assert.equal(env.engine.getStatus().themeId, 'cyber-glow');
+
+      // Removing custom theme gracefully falls back to default
+      await env.chrome.storage.local.set({
+        [STORAGE_KEYS.customThemes]: {},
+      });
+      await waitFor(() => env.attr('cd-theme') === 'cinema', 'fell back to cinema');
+    });
+  });
+});
+
+

@@ -102,6 +102,9 @@ function makeProject(files = {}, { complete = true } = {}) {
     'src/popup/popup.js': 'window.__popup = 1;',
     'src/popup/popup.html': '<!doctype html><title>x</title>',
     'src/popup/popup.css': 'body{margin:0}',
+    'src/editor/editor.js': 'window.__editor = 1;',
+    'src/editor/editor.html': '<!doctype html><title>editor</title>',
+    'src/editor/editor.css': 'body{margin:0}',
     'src/data/selector-map.signed.json': '{"payload":"{}","sig":"","kid":"k"}',
   } : {};
   for (const [path, content] of Object.entries({ ...base, ...files })) {
@@ -132,6 +135,7 @@ test('a complete project builds in strict mode and produces every artifact', asy
     const r = await runBuild(dir, ['--strict']);
     assert.equal(r.code, 0, r.errs);
     for (const f of ['content.js', 'service-worker.js', 'popup/popup.js', 'popup/popup.html', 'popup/popup.css',
+      'editor/editor.js', 'editor/editor.html', 'editor/editor.css',
       'data/selector-map.json', 'manifest.json', 'icons/icon-16.png', 'icons/icon-128.png']) {
       assert.ok(existsSync(join(dir, 'dist', f)), `dist/${f}`);
     }

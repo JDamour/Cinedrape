@@ -58,7 +58,7 @@ const SINGLETON_ROLES = ['app', 'pageManager', 'masthead', 'guide', 'miniGuide',
 // YouTube custom element or class; anything new must be reviewed and added here on purpose.
 const ALLOWED_BARE_SUBJECT = new Set([
   'ytd-channel-name a', '.ytThumbnailViewModelImage img', 'yt-thumbnail-view-model img', 'ytd-thumbnail img', 'ytd-watch-metadata h1',
-  'ytd-watch-metadata #title h1', 'ytd-watch-flexy #title h1',
+  'ytd-watch-metadata #title h1', 'ytd-watch-flexy #title h1', 'ytd-watch-grid #title h1',
   '#contents > div', // protected.containers only: the unclassed wrapper <div> around each playlist row
 ]);
 const BANNED_WHOLE = new Set(['*', 'div', 'a', 'span', 'img', 'p', 'li', 'ul', 'ol', 'button', 'input', 'h1', 'h2', 'h3', 'h4', 'body',
@@ -200,7 +200,7 @@ test('file hygiene: valid JSON, LF, trailing newline, no duplicate keys, only th
   assert.deepEqual(Object.keys(MAP), TOP_KEYS, 'top-level keys, in contract order');
   assert.equal(MAP.schema, 1);
   assert.match(MAP.mapVersion, /^\d{4}\.\d{2}\.\d{2}\.\d+$/, 'mapVersion is date.counter so it is monotonic as a string-compare of fields');
-  assert.equal(MAP.mapVersion, '2026.10.13.4');
+  assert.equal(MAP.mapVersion, '2026.10.14.1');
   assert.match(MAP.issuedAt, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
   assert.equal(MAP.issuedAt.slice(0, 10), MAP.mapVersion.slice(0, 10).replaceAll('.', '-'), 'issuedAt day matches the mapVersion day');
   assert.ok(Number.isFinite(Date.parse(MAP.issuedAt)));

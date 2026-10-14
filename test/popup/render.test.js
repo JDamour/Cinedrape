@@ -1,7 +1,7 @@
 // What the popup shows for each licence state and stored setting, and that every control is accessible.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CALM_KEYS, DEFAULT_SETTINGS, FREE_CALM_KEYS } from '../../src/shared/constants.js';
+import { CALM_KEYS, DEFAULT_SETTINGS, FREE_CALM_KEYS, STORAGE_KEYS } from '../../src/shared/constants.js';
 import { signLicenceToken } from '../../src/shared/licence.js';
 import { toPublicJwk } from '../../src/shared/signing.js';
 import {
@@ -497,3 +497,276 @@ test('rendering is read-only: opening the popup never writes to storage', async 
     } finally { t.close(); }
   }
 });
+
+test('theme export: clicking export theme copies active theme with current overrides to clipboard', async () => {
+  const t = await mount({ licence: FREE, settings: { ...DEFAULT_SETTINGS, themeId: 'cinema', accent: '#3b82f6' } });
+  try {
+    let clipboardText = null;
+    t.win.navigator.clipboard = {
+      writeText: async (text) => { clipboardText = text; },
+    };
+    t.click(t.$('theme-export'));
+    await t.settle();
+    assert.ok(clipboardText, 'clipboard writeText called');
+    const parsed = JSON.parse(clipboardText);
+    assert.equal(parsed.schema, 1);
+    assert.equal(parsed.id, 'cinema');
+    assert.equal(parsed.tokens.color.accent, '#3b82f6');
+    assert.match(t.$('notice').textContent, /Theme "Cinema" copied to clipboard/);
+  } finally { t.close(); }
+});
+
+test('theme editor button: opens editor/editor.html tab on click', async () => {
+  const t = await mount({ licence: FREE });
+  try {
+    let createdUrl = null;
+    t.chrome.tabs = {
+      create: async ({ url }) => { createdUrl = url; },
+    };
+    t.chrome.runtime.getURL = (path) => `chrome-extension://cinedrape/${path}`;
+    t.click(t.$('theme-editor-btn'));
+    await t.settle();
+    assert.equal(createdUrl, 'chrome-extension://cinedrape/editor/editor.html');
+  } finally { t.close(); }
+});
+
+test('theme import: toggles panel, validates input, imports and activates valid custom theme', async () => {
+  const t = await mount({ licence: FREE });
+  try {
+    const panel = t.$('theme-import-panel');
+    assert.equal(panel.hidden, true);
+
+    // Toggle open
+    t.click(t.$('theme-import-btn'));
+    assert.equal(panel.hidden, false);
+
+    // Empty submit fails
+    t.click(t.$('theme-import-submit'));
+    assert.match(t.$('theme-import-error').textContent, /Paste JSON or choose a file first/);
+
+    // Invalid JSON fails
+    t.type(t.$('theme-import-json'), '{ invalid json');
+    t.click(t.$('theme-import-submit'));
+    assert.match(t.$('theme-import-error').textContent, /valid JSON/);
+
+    // Pro theme import as free user fails
+    const proTheme = {
+      schema: 1, id: 'custom-pro', name: 'Custom Pro', author: 'Tester', version: '1.0.0', tier: 'pro',
+      tokens: {
+        color: { bg: '#080810', surface: '#141420', text: '#ffffff', muted: '#a0a0b0', accent: '#3b82f6', border: '#606070' },
+        type: { family: 'Inter', baseSize: 14, headingWeight: 700 },
+        shape: { radius: 8, shadow: false, spacing: 3 },
+      },
+      layout: { home: 'grid', watch: 'cinema', density: 3 },
+      calm: {}, css: '',
+    };
+    t.type(t.$('theme-import-json'), JSON.stringify(proTheme));
+    t.click(t.$('theme-import-submit'));
+    await t.settle();
+    assert.match(t.$('theme-import-error').textContent, /Theme requires Pro/);
+
+    // Valid free theme succeeds
+    const freeTheme = {
+      schema: 1, id: 'custom-free', name: 'Custom Free', author: 'Tester', version: '1.0.0', tier: 'free',
+      tokens: {
+        color: { bg: '#080810', surface: '#141420', text: '#ffffff', muted: '#a0a0b0', accent: '#3b82f6', border: '#606070' },
+        type: { family: 'Inter', baseSize: 14, headingWeight: 700 },
+        shape: { radius: 8, shadow: false, spacing: 3 },
+      },
+      layout: { home: 'grid', watch: 'cinema', density: 3 },
+      calm: {}, css: '',
+    };
+    t.type(t.$('theme-import-json'), JSON.stringify(freeTheme));
+    t.click(t.$('theme-import-submit'));
+    await t.settle();
+
+    // Check panel closed and notice shown
+    assert.equal(panel.hidden, true);
+    assert.match(t.$('notice').textContent, /Imported and activated theme "Custom Free"/);
+
+    // Stored settings has themeId custom-free
+    const storedSettings = await t.stored();
+    assert.equal(storedSettings.themeId, 'custom-free');
+
+    // Stored custom themes has custom-free
+    const rawCustom = (await t.chrome.storage.local.get(STORAGE_KEYS.customThemes))[STORAGE_KEYS.customThemes];
+    const storedCustom = rawCustom?.items || rawCustom || {};
+    assert.ok(storedCustom['custom-free']);
+
+    // Theme grid now includes custom-free and it is selected
+    const customCard = t.card('custom-free');
+    assert.ok(customCard, 'custom card rendered');
+    assert.equal(customCard.getAttribute('aria-checked'), 'true');
+    assert.ok(customCard.querySelector('.tag-custom'), 'custom tag present');
+
+    // Close button works
+    t.click(t.$('theme-import-btn'));
+    assert.equal(panel.hidden, false);
+    t.click(t.$('theme-import-close'));
+    assert.equal(panel.hidden, true);
+  } finally { t.close(); }
+});
+
+test('custom theme deletion: deletes custom theme from storage and falls back to cinema', async () => {
+  const customTheme = {
+    schema: 1, id: 'to-delete', name: 'To Delete', author: 'Tester', version: '1.0.0', tier: 'free',
+    tokens: {
+      color: { bg: '#080810', surface: '#141420', text: '#ffffff', muted: '#a0a0b0', accent: '#3b82f6', border: '#606070' },
+      type: { family: 'Inter', baseSize: 14, headingWeight: 700 },
+      shape: { radius: 8, shadow: false, spacing: 3 },
+    },
+    layout: { home: 'grid', watch: 'cinema', density: 3 },
+    calm: {}, css: '',
+  };
+  const t = await mount({
+    licence: FREE,
+    settings: { ...DEFAULT_SETTINGS, themeId: 'to-delete' },
+    prepare: async (testEnv) => {
+      await testEnv.chrome.storage.local.set({ [STORAGE_KEYS.customThemes]: { 'to-delete': customTheme } });
+    },
+  });
+  try {
+    const card = t.card('to-delete');
+    assert.ok(card, 'to-delete card exists');
+    assert.equal(card.getAttribute('aria-checked'), 'true');
+
+    const delBtn = card.querySelector('[data-delete-theme="to-delete"]');
+    assert.ok(delBtn, 'delete button exists');
+
+    t.click(delBtn);
+    await t.settle();
+
+    // Verify card is removed from theme-grid
+    assert.equal(t.card('to-delete'), null);
+
+    // Verify theme fell back to cinema
+    const storedSettings = await t.stored();
+    assert.equal(storedSettings.themeId, 'cinema');
+    assert.equal(t.card('cinema').getAttribute('aria-checked'), 'true');
+
+    // Verify storage has no custom theme
+    const rawStoredCustom = (await t.chrome.storage.local.get(STORAGE_KEYS.customThemes))[STORAGE_KEYS.customThemes];
+    const storedCustom = rawStoredCustom?.items || rawStoredCustom || {};
+    assert.equal(storedCustom['to-delete'], undefined);
+  } finally { t.close(); }
+});
+
+// ---- profiles & schedule (S13 / F8) ------------------------------------------------------------------------
+
+test('profiles & schedule: Free user clicking Manage button shows Pro notice', async () => {
+  const t = await mount({ licence: FREE });
+  try {
+    const manageBtn = t.$('profile-manage-btn');
+    assert.ok(manageBtn);
+    assert.equal(t.$('profile-schedule-panel').hidden, true);
+
+    t.click(manageBtn);
+    assert.equal(t.$('profile-schedule-panel').hidden, true);
+    assert.match(text(t.$('notice')), /Profiles are a Pro feature/);
+  } finally { t.close(); }
+});
+
+test('profiles: Pro user can save, apply, and delete profiles', async () => {
+  const t = await mount({
+    licence: PRO,
+    settings: { ...DEFAULT_SETTINGS, themeId: 'minimal', density: 4 },
+  });
+  try {
+    const manageBtn = t.$('profile-manage-btn');
+    t.click(manageBtn);
+    const panel = t.$('profile-schedule-panel');
+    assert.equal(panel.hidden, false);
+
+    // Save a new profile named "Reading Mode"
+    t.$('profile-name-input').value = 'Reading Mode';
+    t.click(t.$('profile-save-btn'));
+    await t.settle();
+
+    // Verify profile is listed in UI
+    const list = t.$('profile-list');
+    const items = list.querySelectorAll('.profile-item');
+    assert.equal(items.length, 1);
+    assert.match(text(items[0]), /Reading Mode/);
+
+    // Verify profile is stored in chrome storage
+    const rawStored = (await t.chrome.storage.local.get(STORAGE_KEYS.profiles))[STORAGE_KEYS.profiles];
+    const stored = Array.isArray(rawStored) ? rawStored : rawStored?.items;
+    assert.equal(Array.isArray(stored), true);
+    assert.equal(stored.length, 1);
+    assert.equal(stored[0].name, 'Reading Mode');
+    assert.equal(stored[0].settings.themeId, 'minimal');
+    assert.equal(stored[0].settings.density, 4);
+
+    // Change settings to classic
+    await t.chrome.storage.local.set({ [STORAGE_KEYS.settings]: { ...DEFAULT_SETTINGS, themeId: 'classic', density: 1 } });
+    await t.settle();
+    assert.equal(t.card('classic').getAttribute('aria-checked'), 'true');
+
+    // Click Apply on "Reading Mode"
+    const applyBtn = t.$('profile-list').querySelector('[data-apply-profile]');
+    assert.ok(applyBtn, 'apply button exists in live list');
+    t.click(applyBtn);
+    await t.settle();
+
+    // Verify settings restored to minimal
+    const appliedSettings = await t.stored();
+    assert.equal(appliedSettings.themeId, 'minimal');
+    assert.equal(appliedSettings.density, 4);
+
+    // Delete profile
+    const delBtn = t.$('profile-list').querySelector('[data-delete-profile]');
+    assert.ok(delBtn, 'delete button exists in live list');
+    t.click(delBtn);
+    await t.settle();
+
+    const rawStoredAfterDel = (await t.chrome.storage.local.get(STORAGE_KEYS.profiles))[STORAGE_KEYS.profiles];
+    const storedAfterDel = Array.isArray(rawStoredAfterDel) ? rawStoredAfterDel : rawStoredAfterDel?.items;
+    assert.equal(storedAfterDel.length, 0);
+    assert.match(text(t.$('profile-list')), /No saved profiles yet/);
+  } finally { t.close(); }
+});
+
+test('schedule: Pro user can toggle schedule and configure day/night times and profiles', async () => {
+  const profileA = { id: 'prof-day', name: 'Day Look', settings: { themeId: 'minimal' } };
+  const profileB = { id: 'prof-night', name: 'Night Look', settings: { themeId: 'cinema' } };
+  const t = await mount({
+    licence: PRO,
+    prepare: async (testEnv) => {
+      await testEnv.chrome.storage.local.set({
+        [STORAGE_KEYS.profiles]: [profileA, profileB],
+      });
+    },
+  });
+  try {
+    t.click(t.$('profile-manage-btn'));
+    assert.equal(t.$('profile-schedule-panel').hidden, false);
+
+    // Toggle schedule ON
+    t.click(t.$('schedule-toggle-btn'));
+    await t.settle();
+
+    let sched = (await t.chrome.storage.local.get(STORAGE_KEYS.schedule))[STORAGE_KEYS.schedule];
+    assert.equal(sched.enabled, true);
+    assert.equal(text(t.$('schedule-toggle-btn')), 'Schedule: On');
+
+    // Change day time & profile
+    t.$('schedule-day-time').value = '07:30';
+    t.$('schedule-day-profile').value = 'prof-day';
+    t.fire(t.$('schedule-day-time'), 'change');
+    t.fire(t.$('schedule-day-profile'), 'change');
+    await t.settle();
+
+    sched = (await t.chrome.storage.local.get(STORAGE_KEYS.schedule))[STORAGE_KEYS.schedule];
+    assert.equal(sched.dayTime, '07:30');
+    assert.equal(sched.dayProfileId, 'prof-day');
+
+    // Toggle schedule OFF
+    t.click(t.$('schedule-toggle-btn'));
+    await t.settle();
+
+    sched = (await t.chrome.storage.local.get(STORAGE_KEYS.schedule))[STORAGE_KEYS.schedule];
+    assert.equal(sched.enabled, false);
+    assert.equal(text(t.$('schedule-toggle-btn')), 'Schedule: Off');
+  } finally { t.close(); }
+});
+

@@ -1,7 +1,7 @@
 // Pure popup logic: validation, tier gating, the derived view and all user-facing copy.
 // No DOM, no chrome.*: app.js owns the wiring, this file owns the decisions (and is unit-tested on its own).
 import {
-  ALL_THEME_IDS, CALM_KEYS, DEFAULT_SETTINGS, FEATURES, FREE_THEME_IDS, PAGE_TYPES,
+  ALL_THEME_IDS, CALM_KEYS, DEFAULT_SCHEDULE, DEFAULT_SETTINGS, FEATURES, FREE_THEME_IDS, PAGE_TYPES,
 } from '../shared/constants.js';
 import {
   allowedCalmKeys, canSetDensity, computeEffectiveConfig, isPro, isThemeAllowed,
@@ -101,14 +101,17 @@ export function safeCssColor(value) {
  * so a tampered DOM or a future bug cannot write an arbitrary key into cd.settings.
  * @returns {{ok:true, patch:object} | {ok:false, error:string}}
  */
-export function sanitizePatch(patch) {
+export function sanitizePatch(patch, allowedCustomIds = []) {
   if (!isPlainObject(patch)) return { ok: false, error: 'Nothing to save.' };
   const out = {};
+  const customIds = Array.isArray(allowedCustomIds) ? allowedCustomIds : [];
   for (const key of Object.keys(patch)) {
     const value = patch[key];
     switch (key) {
       case 'themeId':
-        if (typeof value !== 'string' || !ALL_THEME_IDS.includes(value)) return { ok: false, error: 'That theme is not available.' };
+        if (typeof value !== 'string' || (!ALL_THEME_IDS.includes(value) && !customIds.includes(value))) {
+          return { ok: false, error: 'That theme is not available.' };
+        }
         out.themeId = value;
         break;
       case 'accent': {
@@ -315,8 +318,8 @@ export function activationErrorCopy(reason) {
 
 // ---- derived view -----------------------------------------------------------------------------------------------------
 
-/** A usable theme: known id and a tier the engine accepts. Duplicates keep the first. */
-export function usableThemes(themes) {
+/** A usable theme: known id or valid custom theme, and a tier the engine accepts. Duplicates keep the first. */
+export function usableThemes(themes, customThemes = []) {
   const seen = new Set();
   const out = [];
   for (const t of Array.isArray(themes) ? themes : []) {
@@ -325,18 +328,27 @@ export function usableThemes(themes) {
     seen.add(t.id);
     out.push(t);
   }
+  const customList = isPlainObject(customThemes)
+    ? Object.values(customThemes)
+    : (Array.isArray(customThemes) ? customThemes : []);
+  for (const t of customList) {
+    if (!isPlainObject(t) || typeof t.id !== 'string' || seen.has(t.id)) continue;
+    if (t.tier !== 'free' && t.tier !== 'pro') continue;
+    seen.add(t.id);
+    out.push({ ...t, isCustom: true });
+  }
   return out;
 }
 
-export const themeNeedsPro = (theme) => theme.tier === 'pro' || !FREE_THEME_IDS.includes(theme.id);
+export const themeNeedsPro = (theme) => theme.tier === 'pro' || (!theme.isCustom && !FREE_THEME_IDS.includes(theme.id));
 
 /**
  * Everything the UI shows, derived from stored settings + licence + themes. Values are the EFFECTIVE ones (what the open
  * tab actually renders), so a lapsed licence shows Cinema/theme density/no Pro calm while the stored choices stay intact;
  * `suppressed` lists what is saved but currently not applied.
  */
-export function deriveView({ settings, licence, licenceKnown = true, themes }) {
-  const list = usableThemes(themes);
+export function deriveView({ settings, licence, licenceKnown = true, themes, customThemes = [], profiles = [], schedule = null }) {
+  const list = usableThemes(themes, customThemes);
   const stored = withDefaults(settings);
   const pro = isPro(licence);
   const cfg = computeEffectiveConfig({ settings: stored, licenceState: licence, themes: list });
@@ -355,6 +367,7 @@ export function deriveView({ settings, licence, licenceKnown = true, themes }) {
       locked,
       checked: !!effectiveTheme && t.id === effectiveTheme.id,
       colors: t.tokens && isPlainObject(t.tokens.color) ? t.tokens.color : {},
+      isCustom: !!t.isCustom,
     };
   });
 
@@ -376,6 +389,18 @@ export function deriveView({ settings, licence, licenceKnown = true, themes }) {
   }
   if (densityLocked && storedDensity !== null) suppressed.push('density');
   for (const c of calm) if (c.suppressed) suppressed.push(c.label.toLowerCase());
+
+  const profileList = Array.isArray(profiles)
+    ? profiles.filter((p) => p && typeof p.id === 'string' && typeof p.name === 'string')
+    : [];
+
+  const scheduleView = (schedule && typeof schedule === 'object') ? {
+    enabled: Boolean(schedule.enabled),
+    dayProfileId: typeof schedule.dayProfileId === 'string' ? schedule.dayProfileId : null,
+    nightProfileId: typeof schedule.nightProfileId === 'string' ? schedule.nightProfileId : null,
+    dayTime: typeof schedule.dayTime === 'string' ? schedule.dayTime : DEFAULT_SCHEDULE.dayTime,
+    nightTime: typeof schedule.nightTime === 'string' ? schedule.nightTime : DEFAULT_SCHEDULE.nightTime,
+  } : { ...DEFAULT_SCHEDULE };
 
   return {
     pro,
@@ -399,13 +424,17 @@ export function deriveView({ settings, licence, licenceKnown = true, themes }) {
     },
     calm,
     suppressed,
+    profiles: profileList,
+    profilesLocked: !pro,
+    schedule: scheduleView,
+    scheduleLocked: !pro,
   };
 }
 
 /** Is `patch` (already sanitised) something this licence may write? Locked controls never write. */
-export function checkEntitlement(patch, { licence, themes }) {
+export function checkEntitlement(patch, { licence, themes, customThemes = [] }) {
   if (patch.themeId !== undefined) {
-    const theme = usableThemes(themes).find((t) => t.id === patch.themeId);
+    const theme = usableThemes(themes, customThemes).find((t) => t.id === patch.themeId);
     // A theme the popup does not know cannot be shown or verified, so it is refused for everyone.
     if (!theme) return { ok: false, kind: 'unknown-theme', key: patch.themeId };
     if (!isThemeAllowed(theme, licence)) {
@@ -419,6 +448,12 @@ export function checkEntitlement(patch, { licence, themes }) {
       if (!allowed.includes(key)) return { ok: false, kind: 'calm', key, name: CALM_COPY[key].label };
     }
   }
+  if (patch.profiles !== undefined && !isPro(licence)) {
+    return { ok: false, kind: 'profiles', key: 'profiles' };
+  }
+  if (patch.schedule !== undefined && !isPro(licence)) {
+    return { ok: false, kind: 'schedule', key: 'schedule' };
+  }
   return { ok: true };
 }
 
@@ -429,6 +464,8 @@ export function lockedCopy(check, key) {
   if (check.kind === 'theme') return `${lead}${check.name} is a Pro theme. Activate Pro to use it.`;
   if (check.kind === 'density') return `${lead}Density is a Pro setting. Activate Pro to adjust it.`;
   if (check.kind === 'calm') return `${lead}${check.name} is a Pro setting. Activate Pro to turn it on.`;
+  if (check.kind === 'profiles') return `${lead}Profiles are a Pro feature. Activate Pro to create and manage profiles.`;
+  if (check.kind === 'schedule') return `${lead}Time-based scheduling is a Pro feature. Activate Pro to use it.`;
   return 'That is not available.';
 }
 

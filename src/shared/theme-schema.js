@@ -412,3 +412,122 @@ export function validateTheme(input, opts) {
   const ok = rep.errors.length === 0 && theme !== null;
   return { ok, errors: rep.errors, warnings: rep.warnings, theme: ok ? theme : null, cssValidated };
 }
+
+/**
+ * Serialises a theme into a valid Schema v1 JSON string.
+ * Optionally incorporates user overrides (custom accent, density, layouts, calm, css).
+ *
+ * @param {object} theme - NormalizedTheme or bundled theme
+ * @param {object} [overrides] - optional user overrides
+ * @returns {string} Formatted JSON string
+ */
+export function exportTheme(theme, overrides = {}) {
+  if (!theme || typeof theme !== 'object') {
+    throw new TypeError('exportTheme requires a theme object');
+  }
+  const ov = overrides && typeof overrides === 'object' ? overrides : {};
+  const id = typeof ov.id === 'string' && ov.id ? ov.id : (typeof theme.id === 'string' ? theme.id : 'custom-theme');
+  const name = typeof ov.name === 'string' && ov.name ? ov.name : (typeof theme.name === 'string' ? theme.name : 'Custom Theme');
+  const author = typeof ov.author === 'string' && ov.author ? ov.author : (typeof theme.author === 'string' ? theme.author : 'User');
+  const version = typeof ov.version === 'string' && ov.version ? ov.version : (typeof theme.version === 'string' ? theme.version : '1.0.0');
+  const tier = (ov.tier === 'pro' || ov.tier === 'free') ? ov.tier : (theme.tier === 'pro' ? 'pro' : 'free');
+
+  const baseTokens = theme.tokens && typeof theme.tokens === 'object' ? theme.tokens : {};
+  const baseColor = baseTokens.color && typeof baseTokens.color === 'object' ? baseTokens.color : {};
+  const baseType = baseTokens.type && typeof baseTokens.type === 'object' ? baseTokens.type : {};
+  const baseShape = baseTokens.shape && typeof baseTokens.shape === 'object' ? baseTokens.shape : {};
+
+  const tokens = {
+    color: {
+      bg: baseColor.bg || '#0b0b0f',
+      surface: baseColor.surface || '#16161f',
+      text: baseColor.text || '#f2f2f5',
+      muted: baseColor.muted || '#9a9aa8',
+      accent: ov.accent || baseColor.accent || '#e8b04a',
+      border: baseColor.border || '#656572',
+    },
+    type: {
+      family: baseType.family || 'System',
+      baseSize: typeof baseType.baseSize === 'number' ? baseType.baseSize : 14,
+      headingWeight: typeof baseType.headingWeight === 'number' ? baseType.headingWeight : 600,
+    },
+    shape: {
+      radius: typeof baseShape.radius === 'number' ? baseShape.radius : 10,
+      shadow: typeof baseShape.shadow === 'boolean' ? baseShape.shadow : true,
+      spacing: typeof baseShape.spacing === 'number' ? baseShape.spacing : 3,
+    },
+  };
+
+  const baseLayout = theme.layout && typeof theme.layout === 'object' ? theme.layout : {};
+  const layout = {
+    home: ov.home || baseLayout.home || 'grid',
+    watch: ov.watch || baseLayout.watch || 'default',
+    density: (ov.density !== undefined && ov.density !== null) ? ov.density : (baseLayout.density || 3),
+  };
+
+  const baseCalm = theme.calm && typeof theme.calm === 'object' ? theme.calm : {};
+  const calm = { ...baseCalm, ...(ov.calm && typeof ov.calm === 'object' ? ov.calm : {}) };
+
+  const css = typeof ov.css === 'string' ? ov.css : (typeof theme.css === 'string' ? theme.css : '');
+
+  const exported = {
+    schema: 1,
+    id,
+    name,
+    author,
+    version,
+    tier,
+    tokens,
+    layout,
+    calm,
+    css,
+  };
+
+  return JSON.stringify(exported, null, 2);
+}
+
+/**
+ * Parses and validates an imported theme JSON string.
+ *
+ * @param {string} jsonString - raw JSON string
+ * @param {object} [opts] - validation options forwarded to validateTheme
+ * @returns {{ ok: boolean, errors: Issue[], warnings: Issue[], theme: NormalizedTheme|null, cssValidated: boolean }}
+ */
+export function importTheme(jsonString, opts = {}) {
+  if (typeof jsonString !== 'string') {
+    return {
+      ok: false,
+      errors: [{ path: '', message: 'Imported theme must be a JSON string.' }],
+      warnings: [],
+      theme: null,
+      cssValidated: false,
+    };
+  }
+
+  const maxBytes = LIMITS.maxCustomThemeBytes || 65536;
+  if (jsonString.length > maxBytes || utf8ByteLength(jsonString) > maxBytes) {
+    return {
+      ok: false,
+      errors: [{ path: '', message: `Theme exceeds maximum allowed size of ${maxBytes / 1024} KB.` }],
+      warnings: [],
+      theme: null,
+      cssValidated: false,
+    };
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(jsonString);
+  } catch (err) {
+    return {
+      ok: false,
+      errors: [{ path: '', message: `Invalid JSON: ${err.message}` }],
+      warnings: [],
+      theme: null,
+      cssValidated: false,
+    };
+  }
+
+  return validateTheme(parsed, opts);
+}
+

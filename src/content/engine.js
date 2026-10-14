@@ -17,6 +17,7 @@ import { claimsMatch, licenceState as toLicenceState, verifyLicenceToken } from 
 import { LICENCE_PUBLIC_KEY, SELECTOR_MAP_PUBLIC_KEY } from '../shared/public-keys.js';
 import { parseEnvelopePayload } from '../shared/selector-map.js';
 import { compareMapVersions, verifyEnvelope } from '../shared/signing.js';
+import { validateTheme } from '../shared/theme-schema.js';
 import { applyCalmAttributes } from './calm.js';
 import { createHealth } from './health.js';
 import { createHomeLayout } from './layouts/home.js';
@@ -151,6 +152,21 @@ export function createEngine(deps = {}) {
     return toLicenceState(record, now());
   }
 
+  const activeThemes = (s) => (s && s.customThemes && s.customThemes.size ? [...themes, ...s.customThemes.values()] : themes);
+
+  function loadCustomThemes(s, raw) {
+    s.customThemes.clear();
+    const map = (isPlain(raw) && isPlain(raw.items)) ? raw.items : (isPlain(raw) ? raw : null);
+    if (map) {
+      for (const [id, t] of Object.entries(map)) {
+        if (isPlain(t) && t.id === id) {
+          const res = validateTheme(t);
+          if (res.ok && res.theme) s.customThemes.set(id, res.theme);
+        }
+      }
+    }
+  }
+
   // ---- fail-open and teardown ------------------------------------------------------------------------------------------
 
   function guarded(s, fn) {
@@ -226,7 +242,7 @@ export function createEngine(deps = {}) {
   }
 
   function applyAll(s) {
-    const cfg = computeEffectiveConfig({ settings: s.settings, licenceState: effectiveLicence(s), themes, disabled: [...s.disabled] });
+    const cfg = computeEffectiveConfig({ settings: s.settings, licenceState: effectiveLicence(s), themes: activeThemes(s), disabled: [...s.disabled] });
     if (!cfg.theme) throw new Error('no usable theme');
     if (reducedMotion()) cfg.animations = false;
     s.cfg = cfg;
@@ -436,7 +452,7 @@ export function createEngine(deps = {}) {
    */
   function initialDisabled(s, verdict) {
     if (!verdict || verdict.mapVersion !== s.map.mapVersion) return new Set();
-    const cfg = computeEffectiveConfig({ settings: s.settings, licenceState: effectiveLicence(s), themes, disabled: [] });
+    const cfg = computeEffectiveConfig({ settings: s.settings, licenceState: effectiveLicence(s), themes: activeThemes(s), disabled: [] });
     const themeId = cfg.theme ? cfg.theme.id : null;
     const list = Object.hasOwn(verdict.pages, s.pageType) ? verdict.pages[s.pageType] : verdict.broken;
     const out = new Set(list);
@@ -532,6 +548,11 @@ export function createEngine(deps = {}) {
         s.touched.add('licence');
         changed = true;
       }
+      if (has(changes, STORAGE_KEYS.customThemes)) {
+        loadCustomThemes(s, changes[STORAGE_KEYS.customThemes].newValue);
+        s.touched.add('customThemes');
+        changed = true;
+      }
       if (has(changes, STORAGE_KEYS.selectorMap)) {
         const seq = ++s.mapSeq;
         evaluateMap(s, changes[STORAGE_KEYS.selectorMap].newValue).then((map) => {
@@ -558,6 +579,7 @@ export function createEngine(deps = {}) {
       stopped: false, failed: false, loaded: false, pending: false, handle: null,
       injector: createStyleInjector({ doc, win }),
       settings: normalizeSettings(null), licenceRecord: null, verified: new Map(), verdict: null,
+      customThemes: new Map(),
       bundledMap: null, map: null, selectors: null, health: null, layout: null,
       cfg: null, pageType: 'other', disabled: new Set(), missing: [], warnings: [],
       paintedKey: '', watchKey: '', navDirty: false, disposeWatch: null,
@@ -597,11 +619,12 @@ export function createEngine(deps = {}) {
   async function load(s) {
     let got = {};
     try {
-      got = (await chrome.storage.local.get([STORAGE_KEYS.settings, STORAGE_KEYS.licence, STORAGE_KEYS.selectorMap, STORAGE_KEYS.health])) || {};
+      got = (await chrome.storage.local.get([STORAGE_KEYS.settings, STORAGE_KEYS.licence, STORAGE_KEYS.selectorMap, STORAGE_KEYS.health, STORAGE_KEYS.customThemes])) || {};
     } catch { got = {}; }
     if (st !== s || s.stopped) return;
     if (!s.touched.has('settings')) s.settings = normalizeSettings(got[STORAGE_KEYS.settings]);
     if (!s.touched.has('licence')) setLicenceRecord(s, got[STORAGE_KEYS.licence]);
+    if (!s.touched.has('customThemes')) loadCustomThemes(s, got[STORAGE_KEYS.customThemes]);
     if (got[STORAGE_KEYS.selectorMap] !== undefined) {
       const seq = s.mapSeq;
       const map = await evaluateMap(s, got[STORAGE_KEYS.selectorMap]);

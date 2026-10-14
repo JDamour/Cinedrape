@@ -183,6 +183,7 @@ src/content/calm.js                                                      [calm]
 src/content/{stylesheet,engine,style-injector,index}.js                  [engine — phase 2]
 src/background/{service-worker,licence-manager,map-updater}.js           [background]
 src/popup/{popup.html,popup.css,popup.js,…}                              [popup]
+src/editor/{editor.html,editor.css,editor.js,editor-model.js}            [editor — Spec F7]
 src/themes/{cinema,minimal,classic,primetime,studio,arcade}.json,index.js [skin]
 test/helpers/{chrome-mock,dom}.js   test/fixtures/real/*.html            [scaffold, fixtures]
 test/**                             one test file per module, next to its owner's work
@@ -260,15 +261,32 @@ export const ALL_THEME_IDS = ['cinema','minimal','classic','primetime','studio',
 export const FREE_THEME_IDS = ['cinema','minimal','classic'];
 export const LAYOUT_HOME = ['grid','rows','hero-rows'];
 export const LAYOUT_WATCH = ['default','cinema','focus'];
+export const RESERVED_THEME_IDS = Object.freeze([...ALL_THEME_IDS, 'broadcast']);
 export const STORAGE_KEYS = { settings:'cd.settings', licence:'cd.licence', selectorMap:'cd.selectorMap',
-  health:'cd.health', telemetry:'cd.telemetry', firstPaint:'cd.firstPaint' };
+  health:'cd.health', telemetry:'cd.telemetry', firstPaint:'cd.firstPaint', customThemes:'cd.customThemes',
+  profiles:'cd.profiles', schedule:'cd.schedule', backup:'cd.backup', draft:'cd.editorDraft' };
 export const DEFAULT_SETTINGS = { schema:1, themeId:'cinema', accent:null, density:null, animations:true,
   textScale:null, calm:{ hideShorts:false, hideHomeRecs:false, hideComments:false, hideEndScreens:false, hideViewCounts:false, hideLive:false },
   telemetryOptIn:false };
+export const DEFAULT_SCHEDULE = { schema:1, enabled:false, dayProfileId:'cinema', nightProfileId:'cinema',
+  dayTime:'08:00', nightTime:'20:00', manualOverrideUntil:null, lastError:null };
 export const LIMITS = { cssMaxBytes:20480, contentMaxChars:100, offlineGraceMs:30*864e5,
-  licenceRecheckMs:7*864e5, mapRefreshMs:6*36e5, maxBrowsersPerLicence:3 };
-export const MSG = { GET_STATUS:'cd:getStatus', ACTIVATE_LICENCE:'cd:activateLicence',
-  GET_LICENCE:'cd:getLicence', REFRESH_MAP:'cd:refreshMap', STATUS_CHANGED:'cd:statusChanged' };
+  licenceRecheckMs:7*864e5, mapRefreshMs:6*36e5, maxBrowsersPerLicence:3,
+  maxCustomThemes:10, maxCustomThemeBytes:65536, maxProfiles:10 };
+export const MSG = {
+  GET_STATUS:'cd:getStatus',
+  ACTIVATE_LICENCE:'cd:activateLicence',
+  GET_LICENCE:'cd:getLicence',
+  REFRESH_MAP:'cd:refreshMap',
+  STATUS_CHANGED:'cd:statusChanged',
+  SAVE_THEME:'cd:saveTheme',
+  DELETE_THEME:'cd:deleteTheme',
+  SAVE_PROFILE:'cd:saveProfile',
+  DELETE_PROFILE:'cd:deleteProfile',
+  APPLY_PROFILE:'cd:applyProfile',
+  UPDATE_SCHEDULE:'cd:updateSchedule',
+  SAVE_SETTINGS:'cd:saveSettings',
+};
 export const FIRST_PAINT_LS_KEY = 'cd:v1:firstPaint';   // localStorage key used by the engine (§5)
 ```
 
@@ -458,9 +476,10 @@ infinite scroll works; appends new tiles as they arrive (MutationObserver on `ho
 rows scroll with mouse (buttons, wheel/drag) and keyboard (←/→, Home/End, visible focus; cards are real `<a href>`s so
 history/recs keep working); respects reduced motion; **mounts only after ≥1 card is built, and `unmount()` restores
 the original DOM exactly**.
-**content/layouts/watch.js** — `buildWatchLayoutCss(map, cfg) → string` (CSS only, `cinema` and `focus`; the player
-element is never moved or re-parented); `buildWatchLiveCss(map, cfg) → string` (live presentation under `html[cd-watch-live]`);
-`isWatchLive(doc, selectors) → boolean`. **content/layouts/density.js** — `buildDensityCss(map, cfg)` (1 = compact … 5 = roomy;
+**content/layouts/watch.js** — `buildWatchLayoutCss(map, cfg) → string` (CSS only, `cinema` and `focus`; scopes across
+`:is(ytd-watch-flexy, ytd-watch-grid)`, the player element is never moved or re-parented); `buildWatchLiveCss(map, cfg) → string`
+(live presentation under `html[cd-watch-live]`); `isWatchLive(doc, selectors) → boolean`; `hasWatchMetadata(doc, selectors) → boolean`.
+**content/layouts/density.js** — `buildDensityCss(map, cfg)` (1 = compact … 5 = roomy;
 sets `--cd-gap --cd-card-min --cd-row-gap`, and overrides `--ytd-rich-grid-items-per-row` with `!important` for the home grid).
 
 **content/calm.js** — `buildCalmCss(map, cfg) → string` (static CSS gated on `html[cd-calm-<key>]`, every hide rule via

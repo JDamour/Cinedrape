@@ -20,13 +20,14 @@ import { safeHide } from '../../shared/selector-map.js';
 import { isFeatureDisabled, roleEntries, carriesAdGuard } from './density.js';
 
 const FEATURE = 'layout-watch';
-const FLEXY = 'ytd-watch-flexy';
+const WATCH_HOSTS = ['ytd-watch-flexy', 'ytd-watch-grid'];
+const FLEXY = ':is(ytd-watch-flexy, ytd-watch-grid)';
 const GATE = `html[cd-theme][cd-page="watch"]:not([${ATTR.offPrefix}${FEATURE}])`;
 const SCOPE = `${GATE} ${FLEXY}:not([fullscreen])`;
 // YouTube's own page-margin variables are read by the cinema layout; a stylesheet that sets them must not be able to squeeze the
 // player (and the in-player ad) to nothing, so both reads are clamped (ad-safety review, finding 2).
-const MARGIN = 'clamp(0px,var(--ytd-watch-flexy-horizontal-page-margin,16px),96px)';
-const TOP_PAD = 'clamp(0px,var(--ytd-watch-flexy-top-padding,12px),48px)';
+const MARGIN = 'clamp(0px,var(--ytd-watch-flexy-horizontal-page-margin,var(--ytd-watch-grid-horizontal-page-margin,16px)),96px)';
+const TOP_PAD = 'clamp(0px,var(--ytd-watch-flexy-top-padding,var(--ytd-watch-grid-top-padding,12px)),48px)';
 
 // What the map does not name: the leaves of the related list (current and older renderers). Roles of the same purpose join them.
 const RELATED_LEAVES = [
@@ -45,7 +46,7 @@ const group = (map, name) => (map && map.protected && Array.isArray(map.protecte
 const union = (list) => (list.length === 1 ? list[0] : `:is(${list.join(',')})`);
 
 /**
- * Role entries as selectors relative to <ytd-watch-flexy> (the scope already names it). Entries rooted somewhere else (the
+ * Role entries as selectors relative to watch containers (the scope already names it). Entries rooted somewhere else (the
  * ytd-app[is-watch-page] fallback of watchFlexy) are not relative to it and are dropped.
  */
 function inFlexy(map, role) {
@@ -53,9 +54,14 @@ function inFlexy(map, role) {
   if (!entries.length && FALLBACK[role]) entries = [...FALLBACK[role]];
   const out = [];
   for (const e of entries) {
-    if (e === FLEXY) continue;
-    if (e.startsWith(`${FLEXY} `)) out.push(e.slice(FLEXY.length + 1).trim());
-    else if (!/^ytd-app\b/.test(e)) out.push(e);
+    if (WATCH_HOSTS.includes(e) || e === FLEXY) continue;
+    let stripped = e;
+    for (const host of WATCH_HOSTS) {
+      if (stripped.startsWith(`${host} `)) {
+        stripped = stripped.slice(host.length + 1).trim();
+      }
+    }
+    if (!/^ytd-app\b/.test(stripped)) out.push(stripped);
   }
   return dedupe(out.filter(Boolean));
 }
@@ -174,7 +180,8 @@ export function buildWatchLiveCss(map, cfg) {
  */
 export function isWatchLive(doc, selectors) {
   if (!doc || typeof doc.querySelector !== 'function') return false;
-  const flexy = doc.querySelector('ytd-watch-flexy');
+  const flexy = doc.querySelector('ytd-watch-flexy:not([hidden]), ytd-watch-grid:not([hidden])')
+    || doc.querySelector('ytd-watch-flexy, ytd-watch-grid');
   if (!flexy || flexy.hasAttribute('hidden')) return false;
 
   let viewCountEls = [];
@@ -206,7 +213,8 @@ export function isWatchLive(doc, selectors) {
  */
 export function hasWatchMetadata(doc, selectors) {
   if (!doc || typeof doc.querySelector !== 'function') return false;
-  const flexy = doc.querySelector('ytd-watch-flexy');
+  const flexy = doc.querySelector('ytd-watch-flexy:not([hidden]), ytd-watch-grid:not([hidden])')
+    || doc.querySelector('ytd-watch-flexy, ytd-watch-grid');
   if (!flexy) return false;
   let viewCountEls = [];
   if (selectors && typeof selectors.findAll === 'function') {

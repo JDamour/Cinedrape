@@ -285,6 +285,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, io =
     { name: 'content.js', entry: 'src/content/index.js', out: `${outName}/content.js`, format: 'iife', minify: true },
     { name: 'service-worker.js', entry: 'src/background/service-worker.js', out: `${outName}/service-worker.js`, format: 'esm', minify: !dev },
     { name: 'popup/popup.js', entry: 'src/popup/popup.js', out: `${outName}/popup/popup.js`, format: 'iife', minify: !dev },
+    { name: 'editor/editor.js', entry: 'src/editor/editor.js', out: `${outName}/editor/editor.js`, format: 'iife', minify: !dev },
   ];
 
   // Bundle the entries concurrently, then report in a fixed order.
@@ -307,7 +308,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, io =
     if (skipped) {
       rows.push({ name: e.name, status: 'SKIP', note: 'not written yet' });
       log(`SKIP ${e.name} (not written yet)`);
-      if (strict) fail(`missing entry point ${e.entry}`);
+      if (strict && !e.optional) fail(`missing entry point ${e.entry}`);
     } else if (error) {
       const msgs = (error.errors || []).map((x) => {
         const loc = x.location ? `${x.location.file}:${x.location.line}:${x.location.column}: ` : '';
@@ -340,13 +341,15 @@ export async function main(argv = process.argv.slice(2), env = process.env, io =
     { name: 'popup/popup.html', from: 'src/popup/popup.html', to: 'popup/popup.html' },
     { name: 'popup/popup.css', from: 'src/popup/popup.css', to: 'popup/popup.css' },
     { name: 'data/selector-map.json', from: 'src/data/selector-map.signed.json', to: 'data/selector-map.json' },
+    { name: 'editor/editor.html', from: 'src/editor/editor.html', to: 'editor/editor.html' },
+    { name: 'editor/editor.css', from: 'src/editor/editor.css', to: 'editor/editor.css' },
   ];
   for (const c of copies) {
     const from = join(root, c.from);
     if (!existsSync(from)) {
       rows.push({ name: c.name, status: 'SKIP', note: 'not written yet' });
       log(`SKIP ${c.name} (not written yet)`);
-      if (strict) fail(`missing input ${c.from}`);
+      if (strict && !c.optional) fail(`missing input ${c.from}`);
       continue;
     }
     mkdirSync(dirname(join(dist, c.to)), { recursive: true });

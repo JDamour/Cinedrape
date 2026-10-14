@@ -256,6 +256,23 @@ test('detectWatchMode: the hidden off-page skeleton never reports a mode, even w
   assert.equal(detectWatchMode(q.document), 'default');
 });
 
+test('detectWatchMode: supports modern YouTube New UI ytd-watch-grid (default, theatre, fullscreen)', () => {
+  const p = page('home');
+  const pm = p.document.querySelector('ytd-page-manager');
+  const grid = p.document.createElement('ytd-watch-grid');
+  grid.setAttribute('video-id', 'BzpdP2APcIM');
+  pm.append(grid);
+  assert.equal(detectWatchMode(p.document), 'default');
+  grid.setAttribute('theater', '');
+  assert.equal(detectWatchMode(p.document), 'theatre');
+  grid.setAttribute('fullscreen', '');
+  assert.equal(detectWatchMode(p.document), 'fullscreen');
+  grid.removeAttribute('fullscreen');
+  assert.equal(detectWatchMode(p.document), 'theatre');
+  grid.setAttribute('hidden', '');
+  assert.equal(detectWatchMode(p.document), 'default', 'hidden watch-grid reports default');
+});
+
 test('detectWatchMode: pages without a watch element, empty documents and hostile inputs are "default"', () => {
   for (const kind of ['home', 'search', 'channel', 'subscriptions', 'history', 'playlist']) assert.equal(detectWatchMode(page(kind).document), 'default', kind);
   for (const doc of [null, undefined, 0, 'document', {}, [], { querySelector: 1 }, { querySelector() { return null; } }]) {

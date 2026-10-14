@@ -27,6 +27,12 @@ that completes a task. Last full audit: **13 Oct 2026**.
 | D18 | T6: Grid-mode live tiles documented as fail-closed limitation (popup copy "works with rows layouts", ARCHITECTURE §3.5) | S7 | model.js, ARCHITECTURE.md §3.5 |
 | D19 | T7: Readability-rate gate headroom (3.5%) & creator-heart comments excluded in e2e audit harness (accommodates YouTube New UI comments) | — | test/e2e-harness.test.js 14/14 PASS; audit.mjs |
 | D20 | T5: Write store privacy-policy page (ARCHITECTURE §7.9 items a–e) | — | docs/PRIVACY.md |
+| D21 | Custom Theme Import/Export (Spec F9): theme JSON export/import with validation, quota limits, Pro custom CSS gating, popup modal | S11 | unit 1939/1939; theme-schema.test.js; popup/model.test.js; popup/render.test.js |
+| D22 | YouTube New UI Forward Compatibility: support for modern Web Component view models in skin fallbacks & selector maps | S12 | content/skin.test.js; e2e:home 119 PASS |
+| D23 | Saved Profiles & Time-Based Scheduling (Spec F8): profiles storage, schedule alarm, background checking, popup management UI | S13 | unit 1942/1942; e2e:popup 235 PASS; e2e:home 119 PASS |
+| D24 | Visual Theme Editor (Spec F7): visual appearance controls, live YouTube preview (Home/Watch/New UI), contrast auditor, theme save & apply | S14 | unit 1957/1957; editor-model.test.js; editor-dom.test.js; e2e:popup 235 PASS |
+| D25 | Watch Page New UI Compatibility (Spec S15): support ytd-watch-grid container in watchMode detection, cinema & focus layouts, live presentation, and selector map 2026.10.14.1 | S15 | unit 1959/1959; watch.test.js; page.test.js; selector-map-data.test.js; ad-safety.test.js |
+| D26 | F7–F9 Integration Hardening (WP1–WP6, Audit A01–A09): Versioned storage envelopes (schema 1), serialized worker mutations, stable theme IDs, local-time profile scheduling, Pro gating on editor save/apply, selector-map CSS validation, draft recovery, and import conflict resolution | WP1–WP6 | unit 2007/2007; strict build 74.3 KB gz; e2e matrix PASS |
 
 ## Open — bugs / known gaps (from STATUS.md "Known gaps", still true)
 

@@ -1,6 +1,6 @@
-# Cinedrape — Status (MVP F1–F6)
+# Cinedrape — Status (Features F1–F9)
 
-Last verified: 13 Oct 2026 (live-UI audit pass — see `docs/ENHANCEMENT-SPECS.md` and `docs/TASKS.md`), Windows, Node 25, jsdom 29.1.1, esbuild 0.28.2, Chrome 154. Contract: `docs/ARCHITECTURE.md`. Spec: `YouTube Skin Studio — Product Spec.md`.
+Last verified: 14 Oct 2026 (F7–F9 integration pass — see `docs/GEMINI-IMPLEMENTATION-SPECS.md`, `docs/IMPLEMENTATION-AUDIT-2026-10-14.md` and `docs/TASKS.md`), Windows, Node 25, jsdom 29.1.1, esbuild 0.28.2, Chrome 154. Contract: `docs/ARCHITECTURE.md`. Spec: `YouTube Skin Studio — Product Spec.md`.
 
 ## Build and tests
 
@@ -13,19 +13,19 @@ npm run e2e:home    real Chrome live YouTube features & calm mode (F1-F5)
 npm run e2e:popup   real Chrome live YouTube popup, breakage, service worker & trust audit (F4, F6)
 ```
 
-`npm test` (full run, 39 test files):
+`npm test` (full run, 48 test files):
 
 ```
-ℹ tests 1912
-ℹ suites 77
-ℹ pass 1912
+ℹ tests 2007
+ℹ suites 89
+ℹ pass 2007
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
 ```
 
-`npm run build:strict`: `content.js` 224.0 KB raw, **75,414 bytes gzipped (73.6 KB)** against the 150 KB budget; service-worker 20.7 KB gz, popup 15.2 KB gz.
+`npm run build:strict`: `content.js` 227.7 KB raw, **76,109 bytes gzipped (74.3 KB)** against the 150 KB budget; service-worker 44.7 KB gz, popup 51.9 KB gz, editor 49.9 KB gz.
 0 forbidden constructs in any shipped file; `content.js` has no `fetch` / `XMLHttpRequest`. `dist/` ends as the production build.
 
 ### E2E Verification (Real Chrome on Live YouTube)
@@ -33,11 +33,13 @@ npm run e2e:popup   real Chrome live YouTube popup, breakage, service worker & t
 1. **Features Home & Calm (`npm run e2e:home`):**
    - 119 checks, **0 failed checks** across all phases (F3: 41/41, F5: 78/78) and pages (`home`, `watch`, `channel`, `search`, `channel-shorts`).
    - Ad safety: 0 ad slot hides, 0 ad badge hides, 0 player control hides.
-   - Calm toggle latency: attrMs 9ms p50 (max 17ms), effectMs 28ms p50 (max 131ms) (well within 1000ms budget).
+   - Calm toggle latency: attrMs 9ms p50 (max 17ms), effectMs 28ms p50 (max 136ms) (well within 1000ms budget).
 
 2. **Popup, Breakage & Trust (`npm run e2e:popup`):**
    - 235 checks pass, **0 warnings, 0 failures**.
    - Zero third-party network calls, zero eval/wasm, storage scoped exclusively to `cd.*`.
+   - Service worker idle-stop invariant verified: worker stays asleep during popup theme switching without waking.
+   - Extension trust scan verified: `content.js`, `editor/editor.js`, `popup/popup.js`, and `service-worker.js` have 0 fetch, 0 xhr, 0 eval.
 
 3. **Full Theme Matrix (`test/e2e/run.mjs`):**
    - 36 visits (6 themes x 3 pages [`channel`, `search`, `watch`] x 2 modes [`light`, `dark`], Pro licence).
@@ -46,14 +48,13 @@ npm run e2e:popup   real Chrome live YouTube popup, breakage, service worker & t
    - Theme switch latency: 8ms – 23ms (strict < 150ms budget).
    - Heap delta: +0.1 to +0.5 MB.
 
-**13 Oct 2026 re-run after live-UI (E1/E2), text-size control (E3), hideLive calm toggle (E4), channel streams pass & YouTube New UI (E5), and selector map 2026.10.13.4:**
-e2e:home (119/119 pass, 0 fail) and e2e:popup (235/235 pass, 0 fail) green on rebuilt `dist-home`/`dist-popup`.
-Dedicated `#cd-row-live` with pulsing `.cd-live-dot` verified on live feeds with ≥ 2 live streams.
-Watch-page live presentation (`html[cd-watch-live]`, `.cd-live-dot` inside watching count) and calm `3.3K watching` hiding verified.
-Free text-size control (5-step segmented control 0.9–1.5, `--cd-font-size` scaling clamped to [11, 22], `cd-textscale` in first-paint cache) verified in unit and e2e:popup AX audits.
-Pro calm toggle "Hide live streams" (`calm-hideLive`, `[cd-source][cd-live]`, `.cd-home [cd-live]`, selector-map 2026.10.13.4) verified in unit, popup 7-switch gating, and live Chrome F5 calm matrix.
-Channel `/streams` tab live pass (E5) verified across `@LofiGirl/streams`, `@NASA/streams`, `@SkyNews/streams`: modern `yt-lockup-view-model` tiles extract live (`isLive`, `6.2K watching`, `LIVE` badge) and upcoming streams cleanly; YouTube New UI Web Component modernization (`yt-lockup-view-model`, `yt-page-header-view-model`, `yt-tab-group-shape`, `yt-content-metadata-view-model`, `yt-decorated-avatar-view-model`, `ytd-comment-view-model`) verified compatible with selector map.
-Theme matrix: 36/36 visits clean; creator-heart comment decorations excluded from audit and gate headroom updated to 3.5% (T7, verified).
+**14 Oct 2026 re-run after S15 (Watch Page New UI Compatibility):**
+- Full test suite: **1,959 / 1,959 PASS** across 82 suites (0 fail).
+- Watch Page New UI Compatibility (Spec S15): seamless support for YouTube's experimental and modern watch page layout (`ytd-watch-grid`) across watch mode detection (`src/content/page.js`), cinema and focus layouts (`src/content/layouts/watch.js`), live presentation (`buildWatchLiveCss`), and live/metadata detectors (`isWatchLive`, `hasWatchMetadata`).
+- Signed selector map **`2026.10.14.1`**: fallbacks added across all 8 watch-related roles (`watchFlexy`, `watchPlayer`, `watchPlayerContainer`, `watchPrimary`, `watchSecondary`, `watchRelated`, `watchMetadata`, `watchTitle`), ensuring full forward-compatibility.
+- Visual Theme Editor (Spec F7 / S14): visual appearance controls, live YouTube preview (Home/Watch/New UI), contrast auditor, theme save & apply.
+- Custom theme export/import (Spec F9): Schema v1 validation, 64 KB storage quota, 10-theme limit, Pro CSS gating, file export/import in popup.
+- Saved profiles & time-based scheduling (Spec F8): profile persistence, day/night profile selection with time thresholds, `cd-schedule` background alarm.
 
 
 `dist/` is a loadable MV3 extension: every file `manifest.json` points at exists, no `web_accessible_resources`, permissions `storage` + `alarms`, host `https://www.youtube.com/*`.
@@ -98,14 +99,13 @@ Engine decisions (new, recorded in ARCHITECTURE.md section 4):
 14. **The first-paint cache carries the `cd-*` attributes.** `{v:1,key,css,attrs}`: `cd-home cd-watch cd-density cd-motion cd-calm-*` are applied in the same synchronous step as the cached css (validated strictly), so the first frame is the final look and nothing restyles when `chrome.storage` answers. Before, the css arrived at `document_start` and the attributes only after the async load (a half-styled page, then a restyle).
 15. **The popup does not depend on the MV3 worker being awake.** `GET_LICENCE` is asked twice, then the state is computed from the stored `cd.licence` record with the same pure function the worker uses; only an unreadable storage shows "Licence status unavailable". `ACTIVATE_LICENCE` is repeated once after a refused connection.
 
-## Known gaps
+## Known gaps & Release Gates
 
-- **Grid-only renames are not detected.** `requires["layout-home"]` and `requires.density` list only `homeBrowse`. If YouTube renames just `ytd-rich-grid-renderer` or its `#contents`, the layout silently does not mount (YouTube's own grid stays, so nothing breaks) and no notice is shown. Fix is map data: add `homeGrid` and `homeGridContents` to those `requires` lists (selectors owner).
-- **Installed users never get a theme's calm default.** `service-worker.js` seeds `DEFAULT_SETTINGS` on install, whose `calm` has five explicit `false` values, which beat the theme default (Minimal/Studio `hideShorts`). Fix: seed `calm: {}` (background owner).
+- **Dev keys:** `.keys/` holds throw-away pairs; the owner must replace them (`npm run keys -- --production`, then `npm run sign-map`) before any public store release. Licences minted with `licence:dev` are for testing only.
+- **Local-Beta Mode vs Connected Services:** `API_BASE` is empty for local-first execution; remote selector map sync and server-side licence renewal require a separate connected-service specification and endpoint infrastructure before deployment.
+- **Real-ad verification under live logged-in accounts:** Logged-out YouTube serves zero or minimal real video ad impressions; public store release requires manual authorization and verification on accounts with served ads to ensure no third-party video ads or sponsor cards are obscured.
 - **Real-browser only, not covered by unit tests:** the CSP fallback to `adoptedStyleSheets`, first-paint timing (< 50 ms), memory (< 30 MB), smooth row scrolling, rAF behaviour in background tabs (a settings change in a hidden tab is applied when the tab is shown), geometry. That is the e2e run.
-- **Timing-sensitive unit tests under CPU load:** Hardened using best-of-N sampling without loosening any product budget thresholds (theme switch < 150ms, validator < 20ms, calm toggles < 1000ms). Full test suite passes 100% reliably under concurrency (`npm test`: 88/88 passed).
-- **Dev keys.** `.keys/` holds throw-away pairs; the owner must replace them (`npm run keys -- --force`, then `npm run sign-map`) before any store release, and licences minted with `licence:dev` are for testing only.
-- The selector map refresh is inert without an `API_BASE`; there is no network flush of anonymous health counters in the MVP.
+- **Timing-sensitive unit tests under CPU load:** Hardened using best-of-N sampling without loosening any product budget thresholds (theme switch < 150ms, validator < 20ms, calm toggles < 1000ms). Full test suite passes 100% reliably under concurrency (`npm test`: 2007/2007 passed).
 - Home-layout cards whose tile has no image yet use `https://i.ytimg.com/vi/<id>/…jpg` as an `<img src>` (the page loads it; the extension makes no request).
 
 ## MANUAL TEST CHECKLIST

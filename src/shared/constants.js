@@ -14,13 +14,30 @@ export const ALL_THEME_IDS = ['cinema','minimal','classic','primetime','studio',
 export const FREE_THEME_IDS = ['cinema','minimal','classic'];
 export const LAYOUT_HOME = ['grid','rows','hero-rows'];
 export const LAYOUT_WATCH = ['default','cinema','focus'];
+export const RESERVED_THEME_IDS = Object.freeze([...ALL_THEME_IDS, 'broadcast']);
 export const STORAGE_KEYS = { settings:'cd.settings', licence:'cd.licence', selectorMap:'cd.selectorMap',
-  health:'cd.health', telemetry:'cd.telemetry', firstPaint:'cd.firstPaint' };
+  health:'cd.health', telemetry:'cd.telemetry', firstPaint:'cd.firstPaint', customThemes:'cd.customThemes',
+  profiles:'cd.profiles', schedule:'cd.schedule', backup:'cd.backup', draft:'cd.editorDraft' };
 export const DEFAULT_SETTINGS = { schema:1, themeId:'cinema', accent:null, density:null, animations:true,
   textScale:null, calm:{ hideShorts:false, hideHomeRecs:false, hideComments:false, hideEndScreens:false, hideViewCounts:false, hideLive:false },
   telemetryOptIn:false };
+export const DEFAULT_SCHEDULE = { schema:1, enabled:false, dayProfileId:'cinema', nightProfileId:'cinema',
+  dayTime:'08:00', nightTime:'20:00', manualOverrideUntil:null, lastError:null };
 export const LIMITS = { cssMaxBytes:20480, contentMaxChars:100, offlineGraceMs:30*864e5,
-  licenceRecheckMs:7*864e5, mapRefreshMs:6*36e5, maxBrowsersPerLicence:3 };
-export const MSG = { GET_STATUS:'cd:getStatus', ACTIVATE_LICENCE:'cd:activateLicence',
-  GET_LICENCE:'cd:getLicence', REFRESH_MAP:'cd:refreshMap', STATUS_CHANGED:'cd:statusChanged' };
+  licenceRecheckMs:7*864e5, mapRefreshMs:6*36e5, maxBrowsersPerLicence:3,
+  maxCustomThemes:10, maxCustomThemeBytes:65536, maxProfiles:10 };
+export const MSG = {
+  GET_STATUS:'cd:getStatus',
+  ACTIVATE_LICENCE:'cd:activateLicence',
+  GET_LICENCE:'cd:getLicence',
+  REFRESH_MAP:'cd:refreshMap',
+  STATUS_CHANGED:'cd:statusChanged',
+  SAVE_THEME:'cd:saveTheme',
+  DELETE_THEME:'cd:deleteTheme',
+  SAVE_PROFILE:'cd:saveProfile',
+  DELETE_PROFILE:'cd:deleteProfile',
+  APPLY_PROFILE:'cd:applyProfile',
+  UPDATE_SCHEDULE:'cd:updateSchedule',
+  SAVE_SETTINGS:'cd:saveSettings',
+};
 export const FIRST_PAINT_LS_KEY = 'cd:v1:firstPaint';   // localStorage key used by the engine (§5)

@@ -706,3 +706,62 @@ test('createChromeStore adapts chrome.storage to get/set/remove', async () => {
   const odd = createChromeStore({ get: async () => undefined });
   assert.equal(await odd.get('k'), undefined);
 });
+
+// ---- schedule & profiles (Spec F8) ----------------------------------------------------------------------------------
+
+test('schedule alarm: registers cd-schedule when enabled, removes it when disabled, applies scheduled profile', async () => {
+  const clock = makeClock(T0); // T0 is 09:00 UTC
+  const ctx = setup({ clock });
+  await install(ctx);
+
+  // Free user: checkSchedule does not apply
+  await ctx.chrome.storage.local.set({
+    [STORAGE_KEYS.schedule]: {
+      enabled: true,
+      dayProfileId: 'minimal',
+      nightProfileId: 'cinema',
+      dayTime: '08:00',
+      nightTime: '20:00',
+    },
+  });
+  const resFree = await ctx.bg.checkSchedule();
+  assert.equal(resFree.ok, false);
+  assert.equal(resFree.reason, 'free');
+
+  // Activate Pro
+  const token = await mintToken();
+  await send(ctx, { type: MSG.ACTIVATE_LICENCE, token });
+
+  // Schedule alarm registered
+  await ctx.bg.updateScheduleAlarm();
+  const alarms = await ctx.chrome.alarms.getAll();
+  assert.ok(alarms.some((a) => a.name === 'cd-schedule' && a.periodInMinutes === 1));
+
+  // T0 is 09:00 (daytime) -> minimal
+  const resDay = await ctx.bg.checkSchedule();
+  assert.equal(resDay.ok, true);
+  assert.equal(resDay.profileId, 'minimal');
+  assert.equal(resDay.applied, true);
+
+  const appliedSettings = await stored(ctx, STORAGE_KEYS.settings);
+  assert.equal(appliedSettings.themeId, 'minimal');
+
+  // Advance time to 21:00 (nighttime) -> cinema
+  clock.advance(12 * 3600 * 1000);
+  const resNight = await ctx.bg.checkSchedule();
+  assert.equal(resNight.ok, true);
+  assert.equal(resNight.profileId, 'cinema');
+  assert.equal(resNight.applied, true);
+
+  const nightSettings = await stored(ctx, STORAGE_KEYS.settings);
+  assert.equal(nightSettings.themeId, 'cinema');
+
+  // Disable schedule -> alarm cleared
+  await ctx.chrome.storage.local.set({
+    [STORAGE_KEYS.schedule]: { enabled: false },
+  });
+  await ctx.bg.updateScheduleAlarm();
+  const alarmsAfter = await ctx.chrome.alarms.getAll();
+  assert.ok(!alarmsAfter.some((a) => a.name === 'cd-schedule'));
+});
+

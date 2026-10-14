@@ -57,6 +57,72 @@
         <div id="theme-grid" class="theme-grid"></div>
         <p id="theme-note" class="hint"></p>
         <span id="theme-locked-desc" class="sr-only">Requires Cinedrape Pro. Press to see how to unlock it.</span>
+        <div class="theme-actions">
+          <button type="button" id="theme-editor-btn" class="btn btn-secondary btn-small">Theme Studio</button>
+          <button type="button" id="theme-export" class="btn btn-secondary btn-small">Export theme</button>
+          <button type="button" id="theme-import-btn" class="btn btn-secondary btn-small">Import theme</button>
+          <button type="button" id="profile-manage-btn" class="btn btn-secondary btn-small">Profiles &amp; Schedule</button>
+        </div>
+        <div id="theme-import-panel" class="import-panel" hidden>
+          <div class="import-panel-header">
+            <span class="import-title">Import Theme</span>
+            <button type="button" id="theme-import-close" class="btn btn-ghost btn-icon" aria-label="Close import dialog"><svg class="icon" aria-hidden="true" focusable="false"><use href="#i-close"/></svg></button>
+          </div>
+          <p class="hint">Upload a theme JSON file or paste code:</p>
+          <input type="file" id="theme-import-file" accept=".json,application/json" class="file-input">
+          <textarea id="theme-import-json" class="input input-textarea" rows="3" placeholder='{"schema":1,"id":"my-theme",...}'></textarea>
+          <div class="import-actions">
+            <button type="button" id="theme-import-submit" class="btn btn-primary btn-small">Import</button>
+            <span id="theme-import-error" class="hint hint-error" role="alert"></span>
+          </div>
+          <div id="theme-import-conflict" class="import-conflict" hidden>
+            <p id="theme-import-conflict-msg" class="hint hint-warn"></p>
+            <div class="conflict-actions">
+              <button type="button" id="theme-import-replace-btn" class="btn btn-secondary btn-small">Replace</button>
+              <button type="button" id="theme-import-copy-btn" class="btn btn-secondary btn-small">Import as copy</button>
+              <button type="button" id="theme-import-cancel-btn" class="btn btn-ghost btn-small">Cancel</button>
+            </div>
+          </div>
+        </div>
+        <div id="profile-schedule-panel" class="import-panel" hidden>
+          <div class="import-panel-header">
+            <span class="import-title">Profiles &amp; Schedule</span>
+            <button type="button" id="profile-panel-close" class="btn btn-ghost btn-icon" aria-label="Close profiles dialog"><svg class="icon" aria-hidden="true" focusable="false"><use href="#i-close"/></svg></button>
+          </div>
+          <div class="profile-save-row">
+            <label for="profile-name-input" class="sr-only">Profile name</label>
+            <input type="text" id="profile-name-input" class="input input-text" placeholder="Profile name" maxlength="40">
+            <button type="button" id="profile-save-btn" class="btn btn-primary btn-small">Save</button>
+          </div>
+          <div id="profile-list" class="profile-list"></div>
+          <hr class="panel-divider">
+          <div class="schedule-section">
+            <div class="schedule-header">
+              <span class="schedule-title">Automatic Schedule</span>
+              <button type="button" id="schedule-toggle-btn" class="btn btn-secondary btn-small">Schedule: Off</button>
+            </div>
+            <div id="schedule-override-banner" class="schedule-override-banner" hidden>
+              <span id="schedule-override-text"></span>
+              <button type="button" id="schedule-resume-btn" class="btn btn-secondary btn-small">Resume schedule</button>
+            </div>
+            <p class="hint">Schedule uses your device&rsquo;s local time.</p>
+            <div class="schedule-grid">
+              <div class="schedule-row">
+                <label for="schedule-day-time" class="field-label">Day</label>
+                <input type="time" id="schedule-day-time" class="input input-time" value="08:00">
+                <label for="schedule-day-profile" class="field-label">Profile</label>
+                <select id="schedule-day-profile" class="select schedule-select"></select>
+              </div>
+              <div class="schedule-row">
+                <label for="schedule-night-time" class="field-label">Night</label>
+                <input type="time" id="schedule-night-time" class="input input-time" value="20:00">
+                <label for="schedule-night-profile" class="field-label">Profile</label>
+                <select id="schedule-night-profile" class="select schedule-select"></select>
+              </div>
+            </div>
+          </div>
+          <span id="profile-error" class="hint hint-error" role="alert"></span>
+        </div>
       </fieldset>
 
       <fieldset id="accent-group" class="group">

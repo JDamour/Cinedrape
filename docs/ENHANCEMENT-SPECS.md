@@ -219,10 +219,49 @@ YouTube is actively rolling out modular Web Component View Models across surface
 Save named presets (e.g. "Day / Clean", "Night / Cinema") and automatically switch looks based on the time of day.
 
 - **Data structures**:
-  - `cd.profiles`: Dictionary `{ [id]: { id, name, settings } }`.
-  - `cd.schedule`: `{ enabled: boolean, dayProfileId: string, nightProfileId: string, dayTime: string, nightTime: string }`.
+  - `cd.profiles`: Versioned envelope `{ schema: 1, revision: N, items: [...] }`.
+  - `cd.schedule`: `{ schema: 1, enabled: boolean, dayProfileId: string, nightProfileId: string, dayTime: string, nightTime: string, manualOverrideUntil: number|null, lastError: string|null }`.
 - **Background scheduling**:
-  - Service worker sets `cd-schedule` alarm to check current local time against schedule thresholds, updating `cd.settings` atomically.
+  - Service worker sets `cd-schedule` alarm to check current device-local time against schedule thresholds, updating `cd.settings` atomically.
+  - Manual override tracking until the next scheduled boundary time.
+
+### S14 — Visual Theme Studio / Editor (Spec F7) — P1, owner: editor + shared
+
+A full-tab interactive visual theme editor (`editor/editor.html`) allowing users to author custom themes with real-time preview, WCAG AA contrast matrix auditing, draft recovery, and Pro save/apply gates.
+
+- **Theme Controls**:
+  - Live color pickers and hex text inputs (background, surface, text, muted, accent, border).
+  - Typography (font family enum, base size slider, heading weight).
+  - Shape metrics (corner radius, card shadows toggle, spacing scale).
+  - Layout & Calm mode defaults (home grid/rows/hero-rows, watch mode cinema/focus/default, density slider 1–5, calm flags).
+  - Scoped CSS editor with line/col error feedback.
+- **Preview & Accessibility**:
+  - Fixture preview canvas testing Home feed, Watch page, and Channel views across Desktop, Laptop (1024px), and Compact (768px) widths.
+  - Scoped validated custom CSS preview with zero shell leakage.
+  - Roving tab stops across view buttons and width buttons.
+  - In-progress draft saving (debounced 500ms) to `cd.editorDraft` with automatic restoration.
+- **Entitlements**:
+  - Free users can preview and export valid theme JSON.
+  - Saving to `cd.customThemes` and applying to settings requires verified active/grace Pro.
+
+### S15 — Watch Page New UI Compatibility — P1, owner: watch.js + selectors + page.js
+
+Forward compatibility with modern YouTube watch page layouts (`ytd-watch-grid` container), ensuring seamless watch layout adjustments (cinema and focus), live stream presentation, and metadata detection across modern cohorts.
+
+- Verified by `test/content/layouts/watch.test.js`, `test/content/page.test.js`, and selector map version `2026.10.14.1`.
+
+### S16 — Shared Storage Envelopes & Serialized Mutation Queue — P1, owner: shared/collections + background/settings-store
+
+Hardening of storage mutations against race conditions, identity collisions, and concurrency conflicts.
+
+- **Envelope Contract**:
+  - Versioned envelope `{ schema: 1, revision: N, items: [...] }` for profiles and `{ schema: 1, revision: N, items: { ... } }` for custom themes.
+  - Monotonically increasing revisions preventing stale overwrite.
+  - Automatic non-destructive migration and prototype pollution guards.
+- **Worker Queue**:
+  - Queue-serialized mutations in background service worker (`cd:saveProfile`, `cd:deleteProfile`, `cd:applyProfile`, `cd:saveTheme`, `cd:deleteTheme`, `cd:updateSchedule`, `cd:saveSettings`).
+  - Pro verification at the worker boundary.
+  - Collision resolution: replace, copy, or cancel.
 
 ---
 

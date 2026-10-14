@@ -50,7 +50,7 @@ const compose = (cfg) => composeStylesheet({ map: MAP, cfg });
 // the player box and the metadata box become grid items of #columns. The children stay visible (no <img>, <video> or <canvas> is the
 // subject), and #primary / #primary-inner are boxes of the page layout, not ad containers (an ad inside is shown where it is).
 const ALLOWED_ENGINE_RULES = [
-  { code: 'hides-container', line: /^html\[cd-theme\]\[cd-page="watch"\]:not\(\[cd-off-layout-watch\]\) ytd-watch-flexy\[is-two-columns_\]:not\(\[theater\]\):not\(\[fullscreen\]\) #primary(?:-inner)?(?:,[^{]*)?\{display:contents\}$/ },
+  { code: 'hides-container', line: /^html\[cd-theme\]\[cd-page="watch"\]:not\(\[cd-off-layout-watch\]\) (?:ytd-watch-flexy|:is\(ytd-watch-flexy, ytd-watch-grid\))\[is-two-columns_\]:not\(\[theater\]\):not\(\[fullscreen\]\) #primary(?:-inner)?(?:,[^{]*)?\{display:contents\}$/ },
 ];
 const RULE_CACHE = new Map();
 const SCAN_CTX = { allowList: ALLOW, protectedSelectors: PROTECTED_FLAT, maxBytes: 4 * 1024 * 1024, maxErrors: Infinity, profile: 'engine', ruleCache: RULE_CACHE };

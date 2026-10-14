@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "mapVersion": "2026.10.13.4",
-  "issuedAt": "2026-10-13T00:00:00Z",
+  "mapVersion": "2026.10.14.1",
+  "issuedAt": "2026-10-14T00:00:00Z",
   "roles": {
     "app": [
       "ytd-app"
@@ -83,39 +83,50 @@
     ],
     "watchFlexy": [
       "ytd-watch-flexy",
-      "ytd-app[is-watch-page] ytd-page-manager > [video-id]"
+      "ytd-app[is-watch-page] ytd-page-manager > [video-id]",
+      "ytd-watch-grid"
     ],
     "watchPlayer": [
       "ytd-watch-flexy #movie_player",
       "ytd-watch-flexy ytd-player .html5-video-player",
-      "#movie_player"
+      "#movie_player",
+      "ytd-watch-grid #movie_player"
     ],
     "watchPlayerContainer": [
       "ytd-watch-flexy #player-container-outer",
       "ytd-watch-flexy #player",
+      "ytd-watch-grid #player",
       "ytd-watch-flexy #player-container-inner"
     ],
     "watchPrimary": [
       "ytd-watch-flexy #primary",
-      "ytd-watch-flexy #columns > #primary"
+      "ytd-watch-flexy #columns > #primary",
+      "ytd-watch-grid #primary",
+      "ytd-watch-grid #columns > #primary"
     ],
     "watchSecondary": [
       "ytd-watch-flexy #secondary",
-      "ytd-watch-flexy #columns > #secondary"
+      "ytd-watch-flexy #columns > #secondary",
+      "ytd-watch-grid #secondary",
+      "ytd-watch-grid #columns > #secondary"
     ],
     "watchRelated": [
       "ytd-watch-flexy #secondary-inner > #related",
-      "ytd-watch-next-secondary-results-renderer"
+      "ytd-watch-next-secondary-results-renderer",
+      "ytd-watch-grid #secondary-inner > #related",
+      "ytd-watch-grid #related"
     ],
     "watchMetadata": [
       "ytd-watch-metadata",
       "ytd-watch-flexy #above-the-fold",
+      "ytd-watch-grid #above-the-fold",
       "ytd-video-primary-info-renderer"
     ],
     "watchTitle": [
       "ytd-watch-metadata #title h1",
       "ytd-watch-metadata h1",
-      "ytd-watch-flexy #title h1"
+      "ytd-watch-flexy #title h1",
+      "ytd-watch-grid #title h1"
     ],
     "comments": [
       "ytd-comments#comments",
@@ -165,7 +176,8 @@
     "channelHeader": [
       "ytd-tabbed-page-header",
       "ytd-c4-tabbed-header-renderer",
-      "ytd-browse[page-subtype=\"channels\"] yt-page-header-renderer"
+      "ytd-browse[page-subtype=\"channels\"] yt-page-header-renderer",
+      "ytd-browse[page-subtype=\"channels\"] yt-page-header-view-model"
     ],
     "subscriptionsGrid": [
       "ytd-browse[page-subtype=\"subscriptions\"] ytd-rich-grid-renderer",

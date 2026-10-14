@@ -16,12 +16,15 @@ import * as publicKeys from '../shared/public-keys.js';
 import { compareMapVersions } from '../shared/signing.js';
 import { createLicenceManager } from './licence-manager.js';
 import { parseMapVersion, refreshSelectorMap } from './map-updater.js';
+import { createSettingsStore } from './settings-store.js';
+import { computeScheduledProfileId, resolveProfileSettings } from '../shared/profiles.js';
 
 /** Base URL of the Cinedrape API, no trailing slash needed. Empty = the extension never touches the network. */
 export const API_BASE = '';
 
 export const ALARM_LICENCE = 'cd-licence';
 export const ALARM_MAP = 'cd-map';
+export const ALARM_SCHEDULE = 'cd-schedule';
 export const MANUAL_REFRESH_COOLDOWN_MS = 30000;
 export const BUNDLED_MAP_PATH = 'data/selector-map.json';
 
@@ -78,6 +81,31 @@ export function createBackground(options = {}) {
     store, now, apiBase: base, fetch, publicKey: licenceKey, verifyLicenceToken, licenceState, timeoutMs,
   });
 
+  async function getActiveSelectorMap() {
+    const stored = await store.get(STORAGE_KEYS.selectorMap);
+    if (stored) {
+      if (typeof verifyEnvelope === 'function') {
+        try {
+          const res = await verifyEnvelope(stored, mapKey);
+          if (res && res.ok && res.payload) return JSON.parse(res.payload);
+        } catch {}
+      } else {
+        try {
+          const parsed = typeof stored === 'string' ? JSON.parse(stored) : stored;
+          if (parsed && typeof parsed.payload === 'string') return JSON.parse(parsed.payload);
+        } catch {}
+      }
+    }
+    return null;
+  }
+
+  const settingsStore = createSettingsStore({
+    chrome,
+    now,
+    licence,
+    getSelectorMap: getActiveSelectorMap,
+  });
+
   // ---- bundled map version (the floor for downgrade checks) ----------------------------------------------------------
   async function bundledVersion() {
     try {
@@ -115,7 +143,7 @@ export function createBackground(options = {}) {
     return true;
   }
 
-  /** Creates the two alarms when missing, or when an update changed their period. */
+  /** Creates the alarms when missing, or when an update changed their period. */
   async function ensureAlarms() {
     if (!chrome.alarms) return;
     const wanted = [
@@ -127,6 +155,75 @@ export function createBackground(options = {}) {
       if (existing && existing.periodInMinutes === periodInMinutes) continue;
       await chrome.alarms.create(name, { periodInMinutes });
     }
+    await updateScheduleAlarm();
+  }
+
+  /** Updates the schedule alarm based on stored schedule and Pro status. */
+  async function updateScheduleAlarm() {
+    if (!chrome.alarms) return;
+    const lic = await licence.getState();
+    const isPro = lic.plan === 'pro' && (lic.status === 'active' || lic.status === 'grace');
+    const schedule = await store.get(STORAGE_KEYS.schedule);
+    const existing = await chrome.alarms.get(ALARM_SCHEDULE);
+    if (isPro && schedule && schedule.enabled) {
+      if (!existing || existing.periodInMinutes !== 1) {
+        await chrome.alarms.create(ALARM_SCHEDULE, { periodInMinutes: 1 });
+      }
+    } else if (existing) {
+      await chrome.alarms.clear(ALARM_SCHEDULE);
+    }
+  }
+
+  /** Checks schedule against current time and applies target profile settings if needed. */
+  async function checkSchedule() {
+    const lic = await licence.getState();
+    if (lic.plan !== 'pro' || (lic.status !== 'active' && lic.status !== 'grace')) {
+      return { ok: false, reason: 'free' };
+    }
+    const schedule = await store.get(STORAGE_KEYS.schedule);
+    if (!schedule || !schedule.enabled) {
+      return { ok: false, reason: 'disabled' };
+    }
+    const nowMs = now();
+    if (typeof schedule.manualOverrideUntil === 'number') {
+      if (nowMs < schedule.manualOverrideUntil) {
+        return { ok: true, overridden: true, manualOverrideUntil: schedule.manualOverrideUntil };
+      }
+      schedule.manualOverrideUntil = null;
+      await store.set(STORAGE_KEYS.schedule, schedule);
+    }
+
+    const d = new Date(nowMs);
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    const currentTime = `${hh}:${mm}`;
+    const targetProfileId = computeScheduledProfileId(schedule, currentTime);
+    if (!targetProfileId) return { ok: false, reason: 'no-target' };
+
+    const profiles = await store.get(STORAGE_KEYS.profiles);
+    const targetSettings = resolveProfileSettings(targetProfileId, profiles);
+    if (!targetSettings) {
+      schedule.enabled = false;
+      schedule.lastError = 'missing-profile';
+      await store.set(STORAGE_KEYS.schedule, schedule);
+      await updateScheduleAlarm();
+      return { ok: false, reason: 'profile-not-found' };
+    }
+
+    const currentSettings = (await store.get(STORAGE_KEYS.settings)) || {};
+    const needsUpdate = currentSettings.themeId !== targetSettings.themeId
+      || currentSettings.accent !== targetSettings.accent
+      || currentSettings.density !== targetSettings.density
+      || currentSettings.animations !== targetSettings.animations
+      || currentSettings.textScale !== targetSettings.textScale
+      || JSON.stringify(currentSettings.calm || {}) !== JSON.stringify(targetSettings.calm || {});
+
+    if (needsUpdate) {
+      const merged = { ...currentSettings, ...targetSettings };
+      await store.set(STORAGE_KEYS.settings, merged);
+      return { ok: true, profileId: targetProfileId, applied: true };
+    }
+    return { ok: true, profileId: targetProfileId, applied: false };
   }
 
   /**
@@ -157,7 +254,7 @@ export function createBackground(options = {}) {
 
   function initialise() {
     return serial(async () => {
-      for (const step of [ensureDefaults, ensureAlarms, pruneStaleMap, refreshLicenceLocally]) {
+      for (const step of [ensureDefaults, ensureAlarms, pruneStaleMap, refreshLicenceLocally, checkSchedule]) {
         try { await step(); } catch (err) { debug('init step failed', step.name, err); }
       }
     });
@@ -200,6 +297,7 @@ export function createBackground(options = {}) {
     let job;
     if (name === ALARM_LICENCE) job = () => licence.recheck();
     else if (name === ALARM_MAP) job = () => refreshMap();
+    else if (name === ALARM_SCHEDULE) job = () => checkSchedule();
     else return Promise.resolve(undefined);
     return Promise.resolve().then(job).catch((err) => {
       debug('alarm failed', name, err);
@@ -260,6 +358,62 @@ export function createBackground(options = {}) {
         return respondAsync(sendResponse, () => licence.activate(message.token));
       case MSG.REFRESH_MAP:
         return respondAsync(sendResponse, async () => ({ ok: true, ...(await refreshFromMessage()) }));
+      case MSG.SAVE_THEME:
+        if (!fromExtensionPage(sender)) {
+          send(sendResponse, { ok: false, reason: 'forbidden' });
+          return false;
+        }
+        return respondAsync(sendResponse, () => settingsStore.saveTheme(message.theme, {
+          mode: message.mode,
+          expectedRevision: message.expectedRevision,
+          apply: message.apply,
+        }));
+      case MSG.DELETE_THEME:
+        if (!fromExtensionPage(sender)) {
+          send(sendResponse, { ok: false, reason: 'forbidden' });
+          return false;
+        }
+        return respondAsync(sendResponse, () => settingsStore.deleteTheme(message.id, {
+          expectedRevision: message.expectedRevision,
+          resetReferences: message.resetReferences,
+        }));
+      case MSG.SAVE_PROFILE:
+        if (!fromExtensionPage(sender)) {
+          send(sendResponse, { ok: false, reason: 'forbidden' });
+          return false;
+        }
+        return respondAsync(sendResponse, () => settingsStore.saveProfile(message.profile, message.expectedRevision));
+      case MSG.DELETE_PROFILE:
+        if (!fromExtensionPage(sender)) {
+          send(sendResponse, { ok: false, reason: 'forbidden' });
+          return false;
+        }
+        return respondAsync(sendResponse, () => settingsStore.deleteProfile(message.id, message.expectedRevision));
+      case MSG.APPLY_PROFILE:
+        if (!fromExtensionPage(sender)) {
+          send(sendResponse, { ok: false, reason: 'forbidden' });
+          return false;
+        }
+        return respondAsync(sendResponse, () => settingsStore.applyProfile(message.id));
+      case MSG.UPDATE_SCHEDULE:
+      case 'cd:updateSchedule':
+        if (!fromExtensionPage(sender)) {
+          send(sendResponse, { ok: false, reason: 'forbidden' });
+          return false;
+        }
+        return respondAsync(sendResponse, async () => {
+          const res = message.schedule ? await settingsStore.updateSchedule(message.schedule) : { ok: true };
+          if (!res.ok) return res;
+          await updateScheduleAlarm();
+          const checkRes = await checkSchedule();
+          return { ok: true, schedule: res.schedule, check: checkRes };
+        });
+      case MSG.SAVE_SETTINGS:
+        if (!fromExtensionPage(sender)) {
+          send(sendResponse, { ok: false, reason: 'forbidden' });
+          return false;
+        }
+        return respondAsync(sendResponse, () => settingsStore.saveSettings(message.patch));
       default:
         return false;
     }
@@ -275,8 +429,9 @@ export function createBackground(options = {}) {
   }
 
   return {
-    licence, register, refreshMap,
+    licence, register, refreshMap, settingsStore,
     ensureDefaults, ensureAlarms, pruneStaleMap, refreshLicenceLocally,
+    updateScheduleAlarm, checkSchedule,
     handleInstalled: initialise, handleStartup: initialise, handleAlarm, handleMessage,
   };
 }

@@ -7,8 +7,11 @@
 // jsdom and test/helpers/chrome-mock.js. The popup reads and writes only chrome.storage.local[cd.settings]; the open tab
 // notices through storage.onChanged. Licence and health come over messages (MSG.GET_LICENCE, MSG.ACTIVATE_LICENCE,
 // MSG.GET_STATUS). Controls are updated in place (never rebuilt), so focus and a half-typed hex value survive every update.
-import { CALM_KEYS, MSG, STORAGE_KEYS } from '../shared/constants.js';
+import { CALM_KEYS, DEFAULT_SCHEDULE, LIMITS, MSG, STORAGE_KEYS } from '../shared/constants.js';
 import { LICENCE_PUBLIC_KEY } from '../shared/public-keys.js';
+import { exportTheme, importTheme } from '../shared/theme-schema.js';
+import { validateProfile, validateSchedule } from '../shared/profiles.js';
+import { isReservedThemeId, normalizeCustomThemes, normalizeProfiles, slugifyThemeId } from '../shared/collections.js';
 import {
   ACCENT_SWATCHES, DENSITY_LABELS, LICENCE_COPY,
   accentWarning, activationErrorCopy, checkEntitlement, deriveView, isDensity, licenceFromRecordVerified, lockedCopy, mergeSettings,
@@ -49,6 +52,25 @@ export function createPopup({ doc, chrome, themes = [], now = Date.now, requestT
     noticeWrap: byId('notice-wrap'), notice: byId('notice'), noticeAction: byId('notice-action'), noticeDismiss: byId('notice-dismiss'),
     status: byId('status'), statusIcon: byId('status-icon'), statusText: byId('status-text'), statusDetail: byId('status-detail'),
     themeGroup: byId('theme-group'), themeGrid: byId('theme-grid'), themeNote: byId('theme-note'),
+    themeEditorBtn: byId('theme-editor-btn'),
+    themeExport: byId('theme-export'), themeImportBtn: byId('theme-import-btn'),
+    themeImportPanel: byId('theme-import-panel'), themeImportClose: byId('theme-import-close'),
+    themeImportFile: byId('theme-import-file'), themeImportJson: byId('theme-import-json'),
+    themeImportSubmit: byId('theme-import-submit'), themeImportError: byId('theme-import-error'),
+    themeImportConflict: byId('theme-import-conflict'),
+    themeImportConflictMsg: byId('theme-import-conflict-msg'),
+    themeImportReplaceBtn: byId('theme-import-replace-btn'),
+    themeImportCopyBtn: byId('theme-import-copy-btn'),
+    themeImportCancelBtn: byId('theme-import-cancel-btn'),
+    profileManageBtn: byId('profile-manage-btn'), profileSchedulePanel: byId('profile-schedule-panel'),
+    profilePanelClose: byId('profile-panel-close'), profileNameInput: byId('profile-name-input'),
+    profileSaveBtn: byId('profile-save-btn'), profileList: byId('profile-list'),
+    scheduleToggleBtn: byId('schedule-toggle-btn'), scheduleDayTime: byId('schedule-day-time'),
+    scheduleDayProfile: byId('schedule-day-profile'), scheduleNightTime: byId('schedule-night-time'),
+    scheduleNightProfile: byId('schedule-night-profile'), profileError: byId('profile-error'),
+    scheduleOverrideBanner: byId('schedule-override-banner'),
+    scheduleOverrideText: byId('schedule-override-text'),
+    scheduleResumeBtn: byId('schedule-resume-btn'),
     swatches: byId('accent-swatches'), hex: byId('accent-hex'), hexPreview: byId('accent-preview'), accentReset: byId('accent-reset'),
     accentHelp: byId('accent-help'), accentError: byId('accent-error'), accentWarning: byId('accent-warning'),
     density: byId('density'), densityValue: byId('density-value'), densityPro: byId('density-pro'), densityNote: byId('density-note'),
@@ -64,6 +86,11 @@ export function createPopup({ doc, chrome, themes = [], now = Date.now, requestT
 
   const state = {
     settings: null,                       // the stored cd.settings object as read (null = nothing stored yet)
+    customThemes: {},
+    customThemesRevision: 1,
+    profiles: [],
+    profilesRevision: 1,
+    schedule: null,
     licence: FREE_STATE,
     licenceKnown: false,
     status: { kind: 'checking', summary: null },
@@ -100,7 +127,15 @@ export function createPopup({ doc, chrome, themes = [], now = Date.now, requestT
     return Promise.race([run, timeout]).finally(() => win.clearTimeout(timer));
   }
 
-  const compute = () => deriveView({ settings: state.settings, licence: state.licence, licenceKnown: state.licenceKnown, themes: themeList });
+  const compute = () => deriveView({
+    settings: state.settings,
+    licence: state.licence,
+    licenceKnown: state.licenceKnown,
+    themes: themeList,
+    customThemes: state.customThemes,
+    profiles: state.profiles,
+    schedule: state.schedule,
+  });
 
   // ---- messages --------------------------------------------------------------------------------------------------------
 
@@ -133,6 +168,7 @@ export function createPopup({ doc, chrome, themes = [], now = Date.now, requestT
   }
 
   function buildThemeCards() {
+    view = compute();
     const cards = view.themes.map((tv) => {
       const preview = h(doc, 'span', { class: 'theme-preview', 'aria-hidden': 'true' },
         h(doc, 'span', { class: 'tp-card' }, h(doc, 'span', { class: 'tp-line' }), h(doc, 'span', { class: 'tp-line tp-muted' })),
@@ -145,15 +181,23 @@ export function createPopup({ doc, chrome, themes = [], now = Date.now, requestT
         const safe = safeCssColor(value);
         if (safe) preview.style.setProperty(name, safe);
       }
-      const tag = tv.pro
-        ? h(doc, 'span', { class: 'tag-pro' },
-          h(doc, 'span', { class: 'tag-lock', hidden: true }, icon(doc, 'lock')),
-          'Pro',
-          h(doc, 'span', { class: 'sr-only', hidden: true }, ', locked'))
+      const tag = tv.isCustom
+        ? h(doc, 'span', { class: 'tag-custom' }, 'Custom')
+        : (tv.pro
+          ? h(doc, 'span', { class: 'tag-pro' },
+            h(doc, 'span', { class: 'tag-lock', hidden: true }, icon(doc, 'lock')),
+            'Pro',
+            h(doc, 'span', { class: 'sr-only', hidden: true }, ', locked'))
+          : null);
+      const delBtn = tv.isCustom
+        ? h(doc, 'button', {
+          type: 'button', class: 'theme-delete', 'data-delete-theme': tv.id, 'aria-label': `Delete ${tv.name} theme`,
+        }, icon(doc, 'close'))
         : null;
       return h(doc, 'button', {
         type: 'button', role: 'radio', class: 'theme-card', 'data-theme-id': tv.id, 'aria-checked': 'false', tabindex: '-1',
       },
+      delBtn,
       preview,
       h(doc, 'span', { class: 'theme-meta' }, h(doc, 'span', { class: 'theme-name' }, tv.name), tag),
       h(doc, 'span', { class: 'theme-check', 'aria-hidden': 'true' }, icon(doc, 'check')));
@@ -311,6 +355,66 @@ export function createPopup({ doc, chrome, themes = [], now = Date.now, requestT
     els.statusIcon.querySelector('use').setAttribute('href', `#i-${STATUS_ICONS[kind] || 'info'}`);
   }
 
+  function syncProfilesAndSchedule() {
+    const items = (view.profiles || []).map((p) => {
+      const applyBtn = h(doc, 'button', {
+        type: 'button', class: 'btn btn-secondary btn-small', 'data-apply-profile': p.id,
+      }, 'Apply');
+      const delBtn = h(doc, 'button', {
+        type: 'button', class: 'btn btn-ghost btn-small', 'data-delete-profile': p.id,
+      }, 'Delete');
+      return h(doc, 'div', { class: 'profile-item', 'data-profile-id': p.id },
+        h(doc, 'span', { class: 'profile-item-name' }, p.name),
+        h(doc, 'div', { class: 'profile-item-actions' }, applyBtn, delBtn));
+    });
+    if (items.length === 0) {
+      els.profileList.replaceChildren(h(doc, 'p', { class: 'hint' }, 'No saved profiles yet.'));
+    } else {
+      els.profileList.replaceChildren(...items);
+    }
+
+    const optionsDay = [h(doc, 'option', { value: '' }, '-- Select Profile or Look --')];
+    const optionsNight = [h(doc, 'option', { value: '' }, '-- Select Profile or Look --')];
+    for (const t of themeList) {
+      optionsDay.push(h(doc, 'option', { value: t.id }, `${t.name} (bundled)`));
+      optionsNight.push(h(doc, 'option', { value: t.id }, `${t.name} (bundled)`));
+    }
+    for (const p of view.profiles || []) {
+      optionsDay.push(h(doc, 'option', { value: p.id }, p.name));
+      optionsNight.push(h(doc, 'option', { value: p.id }, p.name));
+    }
+    const curDay = (view.schedule ? view.schedule.dayProfileId : '') || '';
+    const curNight = (view.schedule ? view.schedule.nightProfileId : '') || '';
+    els.scheduleDayProfile.replaceChildren(...optionsDay);
+    els.scheduleNightProfile.replaceChildren(...optionsNight);
+    els.scheduleDayProfile.value = curDay;
+    els.scheduleNightProfile.value = curNight;
+
+    const sched = view.schedule || {};
+    els.scheduleToggleBtn.textContent = sched.enabled ? 'Schedule: On' : 'Schedule: Off';
+    els.scheduleToggleBtn.classList.toggle('btn-primary', Boolean(sched.enabled));
+    els.scheduleToggleBtn.classList.toggle('btn-secondary', !sched.enabled);
+    if (sched.dayTime && doc.activeElement !== els.scheduleDayTime) els.scheduleDayTime.value = sched.dayTime;
+    if (sched.nightTime && doc.activeElement !== els.scheduleNightTime) els.scheduleNightTime.value = sched.nightTime;
+
+    const nowMs = now();
+    if (sched.enabled && sched.manualOverrideUntil && nowMs < sched.manualOverrideUntil) {
+      if (els.scheduleOverrideBanner) {
+        els.scheduleOverrideBanner.hidden = false;
+        const d = new Date(sched.manualOverrideUntil);
+        const hh = String(d.getHours()).padStart(2, '0');
+        const mm = String(d.getMinutes()).padStart(2, '0');
+        if (els.scheduleOverrideText) els.scheduleOverrideText.textContent = `Manual override active until ${hh}:${mm}.`;
+      }
+    } else if (els.scheduleOverrideBanner) {
+      els.scheduleOverrideBanner.hidden = true;
+    }
+
+    if (sched.lastError === 'missing-profile') {
+      els.profileError.textContent = 'Scheduled profile was not found. Schedule was paused.';
+    }
+  }
+
   function render() {
     if (destroyed) return;
     view = compute();
@@ -322,17 +426,36 @@ export function createPopup({ doc, chrome, themes = [], now = Date.now, requestT
     syncCalm();
     syncLicence();
     syncStatus();
+    syncProfilesAndSchedule();
   }
 
   // ---- settings: read, write ---------------------------------------------------------------------------------------------
 
   async function loadSettings() {
-    const got = await attempt(() => chrome.storage.local.get(SETTINGS_KEY));
+    const got = await attempt(() => chrome.storage.local.get([
+      SETTINGS_KEY,
+      STORAGE_KEYS.customThemes,
+      STORAGE_KEYS.profiles,
+      STORAGE_KEYS.schedule,
+      STORAGE_KEYS.selectorMap,
+    ]));
     if (!got.ok) {
       notify('Cinedrape could not read your saved settings. Showing the defaults.', { kind: 'error' });
       return;
     }
     state.settings = got.value ? got.value[SETTINGS_KEY] ?? null : null;
+    const rawThemes = got.value ? got.value[STORAGE_KEYS.customThemes] : undefined;
+    const normThemes = normalizeCustomThemes(rawThemes);
+    state.customThemes = normThemes.record ? normThemes.record.items : (normThemes.items || {});
+    state.customThemesRevision = normThemes.record ? normThemes.record.revision : (normThemes.revision || 1);
+
+    const rawProfiles = got.value ? got.value[STORAGE_KEYS.profiles] : undefined;
+    const normProfiles = normalizeProfiles(rawProfiles);
+    state.profiles = normProfiles.record ? normProfiles.record.items : (normProfiles.items || []);
+    state.profilesRevision = normProfiles.record ? normProfiles.record.revision : (normProfiles.revision || 1);
+
+    state.selectorMap = got.value ? got.value[STORAGE_KEYS.selectorMap] : null;
+    state.schedule = got.value && typeof got.value[STORAGE_KEYS.schedule] === 'object' && got.value[STORAGE_KEYS.schedule] !== null ? got.value[STORAGE_KEYS.schedule] : null;
   }
 
   async function persist(patch) {
@@ -355,13 +478,14 @@ export function createPopup({ doc, chrome, themes = [], now = Date.now, requestT
    * Locked or invalid changes never reach storage (the UI is put back as it was and the reason is shown).
    */
   async function commit(rawPatch) {
-    const clean = sanitizePatch(rawPatch);
+    const customIds = Object.keys(state.customThemes || {});
+    const clean = sanitizePatch(rawPatch, customIds);
     if (!clean.ok) {
       notify(clean.error, { kind: 'error' });
       render();
       return false;
     }
-    const entitlement = checkEntitlement(clean.patch, { licence: state.licence, themes: themeList });
+    const entitlement = checkEntitlement(clean.patch, { licence: state.licence, themes: themeList, customThemes: state.customThemes });
     if (!entitlement.ok) {
       if (entitlement.kind === 'unknown-theme') notify('That theme is not available.', { kind: 'error' });
       else notify(lockedCopy(entitlement, view.licenceKey), { kind: 'pro', action: true });
@@ -529,7 +653,46 @@ export function createPopup({ doc, chrome, themes = [], now = Date.now, requestT
 
   function wire() {
     const chooseTheme = (card) => commit({ themeId: card.dataset.themeId });
-    listen(els.themeGrid, 'click', (event) => {
+    async function callWorkerOrDirect(workerMsg, directFn) {
+      if (chrome.runtime && chrome.runtime.sendMessage) {
+        const res = await attempt(() => chrome.runtime.sendMessage(workerMsg), 3000);
+        if (res.ok && res.value && typeof res.value === 'object') {
+          return res.value;
+        }
+      }
+      return directFn();
+    }
+
+    listen(els.themeGrid, 'click', async (event) => {
+      const delBtn = event.target.closest('.theme-delete');
+      if (delBtn) {
+        event.stopPropagation();
+        const themeId = delBtn.dataset.deleteTheme;
+        if (!themeId) return;
+        const res = await callWorkerOrDirect(
+          { type: MSG.DELETE_THEME, themeId, expectedRevision: state.customThemesRevision, resetReferences: true },
+          async () => {
+            const updated = { ...(state.customThemes || {}) };
+            delete updated[themeId];
+            state.customThemes = updated;
+            state.customThemesRevision = (state.customThemesRevision || 1) + 1;
+            const envelope = { schema: 1, revision: state.customThemesRevision, items: updated };
+            await chrome.storage.local.set({ [STORAGE_KEYS.customThemes]: envelope });
+            if (state.settings && state.settings.themeId === themeId) {
+              await commit({ themeId: 'cinema' });
+            }
+            return { ok: true, revision: state.customThemesRevision };
+          }
+        );
+        if (res.ok) {
+          notify('Theme deleted.', { kind: 'info' });
+          buildThemeCards();
+          await reloadSettings();
+        } else {
+          notify(res.error || 'Could not delete theme.', { kind: 'error' });
+        }
+        return;
+      }
       const card = event.target.closest('[role="radio"]');
       if (card && els.themeGrid.contains(card)) chooseTheme(card);
     });
@@ -537,6 +700,361 @@ export function createPopup({ doc, chrome, themes = [], now = Date.now, requestT
     listen(els.themeGrid, 'keydown', onRadioKeydown(els.themeGrid, (card) => {
       if (card.getAttribute('aria-disabled') !== 'true') chooseTheme(card);
     }));
+
+    if (els.themeEditorBtn) {
+      listen(els.themeEditorBtn, 'click', () => {
+        if (chrome.tabs && chrome.tabs.create) {
+          chrome.tabs.create({ url: chrome.runtime.getURL('editor/editor.html') });
+        } else if (win.open) {
+          win.open('editor/editor.html', '_blank');
+        }
+      });
+    }
+
+    listen(els.themeExport, 'click', () => {
+      try {
+        const curTheme = usableThemes(themes, state.customThemes).find((t) => t.id === (view.theme ? view.theme.id : 'cinema')) || themes[0];
+        const calmOverrides = {};
+        for (const c of view.calm) calmOverrides[c.key] = c.on;
+        const exported = exportTheme(curTheme, {
+          accent: view.accent,
+          density: view.density.custom ? view.density.value : null,
+          calm: calmOverrides,
+        });
+        if (win.navigator && win.navigator.clipboard && typeof win.navigator.clipboard.writeText === 'function') {
+          win.navigator.clipboard.writeText(exported);
+          notify(`Theme "${curTheme.name}" copied to clipboard!`, { kind: 'info' });
+        } else {
+          notify(`Theme "${curTheme.name}" exported!`, { kind: 'info' });
+        }
+      } catch (err) {
+        notify('Could not export theme: ' + err.message, { kind: 'error' });
+      }
+    });
+
+    listen(els.themeImportBtn, 'click', () => {
+      els.themeImportPanel.hidden = !els.themeImportPanel.hidden;
+      els.themeImportError.textContent = '';
+      if (els.themeImportConflict) els.themeImportConflict.hidden = true;
+      if (!els.themeImportPanel.hidden) els.themeImportJson.focus();
+    });
+    listen(els.themeImportClose, 'click', () => {
+      els.themeImportPanel.hidden = true;
+      els.themeImportError.textContent = '';
+      if (els.themeImportConflict) els.themeImportConflict.hidden = true;
+    });
+
+    listen(els.themeImportFile, 'change', () => {
+      const file = els.themeImportFile.files && els.themeImportFile.files[0];
+      if (!file) return;
+      const reader = new win.FileReader();
+      reader.onload = () => {
+        els.themeImportJson.value = String(reader.result || '');
+      };
+      reader.readAsText(file);
+    });
+
+    async function applyImportedTheme(theme) {
+      const customCount = Object.keys(state.customThemes || {}).length;
+      if (!state.customThemes[theme.id] && customCount >= LIMITS.maxCustomThemes) {
+        els.themeImportError.textContent = `Maximum ${LIMITS.maxCustomThemes} custom themes allowed. Delete one first.`;
+        return;
+      }
+      const saved = await callWorkerOrDirect(
+        { type: MSG.SAVE_THEME, theme, expectedRevision: state.customThemesRevision },
+        async () => {
+          const updated = { ...(state.customThemes || {}), [theme.id]: theme };
+          state.customThemes = updated;
+          state.customThemesRevision = (state.customThemesRevision || 1) + 1;
+          const envelope = { schema: 1, revision: state.customThemesRevision, items: updated };
+          await chrome.storage.local.set({ [STORAGE_KEYS.customThemes]: envelope });
+          return { ok: true, theme, revision: state.customThemesRevision };
+        }
+      );
+      if (!saved.ok) {
+        els.themeImportError.textContent = saved.error || 'Could not save imported theme.';
+        return;
+      }
+      buildThemeCards();
+      const committed = await commit({ themeId: theme.id });
+      els.themeImportPanel.hidden = true;
+      if (els.themeImportConflict) els.themeImportConflict.hidden = true;
+      els.themeImportJson.value = '';
+      if (els.themeImportFile) els.themeImportFile.value = '';
+      if (committed) {
+        notify(`Imported and activated theme "${theme.name}"!`, { kind: 'info' });
+      } else {
+        notify(`Theme "${theme.name}" imported, but could not be applied.`, { kind: 'warn' });
+      }
+      await reloadSettings();
+    }
+
+    listen(els.themeImportSubmit, 'click', async () => {
+      els.themeImportError.textContent = '';
+      if (els.themeImportConflict) els.themeImportConflict.hidden = true;
+      const text = els.themeImportJson.value.trim();
+      if (!text) {
+        els.themeImportError.textContent = 'Paste JSON or choose a file first.';
+        return;
+      }
+      const selectorMap = state.selectorMap || null;
+      const res = importTheme(text, { selectorMap });
+      if (!res.ok || !res.theme) {
+        const firstErr = res.errors && res.errors[0];
+        const lineCol = (firstErr && firstErr.line) ? ` (line ${firstErr.line}, col ${firstErr.column})` : '';
+        els.themeImportError.textContent = firstErr ? `${firstErr.message}${lineCol}` : 'Invalid theme.';
+        return;
+      }
+      if (res.theme.tier === 'pro' && !view.pro) {
+        els.themeImportError.textContent = 'Theme requires Pro. Activate Pro to import it.';
+        return;
+      }
+      if (isReservedThemeId(res.theme.id)) {
+        res.theme.id = slugifyThemeId(res.theme.name, { existingIds: Object.keys(state.customThemes || {}) });
+      }
+      if (state.customThemes && state.customThemes[res.theme.id]) {
+        state.pendingImportTheme = res.theme;
+        if (els.themeImportConflict && els.themeImportConflictMsg) {
+          els.themeImportConflictMsg.textContent = `A custom theme with ID "${res.theme.id}" already exists.`;
+          els.themeImportConflict.hidden = false;
+        }
+        return;
+      }
+      await applyImportedTheme(res.theme);
+    });
+
+    if (els.themeImportReplaceBtn) {
+      listen(els.themeImportReplaceBtn, 'click', async () => {
+        if (state.pendingImportTheme) {
+          const t = state.pendingImportTheme;
+          state.pendingImportTheme = null;
+          await applyImportedTheme(t);
+        }
+      });
+    }
+
+    if (els.themeImportCopyBtn) {
+      listen(els.themeImportCopyBtn, 'click', async () => {
+        if (state.pendingImportTheme) {
+          const t = state.pendingImportTheme;
+          state.pendingImportTheme = null;
+          t.id = slugifyThemeId(t.name + '-copy', { existingIds: Object.keys(state.customThemes || {}) });
+          t.name = `${t.name} (Copy)`;
+          await applyImportedTheme(t);
+        }
+      });
+    }
+
+    if (els.themeImportCancelBtn) {
+      listen(els.themeImportCancelBtn, 'click', () => {
+        state.pendingImportTheme = null;
+        if (els.themeImportConflict) els.themeImportConflict.hidden = true;
+      });
+    }
+
+    listen(els.profileManageBtn, 'click', () => {
+      if (!view.pro) {
+        notify(lockedCopy({ kind: 'profiles' }, view.licenceKey), { kind: 'pro', action: true });
+        return;
+      }
+      els.profileSchedulePanel.hidden = !els.profileSchedulePanel.hidden;
+      els.profileError.textContent = '';
+      if (!els.profileSchedulePanel.hidden) els.profileNameInput.focus();
+    });
+
+    listen(els.profilePanelClose, 'click', () => {
+      els.profileSchedulePanel.hidden = true;
+      els.profileError.textContent = '';
+    });
+
+    listen(els.profileSaveBtn, 'click', async () => {
+      els.profileError.textContent = '';
+      if (!view.pro) {
+        notify(lockedCopy({ kind: 'profiles' }, view.licenceKey), { kind: 'pro', action: true });
+        return;
+      }
+      const name = els.profileNameInput.value.trim();
+      if (!name) {
+        els.profileError.textContent = 'Enter a profile name.';
+        return;
+      }
+      if (state.profiles.length >= LIMITS.maxProfiles) {
+        els.profileError.textContent = `Maximum ${LIMITS.maxProfiles} profiles allowed. Delete one first.`;
+        return;
+      }
+      const id = 'prof-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      const curSettings = withDefaults(state.settings);
+      const res = validateProfile({
+        id,
+        name,
+        settings: {
+          themeId: curSettings.themeId,
+          accent: curSettings.accent,
+          density: curSettings.density,
+          animations: curSettings.animations,
+          textScale: curSettings.textScale,
+          calm: curSettings.calm,
+        },
+      });
+      if (!res.ok) {
+        els.profileError.textContent = res.error;
+        return;
+      }
+      const saved = await callWorkerOrDirect(
+        { type: MSG.SAVE_PROFILE, profile: res.profile, expectedRevision: state.profilesRevision },
+        async () => {
+          const updated = [...state.profiles, res.profile];
+          state.profiles = updated;
+          state.profilesRevision = (state.profilesRevision || 1) + 1;
+          const envelope = { schema: 1, revision: state.profilesRevision, items: updated };
+          await chrome.storage.local.set({ [STORAGE_KEYS.profiles]: envelope });
+          return { ok: true, profile: res.profile, revision: state.profilesRevision };
+        }
+      );
+      if (!saved.ok) {
+        els.profileError.textContent = saved.error || 'Could not save profile.';
+        return;
+      }
+      els.profileNameInput.value = '';
+      notify(`Saved profile "${name}"!`, { kind: 'info' });
+      await reloadSettings();
+    });
+
+    listen(els.profileList, 'click', async (event) => {
+      const applyBtn = event.target.closest('[data-apply-profile]');
+      if (applyBtn) {
+        const id = applyBtn.dataset.applyProfile;
+        const prof = state.profiles.find((p) => p.id === id);
+        if (!prof) return;
+        const applied = await callWorkerOrDirect(
+          { type: MSG.APPLY_PROFILE, profileId: id },
+          async () => {
+            if (prof.settings) {
+              const { schema, ...patch } = prof.settings;
+              const ok = await commit(patch);
+              return { ok, settings: state.settings };
+            }
+            return { ok: false, error: 'profile-settings-empty' };
+          }
+        );
+        if (applied.ok) {
+          notify(`Applied profile "${prof.name}".`, { kind: 'info' });
+          await reloadSettings();
+        } else {
+          notify('Could not apply profile.', { kind: 'error' });
+        }
+        return;
+      }
+      const delBtn = event.target.closest('[data-delete-profile]');
+      if (delBtn) {
+        const id = delBtn.dataset.deleteProfile;
+        const deleted = await callWorkerOrDirect(
+          { type: MSG.DELETE_PROFILE, profileId: id, expectedRevision: state.profilesRevision },
+          async () => {
+            const updated = state.profiles.filter((p) => p.id !== id);
+            state.profiles = updated;
+            state.profilesRevision = (state.profilesRevision || 1) + 1;
+            const envelope = { schema: 1, revision: state.profilesRevision, items: updated };
+            await chrome.storage.local.set({ [STORAGE_KEYS.profiles]: envelope });
+            return { ok: true, revision: state.profilesRevision };
+          }
+        );
+        if (deleted.ok) {
+          notify('Profile deleted.', { kind: 'info' });
+          await reloadSettings();
+        } else {
+          notify(deleted.error || 'Could not delete profile.', { kind: 'error' });
+        }
+        return;
+      }
+    });
+
+    listen(els.scheduleToggleBtn, 'click', async () => {
+      if (!view.pro) {
+        notify(lockedCopy({ kind: 'schedule' }, view.licenceKey), { kind: 'pro', action: true });
+        return;
+      }
+      const cur = state.schedule || { ...DEFAULT_SCHEDULE };
+      const nextEnabled = !cur.enabled;
+      const nextSched = {
+        schema: 1,
+        enabled: nextEnabled,
+        dayProfileId: els.scheduleDayProfile.value || cur.dayProfileId || null,
+        nightProfileId: els.scheduleNightProfile.value || cur.nightProfileId || null,
+        dayTime: els.scheduleDayTime.value || cur.dayTime || DEFAULT_SCHEDULE.dayTime,
+        nightTime: els.scheduleNightTime.value || cur.nightTime || DEFAULT_SCHEDULE.nightTime,
+        manualOverrideUntil: null,
+        lastError: null,
+      };
+      const val = validateSchedule(nextSched);
+      if (!val.ok) {
+        els.profileError.textContent = val.error;
+        return;
+      }
+      const updated = await callWorkerOrDirect(
+        { type: MSG.UPDATE_SCHEDULE, schedule: val.schedule },
+        async () => {
+          await chrome.storage.local.set({ [STORAGE_KEYS.schedule]: val.schedule });
+          return { ok: true, schedule: val.schedule };
+        }
+      );
+      if (updated.ok) {
+        state.schedule = updated.schedule;
+        render();
+      } else {
+        els.profileError.textContent = updated.error || 'Could not update schedule.';
+      }
+    });
+
+    if (els.scheduleResumeBtn) {
+      listen(els.scheduleResumeBtn, 'click', async () => {
+        if (!state.schedule) return;
+        const nextSched = { ...state.schedule, manualOverrideUntil: null, lastError: null };
+        const updated = await callWorkerOrDirect(
+          { type: MSG.UPDATE_SCHEDULE, schedule: nextSched },
+          async () => {
+            await chrome.storage.local.set({ [STORAGE_KEYS.schedule]: nextSched });
+            return { ok: true, schedule: nextSched };
+          }
+        );
+        if (updated.ok) {
+          state.schedule = updated.schedule;
+          render();
+        }
+      });
+    }
+
+    const updateScheduleTimes = async () => {
+      if (!view.pro) return;
+      const cur = state.schedule || { ...DEFAULT_SCHEDULE };
+      const nextSched = {
+        schema: 1,
+        enabled: cur.enabled,
+        dayProfileId: els.scheduleDayProfile.value || null,
+        nightProfileId: els.scheduleNightProfile.value || null,
+        dayTime: els.scheduleDayTime.value || DEFAULT_SCHEDULE.dayTime,
+        nightTime: els.scheduleNightTime.value || DEFAULT_SCHEDULE.nightTime,
+        manualOverrideUntil: cur.manualOverrideUntil,
+        lastError: cur.lastError,
+      };
+      const val = validateSchedule(nextSched);
+      if (val.ok) {
+        const updated = await callWorkerOrDirect(
+          { type: MSG.UPDATE_SCHEDULE, schedule: val.schedule },
+          async () => {
+            await chrome.storage.local.set({ [STORAGE_KEYS.schedule]: val.schedule });
+            return { ok: true, schedule: val.schedule };
+          }
+        );
+        if (updated.ok) {
+          state.schedule = updated.schedule;
+        }
+      }
+    };
+    listen(els.scheduleDayTime, 'change', updateScheduleTimes);
+    listen(els.scheduleNightTime, 'change', updateScheduleTimes);
+    listen(els.scheduleDayProfile, 'change', updateScheduleTimes);
+    listen(els.scheduleNightProfile, 'change', updateScheduleTimes);
 
     const chooseAccent = (swatch) => commit({ accent: swatch.dataset.hex });
     listen(els.swatches, 'click', (event) => {
@@ -625,6 +1143,23 @@ export function createPopup({ doc, chrome, themes = [], now = Date.now, requestT
         render();
       }
       if (changes[STORAGE_KEYS.licence]) track(loadLicence().then(render));
+      if (changes[STORAGE_KEYS.customThemes]) {
+        const norm = normalizeCustomThemes(changes[STORAGE_KEYS.customThemes].newValue);
+        state.customThemes = norm.record ? norm.record.items : {};
+        state.customThemesRevision = norm.record ? norm.record.revision : 1;
+        buildThemeCards();
+        render();
+      }
+      if (changes[STORAGE_KEYS.profiles]) {
+        const norm = normalizeProfiles(changes[STORAGE_KEYS.profiles].newValue);
+        state.profiles = norm.record ? norm.record.items : [];
+        state.profilesRevision = norm.record ? norm.record.revision : 1;
+        render();
+      }
+      if (changes[STORAGE_KEYS.schedule]) {
+        state.schedule = changes[STORAGE_KEYS.schedule].newValue ?? null;
+        render();
+      }
     };
     if (chrome.storage && chrome.storage.onChanged) {
       chrome.storage.onChanged.addListener(onStorage);
@@ -654,6 +1189,7 @@ export function createPopup({ doc, chrome, themes = [], now = Date.now, requestT
     wire();
     fillFooter();
     await Promise.all([loadSettings(), loadLicence()]);
+    buildThemeCards();
     render();
     if (typeof __DEV__ !== 'undefined' && __DEV__) {
       mountDevStrip({ doc, host: els.devSlot, activate: (token, report) => track(activate(token, report)) });

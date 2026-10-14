@@ -92,7 +92,8 @@ export function detectPageType(doc, loc) {
 export function detectWatchMode(doc) {
   try {
     if (!doc || typeof doc.querySelector !== 'function') return 'default';
-    const flexy = doc.querySelector('ytd-watch-flexy');
+    const flexy = doc.querySelector('ytd-watch-flexy:not([hidden]), ytd-watch-grid:not([hidden])')
+      || doc.querySelector('ytd-watch-flexy, ytd-watch-grid, ytd-app[is-watch-page] [video-id]');
     if (!flexy || flexy.hasAttribute('hidden')) return 'default';
     if (flexy.hasAttribute('fullscreen') || doc.fullscreenElement || flexy.querySelector('.html5-video-player.ytp-fullscreen')) {
       return 'fullscreen';

@@ -64,9 +64,20 @@ export const FALLBACK = Object.freeze({
   chip: ['.ytChipShapeChip', 'yt-chip-cloud-chip-renderer #chip-container'],
   chipActive: ['.ytChipShapeActive', 'yt-chip-cloud-chip-renderer[selected] #chip-container'],
   chipInactive: ['.ytChipShapeInactive', 'yt-chip-cloud-chip-renderer:not([selected]) #chip-container'],
-  button: ['.yt-spec-button-shape-next:not(.yt-spec-button-shape-next--icon-button)'],
-  buttonTonal: ['.yt-spec-button-shape-next--tonal'],
-  buttonOutline: ['.yt-spec-button-shape-next--outline'],
+  button: [
+    '.yt-spec-button-shape-next:not(.yt-spec-button-shape-next--icon-button)',
+    'yt-button-view-model button',
+    'yt-button-shape button',
+  ],
+  buttonTonal: [
+    '.yt-spec-button-shape-next--tonal',
+    'yt-button-view-model[tonal] button',
+    'yt-button-shape[tonal] button',
+  ],
+  buttonOutline: [
+    '.yt-spec-button-shape-next--outline',
+    'yt-button-view-model[outline] button',
+  ],
   buttonCta: ['.yt-spec-button-shape-next--call-to-action.yt-spec-button-shape-next--outline'],
   buttonText: ['.yt-spec-button-shape-next--text', '.yt-spec-button-shape-next--icon-button'],
   buttonPrimary: [
@@ -78,15 +89,16 @@ export const FALLBACK = Object.freeze({
   thumb: ['yt-thumbnail-view-model', 'ytd-thumbnail'],
   lockupHost: ['.ytLockupViewModelHost'],
   descriptionBox: ['ytd-watch-metadata #description'],
+  descriptionPreview: ['yt-description-preview-view-model', '#description-inline-expander'],
   commentTeaser: ['ytd-watch-metadata #comment-teaser'],
-  commentsHeader: ['ytd-comments-header-renderer'],
+  commentsHeader: ['ytd-comments-header-renderer', 'yt-comments-header-view-model'],
   sectionTitle: ['ytd-shelf-renderer #title', 'ytd-item-section-header-renderer #title', 'ytd-rich-shelf-renderer #title'],
   resultSnippet: ['.metadata-snippet-text'],
   tab: ['.ytTabShapeTab', 'tp-yt-paper-tab'],
   tabSelected: ['.ytTabShapeTabSelected', 'tp-yt-paper-tab.iron-selected'],
   tabBarSelected: ['.ytTabShapeTabBarSelected'],
   banner: ['yt-image-banner-view-model'],
-  pageHeaderCard: ['yt-page-header-renderer'],
+  pageHeaderCard: ['yt-page-header-renderer', 'yt-page-header-view-model'],
   navProgress: ['yt-page-navigation-progress #progress'],
   // The YouTube wordmark is black in light mode and white in dark mode (its text paths inherit the icon's colour); the red play button keeps its own fill.
   wordmark: ['ytd-logo yt-icon'],
@@ -293,6 +305,8 @@ export function buildSkinCss(map, cfg) {
   rule(G($('watchMetadata')), 'color:var(--cd-text)');
   rule(G($('descriptionBox')), 'background-color:var(--cd-surface);border-radius:var(--cd-radius);color:var(--cd-text)');
   rule(G($('descriptionBox'), ':hover'), TINT);
+  rule(G($('descriptionPreview')), 'background-color:var(--cd-surface);border-radius:var(--cd-radius);color:var(--cd-text)');
+  rule(G($('descriptionPreview'), ':hover'), TINT);
   rule(G($('commentTeaser')), 'background-color:var(--cd-surface);border-radius:var(--cd-radius);color:var(--cd-text)');
   rule(G($('comments')), 'color:var(--cd-text)');
   rule(G($('commentsHeader')), HEADING);

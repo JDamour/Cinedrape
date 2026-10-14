@@ -176,7 +176,7 @@ describe('cinema', () => {
     assert.ok(rules.length >= 7);
     for (const r of rules) {
       for (const s of r.selectors) {
-        assert.ok(s.startsWith(`${GATE} ytd-watch-flexy`), s);
+        assert.ok(s.startsWith(`${GATE} :is(ytd-watch-flexy, ytd-watch-grid)`) || s.startsWith(`${GATE} ytd-watch-flexy`), s);
         assert.ok(s.includes(':not([fullscreen])'), `fullscreen is excluded: ${s}`);
         assert.ok(s.includes('[is-two-columns_]:not([theater])'), `two-column, non-theatre only: ${s}`);
       }
@@ -281,7 +281,7 @@ describe('focus', () => {
     assert.deepEqual(rule.decls, [{ prop: 'display', value: 'none !important' }]);
     assert.equal(rule.selectors.length, 1);
     const sel = rule.selectors[0];
-    assert.ok(sel.startsWith(`${GATE} ytd-watch-flexy:not([fullscreen]) `), 'scoped like cinema');
+    assert.ok(sel.startsWith(`${GATE} :is(ytd-watch-flexy, ytd-watch-grid):not([fullscreen]) `) || sel.startsWith(`${GATE} ytd-watch-flexy:not([fullscreen]) `), 'scoped like cinema');
     assert.ok(sel.endsWith(`:not(:has(${MAP.protected.ads.join(', ')}))`), 'safeHide guard last');
     assert.ok(sel.includes(`:not(:is(${[...MAP.protected.ads, ...MAP.protected.sponsor].join(',')}) *)`), 'not inside an ad or disclosure');
     assert.ok(sel.includes(`:not(:has(${MAP.protected.sponsor.join(',')}))`), 'holds no disclosure');
@@ -465,7 +465,8 @@ describe('live watch presentation', () => {
   test('buildWatchLiveCss produces rules scoped under cd-watch-live and targets viewCounts', () => {
     const css = buildWatchLiveCss(MAP, {});
     assert.ok(css.length > 50);
-    assert.ok(css.includes('html[cd-theme][cd-page="watch"][cd-watch-live]:not([cd-off-layout-watch]) ytd-watch-flexy:not([fullscreen])'));
+    assert.ok(css.includes('html[cd-theme][cd-page="watch"][cd-watch-live]:not([cd-off-layout-watch]) :is(ytd-watch-flexy, ytd-watch-grid):not([fullscreen])')
+      || css.includes('html[cd-theme][cd-page="watch"][cd-watch-live]:not([cd-off-layout-watch]) ytd-watch-flexy:not([fullscreen])'));
     assert.ok(css.includes('#cc0000'));
     assert.ok(css.includes('cd-live-pulse'));
     assert.ok(css.includes('@keyframes cd-live-pulse'));
@@ -558,6 +559,48 @@ describe('live watch presentation', () => {
 
     viewCountEl.textContent = '1,000 views';
     assert.equal(hasWatchMetadata(p.document), true);
+  });
+
+  test('supports modern YouTube New UI ytd-watch-grid for cinema, focus, isWatchLive and hasWatchMetadata', () => {
+    const p = setup({ tiles: 4 });
+    const grid = p.document.createElement('ytd-watch-grid');
+    grid.setAttribute('is-two-columns_', '');
+    grid.setAttribute('video-id', 'BzpdP2APcIM');
+    while (p.flexy.firstChild) grid.appendChild(p.flexy.firstChild);
+    p.flexy.replaceWith(grid);
+    p.flexy = grid;
+
+    // Cinema layout matches ytd-watch-grid
+    const cinema = buildWatchLayoutCss(MAP, { watch: 'cinema' });
+    p.inject(cinema);
+    assert.equal(p.display(p.q('#columns')), 'grid');
+    assert.equal(p.display(p.q('#primary')), 'contents');
+    assert.equal(p.display(p.q('#primary-inner')), 'contents');
+    assert.equal(p.window.getComputedStyle(p.q('#player')).gridColumn, '1 / -1');
+    assert.equal(p.window.getComputedStyle(p.q('#below')).gridColumn, '1');
+    assert.equal(p.window.getComputedStyle(p.q('#secondary')).gridColumn, '2');
+
+    // hasWatchMetadata on ytd-watch-grid
+    assert.equal(hasWatchMetadata(p.document), true);
+    assert.equal(isWatchLive(p.document), false);
+
+    // isWatchLive on ytd-watch-grid
+    const viewSpan = grid.querySelector('ytd-watch-info-text #info-container #info > span:first-child');
+    assert.ok(viewSpan);
+    viewSpan.textContent = '1,234 watching now';
+    assert.equal(isWatchLive(p.document), true);
+
+    // hidden ytd-watch-grid returns false
+    grid.setAttribute('hidden', '');
+    assert.equal(isWatchLive(p.document), false);
+    grid.removeAttribute('hidden');
+
+    // Focus layout hides comments on ytd-watch-grid
+    const focus = buildWatchLayoutCss(MAP, { watch: 'focus' });
+    p.inject(focus);
+    const comments = grid.querySelector('ytd-comments#comments');
+    assert.ok(comments);
+    assert.equal(p.display(comments), 'none');
   });
 });
 

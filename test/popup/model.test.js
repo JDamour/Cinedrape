@@ -512,3 +512,90 @@ test('licenceKey and copy: a token with no expiry problem is never called "expir
   assert.match(lockedCopy({ kind: 'theme', name: 'Studio' }, 'lapsed'), /^Your Pro licence is paused. Studio is a Pro theme/);
   assert.doesNotMatch(lockedCopy({ kind: 'theme', name: 'Studio' }, 'lapsed'), /expired/);
 });
+
+// ---- custom themes (S11) ----------------------------------------------------------------------------------
+
+test('usableThemes incorporates custom themes with isCustom: true', () => {
+  const custom = {
+    schema: 1, id: 'my-custom', name: 'My Custom', tier: 'free',
+    tokens: { color: { bg: '#000000', surface: '#111111', text: '#ffffff', muted: '#aaaaaa', accent: '#00ff00', border: '#888888' } },
+  };
+  const list = usableThemes(FAKE_THEMES, [custom]);
+  assert.equal(list.length, FAKE_THEMES.length + 1);
+  const found = list.find((t) => t.id === 'my-custom');
+  assert.ok(found);
+  assert.equal(found.isCustom, true);
+});
+
+test('checkEntitlement and sanitizePatch accept allowed custom themes', () => {
+  const custom = {
+    schema: 1, id: 'my-custom', name: 'My Custom', tier: 'free',
+    tokens: { color: { bg: '#000000', surface: '#111111', text: '#ffffff', muted: '#aaaaaa', accent: '#00ff00', border: '#888888' } },
+  };
+  // sanitizePatch accepts allowed custom theme id
+  assert.deepEqual(sanitizePatch({ themeId: 'my-custom' }, ['my-custom']), { ok: true, patch: { themeId: 'my-custom' } });
+  assert.equal(sanitizePatch({ themeId: 'my-custom' }, []).ok, false);
+
+  // checkEntitlement allows free custom theme for free user
+  assert.deepEqual(checkEntitlement({ themeId: 'my-custom' }, { licence: FREE, themes: FAKE_THEMES, customThemes: [custom] }), { ok: true });
+
+  // checkEntitlement blocks Pro custom theme for free user
+  const proCustom = { ...custom, id: 'pro-custom', tier: 'pro' };
+  assert.equal(checkEntitlement({ themeId: 'pro-custom' }, { licence: FREE, themes: FAKE_THEMES, customThemes: [proCustom] }).ok, false);
+  assert.equal(checkEntitlement({ themeId: 'pro-custom' }, { licence: PRO, themes: FAKE_THEMES, customThemes: [proCustom] }).ok, true);
+});
+
+// ---- profiles & schedule (S13 / F8) ------------------------------------------------------------------------
+
+test('deriveView exposes profiles and schedule, gated by Pro licence', () => {
+  const sampleProfiles = [
+    { id: 'work', name: 'Work Profile', settings: { themeId: 'minimal' } },
+  ];
+  const sampleSchedule = {
+    enabled: true,
+    dayProfileId: 'work',
+    nightProfileId: null,
+    dayTime: '08:00',
+    nightTime: '20:00',
+  };
+
+  const freeView = deriveView({
+    settings: DEFAULT_SETTINGS,
+    licence: FREE,
+    themes: FAKE_THEMES,
+    profiles: sampleProfiles,
+    schedule: sampleSchedule,
+  });
+  assert.equal(freeView.profilesLocked, true);
+  assert.equal(freeView.scheduleLocked, true);
+  assert.equal(freeView.profiles.length, 1);
+  assert.equal(freeView.profiles[0].id, 'work');
+  assert.equal(freeView.schedule.enabled, true);
+  assert.equal(freeView.schedule.dayTime, '08:00');
+
+  const proView = deriveView({
+    settings: DEFAULT_SETTINGS,
+    licence: PRO,
+    themes: FAKE_THEMES,
+    profiles: sampleProfiles,
+    schedule: sampleSchedule,
+  });
+  assert.equal(proView.profilesLocked, false);
+  assert.equal(proView.scheduleLocked, false);
+});
+
+test('checkEntitlement and lockedCopy gate profiles and schedule to Pro', () => {
+  // Profiles gating
+  assert.equal(checkEntitlement({ profiles: [] }, { licence: FREE, themes: FAKE_THEMES }).ok, false);
+  assert.equal(checkEntitlement({ profiles: [] }, { licence: PRO, themes: FAKE_THEMES }).ok, true);
+
+  // Schedule gating
+  assert.equal(checkEntitlement({ schedule: {} }, { licence: FREE, themes: FAKE_THEMES }).ok, false);
+  assert.equal(checkEntitlement({ schedule: {} }, { licence: PRO, themes: FAKE_THEMES }).ok, true);
+
+  // Copy checks
+  assert.match(lockedCopy({ kind: 'profiles' }), /Profiles are a Pro feature/);
+  assert.match(lockedCopy({ kind: 'schedule' }), /Time-based scheduling is a Pro feature/);
+});
+
+

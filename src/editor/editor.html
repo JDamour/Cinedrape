@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cinedrape — Visual Theme Editor</title>
+  <link rel="stylesheet" href="editor.css">
+</head>
+<body>
+  <div class="editor-shell">
+    <!-- Top Navigation Bar -->
+    <header class="editor-header">
+      <div class="header-brand">
+        <span class="brand-title">Cinedrape</span>
+        <span class="brand-divider">/</span>
+        <span class="brand-tool">Theme Studio</span>
+      </div>
+
+      <div class="header-meta">
+        <label class="meta-field">
+          <span class="meta-label">Name</span>
+          <input type="text" id="theme-name-input" class="input-text" maxlength="40" placeholder="My Custom Theme" value="My Custom Theme">
+        </label>
+        <label class="meta-field">
+          <span class="meta-label">Author</span>
+          <input type="text" id="theme-author-input" class="input-text" maxlength="40" placeholder="Creator" value="Theme Creator">
+        </label>
+      </div>
+
+      <div class="header-actions">
+        <div class="template-selector">
+          <label for="template-select" class="sr-only">Starting Template</label>
+          <select id="template-select" class="select-control" aria-label="Starting Template">
+            <option value="" disabled selected>Load Template…</option>
+            <option value="cinema">Cinema (Dark Gold)</option>
+            <option value="minimal">Minimal (Clean Light)</option>
+            <option value="classic">Classic (2010s Compact)</option>
+            <option value="primetime">Prime Time (Deep Blue)</option>
+            <option value="studio">Studio (Editorial Serif)</option>
+            <option value="arcade">Arcade (Neon Cyber)</option>
+            <option value="broadcast">Broadcast (Studio News)</option>
+          </select>
+        </div>
+        <button type="button" id="btn-export" class="btn btn-secondary" title="Export as JSON file">Export JSON</button>
+        <button type="button" id="btn-save" class="btn btn-primary" title="Save to custom themes">Save Theme</button>
+        <button type="button" id="btn-apply" class="btn btn-accent" title="Apply to active YouTube tab">Apply &amp; Save</button>
+      </div>
+    </header>
+
+    <!-- Notice / Status Banner -->
+    <div id="editor-notice" class="editor-notice hidden" role="status" aria-live="polite"></div>
+
+    <!-- Main Workspace -->
+    <main class="editor-body">
+      <!-- Left Controls Panel -->
+      <aside class="controls-panel" aria-label="Theme properties">
+        <!-- Section 1: Colors & Contrast -->
+        <details class="control-section" open>
+          <summary class="section-summary">
+            <span class="summary-title">Colors &amp; Contrast</span>
+            <span id="contrast-pill" class="badge badge-success">6/6 AA</span>
+          </summary>
+          <div class="section-content">
+            <div class="color-grid">
+              <!-- Background -->
+              <div class="color-item">
+                <label for="color-bg-picker" class="color-label">Background</label>
+                <div class="color-inputs">
+                  <input type="color" id="color-bg-picker" class="color-swatch" value="#111216" aria-label="Background color picker">
+                  <input type="text" id="color-bg-hex" class="input-hex" value="#111216" maxlength="7" aria-label="Background hex color">
+                </div>
+              </div>
+              <!-- Surface -->
+              <div class="color-item">
+                <label for="color-surface-picker" class="color-label">Surface</label>
+                <div class="color-inputs">
+                  <input type="color" id="color-surface-picker" class="color-swatch" value="#1b1d22" aria-label="Surface color picker">
+                  <input type="text" id="color-surface-hex" class="input-hex" value="#1b1d22" maxlength="7" aria-label="Surface hex color">
+                </div>
+              </div>
+              <!-- Text -->
+              <div class="color-item">
+                <label for="color-text-picker" class="color-label">Text</label>
+                <div class="color-inputs">
+                  <input type="color" id="color-text-picker" class="color-swatch" value="#f2f2f5" aria-label="Text color picker">
+                  <input type="text" id="color-text-hex" class="input-hex" value="#f2f2f5" maxlength="7" aria-label="Text hex color">
+                </div>
+              </div>
+              <!-- Muted -->
+              <div class="color-item">
+                <label for="color-muted-picker" class="color-label">Muted Text</label>
+                <div class="color-inputs">
+                  <input type="color" id="color-muted-picker" class="color-swatch" value="#a3a3b2" aria-label="Muted text color picker">
+                  <input type="text" id="color-muted-hex" class="input-hex" value="#a3a3b2" maxlength="7" aria-label="Muted text hex color">
+                </div>
+              </div>
+              <!-- Accent -->
+              <div class="color-item">
+                <label for="color-accent-picker" class="color-label">Accent</label>
+                <div class="color-inputs">
+                  <input type="color" id="color-accent-picker" class="color-swatch" value="#e8b04a" aria-label="Accent color picker">
+                  <input type="text" id="color-accent-hex" class="input-hex" value="#e8b04a" maxlength="7" aria-label="Accent hex color">
+                </div>
+              </div>
+              <!-- Border -->
+              <div class="color-item">
+                <label for="color-border-picker" class="color-label">Border</label>
+                <div class="color-inputs">
+                  <input type="color" id="color-border-picker" class="color-swatch" value="#656572" aria-label="Border color picker">
+                  <input type="text" id="color-border-hex" class="input-hex" value="#656572" maxlength="7" aria-label="Border hex color">
+                </div>
+              </div>
+            </div>
+
+            <!-- WCAG Contrast Matrix Card -->
+            <div id="contrast-card" class="contrast-card">
+              <div class="contrast-header">
+                <span class="contrast-title">WCAG 2.2 AA Contrast Checks</span>
+              </div>
+              <ul id="contrast-list" class="contrast-list">
+                <!-- Injected via JavaScript -->
+              </ul>
+            </div>
+          </div>
+        </details>
+
+        <!-- Section 2: Typography & Shapes -->
+        <details class="control-section" open>
+          <summary class="section-summary">
+            <span class="summary-title">Typography &amp; Shapes</span>
+          </summary>
+          <div class="section-content">
+            <div class="field-row">
+              <label for="type-family-select" class="field-label">Font Family</label>
+              <select id="type-family-select" class="select-control">
+                <option value="System" selected>System (Native UI)</option>
+                <option value="Inter">Inter (Modern Clean)</option>
+                <option value="Serif">Serif (Editorial / Book)</option>
+                <option value="Mono">Mono (Technical / Code)</option>
+                <option value="Rounded">Rounded (Friendly / Soft)</option>
+                <option value="Condensed">Condensed (High Density)</option>
+              </select>
+            </div>
+
+            <div class="field-row">
+              <div class="field-label-wrap">
+                <label for="type-size-slider" class="field-label">Base Font Size</label>
+                <span id="type-size-val" class="field-val">14 px</span>
+              </div>
+              <input type="range" id="type-size-slider" class="range-slider" min="12" max="20" step="1" value="14">
+            </div>
+
+            <div class="field-row">
+              <label for="type-weight-select" class="field-label">Heading Weight</label>
+              <select id="type-weight-select" class="select-control">
+                <option value="400">Regular (400)</option>
+                <option value="600">Semibold (600)</option>
+                <option value="700" selected>Bold (700)</option>
+                <option value="800">Extra Bold (800)</option>
+              </select>
+            </div>
+
+            <div class="field-row">
+              <div class="field-label-wrap">
+                <label for="shape-radius-slider" class="field-label">Corner Radius</label>
+                <span id="shape-radius-val" class="field-val">10 px</span>
+              </div>
+              <input type="range" id="shape-radius-slider" class="range-slider" min="0" max="24" step="2" value="10">
+            </div>
+
+            <div class="field-row toggle-row">
+              <span class="field-label">Card Shadows</span>
+              <label class="switch-wrap">
+                <input type="checkbox" id="shape-shadow-toggle" checked>
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+
+            <div class="field-row">
+              <div class="field-label-wrap">
+                <label for="shape-spacing-slider" class="field-label">Spacing Scale</label>
+                <span id="shape-spacing-val" class="field-val">Level 3</span>
+              </div>
+              <input type="range" id="shape-spacing-slider" class="range-slider" min="1" max="5" step="1" value="3">
+            </div>
+          </div>
+        </details>
+
+        <!-- Section 3: Layout & Calm Defaults -->
+        <details class="control-section">
+          <summary class="section-summary">
+            <span class="summary-title">Layout &amp; Calm Defaults</span>
+          </summary>
+          <div class="section-content">
+            <div class="field-row">
+              <label for="layout-home-select" class="field-label">Home Layout</label>
+              <select id="layout-home-select" class="select-control">
+                <option value="hero-rows" selected>Hero + Horizontal Rows</option>
+                <option value="rows">Horizontal Rows</option>
+                <option value="grid">Structured Grid</option>
+              </select>
+            </div>
+
+            <div class="field-row">
+              <label for="layout-watch-select" class="field-label">Watch Page Layout</label>
+              <select id="layout-watch-select" class="select-control">
+                <option value="cinema" selected>Cinema Focus</option>
+                <option value="focus">Focus (Minimal Chrome)</option>
+                <option value="default">Default YouTube</option>
+              </select>
+            </div>
+
+            <div class="field-row">
+              <div class="field-label-wrap">
+                <label for="layout-density-slider" class="field-label">Density</label>
+                <span id="layout-density-val" class="field-val">Balanced (3)</span>
+              </div>
+              <input type="range" id="layout-density-slider" class="range-slider" min="1" max="5" step="1" value="3">
+            </div>
+
+            <div class="calm-switches-title">Default Calm Mode:</div>
+            <div class="calm-switches-list">
+              <label class="switch-label-row">
+                <span>Hide Shorts</span>
+                <input type="checkbox" id="calm-hideshorts">
+              </label>
+              <label class="switch-label-row">
+                <span>Hide Recommendations</span>
+                <input type="checkbox" id="calm-hidehomerecs">
+              </label>
+              <label class="switch-label-row">
+                <span>Hide Comments</span>
+                <input type="checkbox" id="calm-hidecomments">
+              </label>
+              <label class="switch-label-row">
+                <span>Hide End Screens</span>
+                <input type="checkbox" id="calm-hideendscreens">
+              </label>
+              <label class="switch-label-row">
+                <span>Hide View Counts</span>
+                <input type="checkbox" id="calm-hideviewcounts">
+              </label>
+              <label class="switch-label-row">
+                <span>Hide Live Streams</span>
+                <input type="checkbox" id="calm-hidelive">
+              </label>
+            </div>
+          </div>
+        </details>
+
+        <!-- Section 4: Advanced Scoped CSS -->
+        <details class="control-section">
+          <summary class="section-summary">
+            <span class="summary-title">Custom Scoped CSS</span>
+          </summary>
+          <div class="section-content">
+            <p class="section-help">Scoped strictly to <code>.cd-*</code> classes. Validated against ad-safety rules.</p>
+            <textarea id="custom-css-input" class="textarea-css" spellcheck="false" placeholder=".cd-hero-title { letter-spacing: -0.02em; }"></textarea>
+            <div id="css-error-box" class="css-error-box hidden" role="alert"></div>
+          </div>
+        </details>
+      </aside>
+
+      <!-- Right Preview Area -->
+      <section class="preview-area" aria-label="Live theme preview">
+        <!-- Preview Toolbar -->
+        <div class="preview-toolbar">
+          <div class="preview-views" role="radiogroup" aria-label="Page preview view">
+            <button type="button" id="view-home-btn" class="view-btn active" role="radio" aria-checked="true" tabindex="0">Home Feed</button>
+            <button type="button" id="view-watch-btn" class="view-btn" role="radio" aria-checked="false" tabindex="-1">Watch Page</button>
+            <button type="button" id="view-channel-btn" class="view-btn" role="radio" aria-checked="false" tabindex="-1">Channel (New UI)</button>
+          </div>
+
+          <span class="preview-fidelity-notice">Sample preview; verify on YouTube</span>
+
+          <div class="preview-widths" role="radiogroup" aria-label="Preview viewport width">
+            <button type="button" id="width-full-btn" class="size-btn active" role="radio" aria-checked="true" tabindex="0" title="Full Desktop Width">Desktop</button>
+            <button type="button" id="width-laptop-btn" class="size-btn" role="radio" aria-checked="false" tabindex="-1" title="Laptop Width (1024px)">Laptop</button>
+            <button type="button" id="width-compact-btn" class="size-btn" role="radio" aria-checked="false" tabindex="-1" title="Compact Width (768px)">Compact</button>
+          </div>
+        </div>
+
+        <!-- Preview Canvas Container -->
+        <div class="preview-viewport-wrap">
+          <div id="preview-stage" class="preview-stage">
+            <!-- Simulated YouTube App Surface Themed with --cd-* -->
+            <div id="preview-canvas" class="preview-canvas cd-themed" cd-page="home" cd-home="hero-rows" cd-watch="cinema" cd-density="3">
+              <!-- Masthead -->
+              <header class="yt-mock-masthead">
+                <div class="masthead-left">
+                  <div class="masthead-menu-btn" aria-hidden="true">&#9776;</div>
+                  <div class="masthead-logo">
+                    <span class="yt-play-icon">&#9658;</span>
+                    <span class="yt-logo-text">YouTube</span>
+                  </div>
+                </div>
+                <div class="masthead-center">
+                  <div class="masthead-search-box">
+                    <input type="text" class="masthead-search-input" placeholder="Search" readonly value="Lofi ambient live stream">
+                    <button type="button" class="masthead-search-btn" aria-label="Search">&#128269;</button>
+                  </div>
+                </div>
+                <div class="masthead-right">
+                  <div class="masthead-pill-btn">+ Create</div>
+                  <div class="masthead-avatar" aria-hidden="true">JD</div>
+                </div>
+              </header>
+
+              <!-- Modern Navigation Tab Bar (New UI) -->
+              <nav class="yt-mock-tab-group" aria-label="Feed filters">
+                <span class="yt-mock-chip active">All</span>
+                <span class="yt-mock-chip">Live Now</span>
+                <span class="yt-mock-chip">Music</span>
+                <span class="yt-mock-chip">Documentaries</span>
+                <span class="yt-mock-chip">Coding</span>
+                <span class="yt-mock-chip">Gaming</span>
+              </nav>
+
+              <!-- View 1: Home Feed Content -->
+              <div id="preview-home-view" class="preview-view-content">
+                <!-- Hero Banner -->
+                <div id="preview-hero" class="cd-hero">
+                  <div class="cd-hero-backdrop"></div>
+                  <div class="cd-hero-content">
+                    <div class="cd-hero-badge-wrap">
+                      <span class="cd-live-badge"><span class="cd-live-dot" aria-hidden="true"></span>LIVE</span>
+                    </div>
+                    <h1 class="cd-hero-title">Cosmic Nightfall: Deep Ambient Journey</h1>
+                    <p class="cd-hero-meta">Lofi Girl · 14,280 watching now</p>
+                    <button type="button" class="cd-hero-cta">Watch live</button>
+                  </div>
+                </div>
+
+                <!-- Video Rows -->
+                <section class="cd-row" id="row-live-now">
+                  <div class="cd-row-header">
+                    <h2 class="cd-row-title"><span class="cd-live-dot" aria-hidden="true"></span> Live now</h2>
+                  </div>
+                  <div class="cd-row-cards">
+                    <!-- Card 1 -->
+                    <article class="cd-card">
+                      <div class="cd-card-thumb">
+                        <div class="cd-thumb-bg thumb-1"></div>
+                        <span class="cd-live-badge"><span class="cd-live-dot" aria-hidden="true"></span>LIVE</span>
+                      </div>
+                      <div class="cd-card-body">
+                        <div class="cd-card-avatar avatar-1"></div>
+                        <div class="cd-card-details">
+                          <h3 class="cd-card-title">NASA Live: Earth from Space Station</h3>
+                          <p class="cd-card-meta">NASA · <span class="cd-card-watching">6.2K watching</span></p>
+                        </div>
+                      </div>
+                    </article>
+
+                    <!-- Card 2 -->
+                    <article class="cd-card">
+                      <div class="cd-card-thumb">
+                        <div class="cd-thumb-bg thumb-2"></div>
+                        <span class="cd-live-badge"><span class="cd-live-dot" aria-hidden="true"></span>LIVE</span>
+                      </div>
+                      <div class="cd-card-body">
+                        <div class="cd-card-avatar avatar-2"></div>
+                        <div class="cd-card-details">
+                          <h3 class="cd-card-title">Sky News Breaking Headlines 24/7</h3>
+                          <p class="cd-card-meta">Sky News · <span class="cd-card-watching">3.8K watching</span></p>
+                        </div>
+                      </div>
+                    </article>
+
+                    <!-- Card 3 -->
+                    <article class="cd-card">
+                      <div class="cd-card-thumb">
+                        <div class="cd-thumb-bg thumb-3"></div>
+                        <span class="cd-card-duration">24:18</span>
+                      </div>
+                      <div class="cd-card-body">
+                        <div class="cd-card-avatar avatar-3"></div>
+                        <div class="cd-card-details">
+                          <h3 class="cd-card-title">The Architecture of Deep Space Telescopes</h3>
+                          <p class="cd-card-meta">Veritasium · 1.4M views · 2 days ago</p>
+                        </div>
+                      </div>
+                    </article>
+                  </div>
+                </section>
+
+                <section class="cd-row" id="row-recommended">
+                  <div class="cd-row-header">
+                    <h2 class="cd-row-title">Recommended</h2>
+                  </div>
+                  <div class="cd-row-cards">
+                    <!-- Card 4 -->
+                    <article class="cd-card">
+                      <div class="cd-card-thumb">
+                        <div class="cd-thumb-bg thumb-4"></div>
+                        <span class="cd-card-duration">18:04</span>
+                      </div>
+                      <div class="cd-card-body">
+                        <div class="cd-card-avatar avatar-4"></div>
+                        <div class="cd-card-details">
+                          <h3 class="cd-card-title">Building a High Performance WebGL Renderer</h3>
+                          <p class="cd-card-meta">Tech Craft · 380K views · 5 days ago</p>
+                        </div>
+                      </div>
+                    </article>
+
+                    <!-- Card 5 -->
+                    <article class="cd-card">
+                      <div class="cd-card-thumb">
+                        <div class="cd-thumb-bg thumb-5"></div>
+                        <span class="cd-card-duration">42:10</span>
+                      </div>
+                      <div class="cd-card-body">
+                        <div class="cd-card-avatar avatar-5"></div>
+                        <div class="cd-card-details">
+                          <h3 class="cd-card-title">Quiet Hours in Kyoto — 4K Binaural Soundscape</h3>
+                          <p class="cd-card-meta">Nomad Lens · 890K views · 1 month ago</p>
+                        </div>
+                      </div>
+                    </article>
+
+                    <!-- Card 6 -->
+                    <article class="cd-card">
+                      <div class="cd-card-thumb">
+                        <div class="cd-thumb-bg thumb-6"></div>
+                        <span class="cd-card-duration">12:35</span>
+                      </div>
+                      <div class="cd-card-body">
+                        <div class="cd-card-avatar avatar-6"></div>
+                        <div class="cd-card-details">
+                          <h3 class="cd-card-title">Typography &amp; Modern Layout Design Masterclass</h3>
+                          <p class="cd-card-meta">Design Studio · 120K views · 3 weeks ago</p>
+                        </div>
+                      </div>
+                    </article>
+                  </div>
+                </section>
+              </div>
+
+              <!-- View 2: Watch Page Content -->
+              <div id="preview-watch-view" class="preview-view-content hidden">
+                <div class="watch-layout-mock">
+                  <div class="watch-primary-col">
+                    <div class="mock-player-box">
+                      <div class="player-screen">
+                        <span class="player-center-play">&#9658;</span>
+                        <div class="player-bottom-bar">
+                          <div class="player-progress"></div>
+                          <div class="player-controls-row">
+                            <span>&#9658; 14:28 / 42:10</span>
+                            <span>&#9881; &#9974; &#9972;</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <h1 class="watch-title-mock">Cosmic Nightfall: Deep Ambient Journey</h1>
+                    <div class="watch-owner-bar">
+                      <div class="watch-owner-info">
+                        <div class="cd-card-avatar avatar-1"></div>
+                        <div>
+                          <div class="watch-channel-name">Lofi Girl</div>
+                          <div class="watch-sub-count">14.3M subscribers</div>
+                        </div>
+                        <button type="button" class="btn-sub-mock">Subscribe</button>
+                      </div>
+
+                      <div class="watch-action-pills">
+                        <span class="action-pill">&#128077; 84K</span>
+                        <span class="action-pill">&#128257; Share</span>
+                        <span class="action-pill">&#8801; Save</span>
+                      </div>
+                    </div>
+
+                    <div class="watch-description-card">
+                      <p><strong>14,280 watching now · Started streaming 3 hours ago</strong></p>
+                      <p>Relax and unwind with deep ambient soundscapes and generative visuals designed for concentration and focus.</p>
+                    </div>
+                  </div>
+
+                  <aside class="watch-secondary-col">
+                    <h3 class="sidebar-heading">Up next</h3>
+                    <div class="sidebar-cards">
+                      <div class="sidebar-item">
+                        <div class="sidebar-thumb thumb-2"></div>
+                        <div class="sidebar-info">
+                          <div class="sidebar-title">Sky News Live Broadcast</div>
+                          <div class="sidebar-meta">Sky News · 3.8K watching</div>
+                        </div>
+                      </div>
+                      <div class="sidebar-item">
+                        <div class="sidebar-thumb thumb-3"></div>
+                        <div class="sidebar-info">
+                          <div class="sidebar-title">Deep Space Telescopes</div>
+                          <div class="sidebar-meta">Veritasium · 1.4M views</div>
+                        </div>
+                      </div>
+                    </div>
+                  </aside>
+                </div>
+              </div>
+
+              <!-- View 3: Channel Header (New UI) Content -->
+              <div id="preview-channel-view" class="preview-view-content hidden">
+                <div class="channel-banner-mock"></div>
+                <div class="channel-header-view-model">
+                  <div class="channel-avatar-mock"></div>
+                  <div class="channel-metadata-mock">
+                    <h1 class="channel-title-mock">Lofi Girl</h1>
+                    <div class="channel-badges-mock">
+                      <span>@LofiGirl</span> · <span>14.3M subscribers</span> · <span>890 videos</span>
+                    </div>
+                    <p class="channel-desc-mock">peaceful lofi hip hop / synthwave / ambient beats to study, relax, or sleep to</p>
+                    <div class="channel-actions-row">
+                      <button type="button" class="btn-sub-mock">Subscribe</button>
+                      <button type="button" class="btn-pill-secondary">Join</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Channel Tabs -->
+                <div class="channel-tabs-mock">
+                  <span class="tab-item active">Home</span>
+                  <span class="tab-item">Videos</span>
+                  <span class="tab-item">Shorts</span>
+                  <span class="tab-item">Live</span>
+                  <span class="tab-item">Playlists</span>
+                  <span class="tab-item">Community</span>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="editor.js"></script>
+</body>
+</html>
