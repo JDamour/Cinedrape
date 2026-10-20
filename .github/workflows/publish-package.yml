@@ -40,6 +40,29 @@ jobs:
       - name: Package extension archives
         run: npm run package:all
 
+      - name: Prepare package metadata for GitHub Packages
+        run: |
+          node -e '
+            const fs = require("node:fs");
+            const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+            pkg.name = "@jdamour/cinedrape";
+            delete pkg.private;
+            pkg.repository = { type: "git", url: "git+https://github.com/JDamour/Cinedrape.git" };
+            pkg.publishConfig = { registry: "https://npm.pkg.github.com" };
+            pkg.files = [
+              "dist",
+              "dist-edge",
+              "dist-firefox",
+              "release",
+              "src",
+              "icons",
+              "manifest.json",
+              "README.md",
+              "LICENSE"
+            ];
+            fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2) + "\n");
+          '
+
       - name: Publish to GitHub Packages
         run: |
           npm publish || echo "Package version already published or skipped"
@@ -48,7 +71,7 @@ jobs:
 
       - name: Publish GitHub Release
         run: |
-          VERSION="v$(node -p 'JSON.parse(fs.readFileSync("package.json")).version')"
+          VERSION="v$(node -e 'console.log(JSON.parse(require("node:fs").readFileSync("package.json", "utf8")).version)')"
           echo "Target release: $VERSION"
           if gh release view "$VERSION" >/dev/null 2>&1; then
             echo "Release $VERSION exists, updating assets..."

@@ -1,27 +1,10 @@
 {
-  "name": "@jdamour/cinedrape",
+  "name": "cinedrape",
   "version": "0.1.1",
+  "private": true,
   "type": "module",
   "license": "MIT",
-  "description": "Cinedrape: themes, layouts and calm mode for YouTube (Manifest V3 Chrome, Edge, and Firefox extension).",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/JDamour/Cinedrape.git"
-  },
-  "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
-  },
-  "files": [
-    "dist",
-    "dist-edge",
-    "dist-firefox",
-    "release",
-    "src",
-    "icons",
-    "manifest.json",
-    "README.md",
-    "LICENSE"
-  ],
+  "description": "Cinedrape: themes, layouts and calm mode for YouTube (Manifest V3 Chrome extension).",
   "scripts": {
     "build": "node build.mjs",
     "build:dev": "node build.mjs --dev",
