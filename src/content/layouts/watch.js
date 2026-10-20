@@ -144,6 +144,29 @@ export function buildWatchLayoutCss(map, cfg) {
 
 export const LIVE_WATCH_RE = /(?:\b(?:watching|waiting|spectateurs|mirando|espectadores|zuschauer|spettatori|assistindo|en directo|en vivo|en direct|live|dal vivo|ao vivo)\b|人が視聴中|ライブ配信中|시청\s*중|人正在(?:观看|觀看)|正在直播|зрител(?:ей|я)|прямо[йм]\s+эфир)/iu;
 
+// Locale-independent live markers, queried only inside the watch metadata containers so a LIVE badge on a
+// related tile in the sidebar can never trigger the live presentation. [overlay-style="LIVE"] is the classic
+// thumbnail overlay attribute; .badge-shape-wiz--live is the current BadgeShape live modifier.
+const LIVE_META_ROOTS = ['ytd-watch-info-text', 'ytd-watch-metadata', '#info-container'];
+const LIVE_BADGE_SEL = LIVE_META_ROOTS.flatMap((r) => [`${r} [overlay-style="LIVE"]`, `${r} .badge-shape-wiz--live`]).join(', ');
+
+/**
+ * The view-count-ish elements inside a watch page, via the selector map when available.
+ * @param {Element} flexy
+ * @param {object} [selectors] createSelectors() instance
+ * @returns {Element[]}
+ */
+function watchViewCountEls(flexy, selectors) {
+  if (selectors && typeof selectors.findAll === 'function') {
+    try {
+      const viaMap = selectors.findAll('viewCounts', flexy).filter((el) =>
+        el.closest('ytd-watch-info-text, ytd-watch-metadata, #info-container') || el.matches('ytd-video-view-count-renderer'));
+      if (viaMap.length) return viaMap;
+    } catch { /* fall through to the structural selectors */ }
+  }
+  return Array.from(flexy.querySelectorAll('ytd-watch-info-text #info-container #info > span:first-child, ytd-watch-info-text #view-count, ytd-video-view-count-renderer'));
+}
+
 /**
  * Stylesheet for watch page live presentation under html[cd-watch-live].
  * Restyles the info container / view count with a red accent and pulsing live dot.
@@ -184,24 +207,17 @@ export function isWatchLive(doc, selectors) {
     || doc.querySelector('ytd-watch-flexy, ytd-watch-grid');
   if (!flexy || flexy.hasAttribute('hidden')) return false;
 
-  let viewCountEls = [];
-  if (selectors && typeof selectors.findAll === 'function') {
-    try {
-      viewCountEls = selectors.findAll('viewCounts', flexy).filter((el) =>
-        el.closest('ytd-watch-info-text, ytd-watch-metadata, #info-container') || el.matches('ytd-video-view-count-renderer')
-      );
-    } catch { viewCountEls = []; }
-  }
-  if (!viewCountEls.length) {
-    viewCountEls = Array.from(flexy.querySelectorAll('ytd-watch-info-text #info-container #info > span:first-child, ytd-watch-info-text #view-count, ytd-video-view-count-renderer'));
-  }
-  for (const el of viewCountEls) {
+  for (const el of watchViewCountEls(flexy, selectors)) {
     const text = (el.textContent || '').trim();
     if (text && LIVE_WATCH_RE.test(text)) return true;
   }
   const infoText = flexy.querySelector('ytd-watch-info-text');
   if (infoText && LIVE_WATCH_RE.test(infoText.textContent || '')) return true;
 
+  // Locale-independent fallback: a structural live badge inside the metadata (not the localized viewer text).
+  try {
+    if (flexy.querySelector(LIVE_BADGE_SEL)) return true;
+  } catch { /* a browser that rejects one of the plain selectors above; the text paths already ran */ }
   return false;
 }
 
@@ -216,18 +232,7 @@ export function hasWatchMetadata(doc, selectors) {
   const flexy = doc.querySelector('ytd-watch-flexy:not([hidden]), ytd-watch-grid:not([hidden])')
     || doc.querySelector('ytd-watch-flexy, ytd-watch-grid');
   if (!flexy) return false;
-  let viewCountEls = [];
-  if (selectors && typeof selectors.findAll === 'function') {
-    try {
-      viewCountEls = selectors.findAll('viewCounts', flexy).filter((el) =>
-        el.closest('ytd-watch-info-text, ytd-watch-metadata, #info-container') || el.matches('ytd-video-view-count-renderer')
-      );
-    } catch { viewCountEls = []; }
-  }
-  if (!viewCountEls.length) {
-    viewCountEls = Array.from(flexy.querySelectorAll('ytd-watch-info-text #info-container #info > span:first-child, ytd-watch-info-text #view-count, ytd-video-view-count-renderer'));
-  }
-  for (const el of viewCountEls) {
+  for (const el of watchViewCountEls(flexy, selectors)) {
     if ((el.textContent || '').trim().length > 0) return true;
   }
   const infoText = flexy.querySelector('ytd-watch-info-text');

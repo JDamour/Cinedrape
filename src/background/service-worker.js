@@ -472,7 +472,6 @@ export function createBackground(options = {}) {
         }
         return respondAsync(sendResponse, () => settingsStore.applyProfile(messageId(message)));
       case MSG.UPDATE_SCHEDULE:
-      case 'cd:updateSchedule':
         if (!fromExtensionPage(sender)) {
           send(sendResponse, { ok: false, reason: 'forbidden' });
           return false;

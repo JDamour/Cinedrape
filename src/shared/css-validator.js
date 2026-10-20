@@ -1311,12 +1311,26 @@ function fontSizeFinding(nd) {
   return r && r.some(isTinyFont) ? H('makes text invisible (font-size of about zero)') : null;
 }
 
+function lineHeightFinding(nd) {
+  if (!nd || nd.k === 'id') return null;   // normal / inherit and friends
+  if (nd.k === 'num') return nd.v === 0 ? H('collapses the text (line-height multiplier of zero)') : null;
+  const r = evalLen(nd);
+  return r && r.some(isCollapsed) ? H('collapses the text (line-height of about zero)') : null;
+}
+
 function fontFinding(nodes) {
-  for (const nd of nodes) {
-    if (nd.k === 'delim' && nd.v === '/') break;
-    if (nd.k === 'dim' || nd.k === 'pct' || nd.k === 'fn' || (nd.k === 'num' && nd.v === 0)) return fontSizeFinding(nd);
+  let found = null;
+  for (let i = 0; i < nodes.length; i++) {
+    const nd = nodes[i];
+    if (nd.k === 'delim' && nd.v === '/') {
+      // <font-size> / <line-height>: the node after the slash is the line-height.
+      const lh = lineHeightFinding(nodes[i + 1]);
+      if (lh) return lh;
+      break;
+    }
+    if (!found && (nd.k === 'dim' || nd.k === 'pct' || nd.k === 'fn' || (nd.k === 'num' && nd.v === 0))) found = fontSizeFinding(nd);
   }
-  return null;
+  return found;
 }
 
 function flexFinding(nodes) {
@@ -1393,7 +1407,7 @@ const TRACK_PROPS = /* @__PURE__ */ new Set(['grid-template-columns', 'grid-temp
 
 const SWITCH_PROPS = /* @__PURE__ */ new Set(['all', 'display', 'visibility', 'content-visibility', 'pointer-events', 'contain', 'clip', 'clip-path',
   'filter', 'backdrop-filter', 'font-size', 'font', 'font-size-adjust', 'zoom', 'flex', 'transform', 'scale', 'rotate', 'position', 'z-index',
-  'mix-blend-mode', 'content', 'animation', 'animation-name']);
+  'mix-blend-mode', 'content', 'animation', 'animation-name', 'line-height', 'overflow', 'overflow-x', 'overflow-y', 'backface-visibility']);
 const relevantProp = (p) => SWITCH_PROPS.has(p) || OPACITY_PROPS.has(p) || SIZE_PROPS.has(p) || COLOR_PROPS.has(p) || SHADOW_PROPS.has(p)
   || TRACK_PROPS.has(p) || OFFSET_RE.test(p) || MASK_RE.test(p);
 
@@ -1447,8 +1461,11 @@ function classifyNodes(prop, nodes, cc) {
     case 'clip-path': return clipPathFinding(nodes);
     case 'filter': case 'backdrop-filter': return filterFinding(nodes);
     case 'font-size': return fontSizeFinding(nodes[0]);
+    case 'line-height': return lineHeightFinding(nodes[0]);
     case 'font': return fontFinding(nodes);
     case 'font-size-adjust': return nodes[0].k === 'num' && nodes[0].v === 0 ? H('makes text invisible') : null;
+    case 'backface-visibility': return idIn(nodes, new Set(['hidden'])) ? H('hides the element whenever it is turned over (backface)') : null;
+    case 'overflow': case 'overflow-x': case 'overflow-y': return idIn(nodes, new Set(['hidden', 'clip'])) ? O('can clip the element or its content out of view') : null;
     case 'zoom': {
       if (nodes[0].k === 'id') return null;
       const v = numValue(nodes[0]);

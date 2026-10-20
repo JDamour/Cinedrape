@@ -308,10 +308,10 @@ describe('the stylesheet', () => {
   test('uses only a short allow-list of properties, so a new kind of declaration needs a decision', () => {
     const used = new Set(rules.flatMap((r) => r.decls.map((d) => d.prop)));
     for (const p of used) assert.ok(SKIN_PROPS.has(p) || LIGHTSOURCE_PROP.test(p), `property ${p} is not on the skin allow-list`);
-    const overflowRules = rules.filter((r) => r.decls.some((d) => d.prop === 'overflow'));
-    assert.equal(overflowRules.length, 1, 'overflow is only used to round thumbnails');
-    assert.match(overflowRules[0].selector, /thumbnail/);
-    assert.deepEqual(overflowRules[0].decls.find((d) => d.prop === 'overflow').value, 'hidden');
+    // overflow is deliberately absent: every thumbnail selector ends in img (a replaced element, rounded by
+    // border-radius alone), and the ad-safety validator refuses overflow clipping off Cinedrape's own elements.
+    assert.equal(rules.filter((r) => r.decls.some((d) => d.prop === 'overflow' || d.prop === 'overflow-x' || d.prop === 'overflow-y')).length, 0,
+      'the skin never clips with overflow');
   });
 
   test('every --cd-* variable it reads is written by tokens.js (or has a fallback), so no value is silently undefined', () => {

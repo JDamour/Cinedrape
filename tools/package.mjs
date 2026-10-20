@@ -5,6 +5,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readKeyStatus } from './gen-keys.mjs';
+import { zipDirectory } from './zip.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const allowDevKeys = process.argv.includes('--allow-dev-keys');
@@ -64,15 +65,17 @@ for (const target of targets) {
     if (manifest.background?.service_worker !== 'service-worker.js') fail('Chromium manifest missing background.service_worker');
   }
 
-  // 3. Zip dist
+  // 3. Zip dist (deterministic Node writer: forward-slash entry names, no PowerShell Compress-Archive,
+  //    whose backslash-separated entries the Chrome Web Store rejects, and no external `zip` binary).
   const zipName = target === 'chrome' ? `cinedrape-${pkg.version}.zip` : `cinedrape-${target}-${pkg.version}.zip`;
   const zip = join(outDir, zipName);
   rmSync(zip, { force: true });
-  const result = process.platform === 'win32'
-    ? spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
-        `Compress-Archive -Path '${join(dist, '*')}' -DestinationPath '${zip}' -CompressionLevel Optimal`], { stdio: 'inherit' })
-    : spawnSync('zip', ['-r', '-q', zip, '.'], { cwd: dist, stdio: 'inherit' });
-  if (result.status !== 0 || !existsSync(zip)) fail(`could not create zip for ${target}`);
+  try {
+    await zipDirectory(dist, zip);
+  } catch (err) {
+    fail(`could not create zip for ${target}: ${err && err.message ? err.message : err}`);
+  }
+  if (!existsSync(zip)) fail(`could not create zip for ${target}`);
   console.log(`package: wrote ${zip} (${(statSync(zip).size / 1024).toFixed(1)} KB)${allowDevKeys ? ' [DEV KEYS: private test build only]' : ''}`);
 
   if (target === 'chrome') {

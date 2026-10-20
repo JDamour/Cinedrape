@@ -305,7 +305,10 @@ export function buildSkinCss(map, cfg) {
   rule(G($('menuItem'), ':hover'), 'background-color:var(--cd-hover)');
 
   // ---- cards: thumbnails, titles, metadata --------------------------------------------------------------------
-  rule(G($('thumb')), 'border-radius:var(--cd-radius);overflow:hidden;box-shadow:var(--cd-shadow);'
+  // overflow:hidden is deliberately absent: every thumb selector ends in img, a replaced element whose content is
+  // already clipped to its border box (border-radius rounds it), and the ad-safety validator refuses overflow
+  // clipping on anything that is not a Cinedrape element.
+  rule(G($('thumb')), 'border-radius:var(--cd-radius);box-shadow:var(--cd-shadow);'
     + `outline:1px solid var(--cd-hover);outline-offset:-1px;${T('box-shadow')}`);
   rule(G($('tileTitle')), 'color:var(--cd-text);font-weight:min(var(--cd-heading-weight),600)');
   rule(G($('tileMeta')), 'color:var(--cd-muted)');

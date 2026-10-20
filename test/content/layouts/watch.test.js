@@ -541,6 +541,39 @@ describe('live watch presentation', () => {
     p.flexy.removeAttribute('hidden');
   });
 
+  test('isWatchLive detects structural live badges in watch metadata and ignores sidebar live badges', () => {
+    const p = setup({ tiles: 4 });
+    const viewSpan = p.flexy.querySelector('ytd-watch-info-text #info-container #info > span:first-child');
+    assert.ok(viewSpan, 'viewSpan found in fixture');
+    viewSpan.textContent = '8.4K';   // a locale whose viewer text the regex does not know
+    assert.equal(isWatchLive(p.document), false, 'no badge, unknown text: not live');
+
+    // BadgeShape live modifier inside the metadata container
+    const meta = p.flexy.querySelector('ytd-watch-info-text');
+    const badge = p.document.createElement('div');
+    badge.className = 'badge-shape-wiz badge-shape-wiz--live';
+    badge.textContent = 'LIVE-WORD-IN-ANY-LANGUAGE';
+    meta.appendChild(badge);
+    assert.equal(isWatchLive(p.document), true, 'structural badge in metadata marks the page live');
+    badge.remove();
+
+    // Classic overlay-style attribute inside the metadata container
+    const overlay = p.document.createElement('ytd-thumbnail-overlay-time-status-renderer');
+    overlay.setAttribute('overlay-style', 'LIVE');
+    meta.appendChild(overlay);
+    assert.equal(isWatchLive(p.document), true, 'overlay-style LIVE in metadata marks the page live');
+    overlay.remove();
+
+    // The same badge on a related tile in the sidebar must not flip the page
+    const related = p.flexy.querySelector('#related');
+    assert.ok(related, '#related found in fixture');
+    const sideBadge = p.document.createElement('div');
+    sideBadge.className = 'badge-shape-wiz badge-shape-wiz--live';
+    related.appendChild(sideBadge);
+    assert.equal(isWatchLive(p.document), false, 'a sidebar live badge alone must not mark the watch page live');
+    sideBadge.remove();
+  });
+
   test('hasWatchMetadata returns true when view count or info text has rendered', () => {
     assert.equal(hasWatchMetadata(null), false);
     const p = setup({ tiles: 4 });
