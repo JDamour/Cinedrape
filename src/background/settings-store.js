@@ -1,5 +1,5 @@
 // Centralized, serialized settings and collection mutation manager (Spec WP1 & WP2).
-import { LIMITS, RESERVED_THEME_IDS, STORAGE_KEYS } from '../shared/constants.js';
+import { CALM_KEYS, LIMITS, RESERVED_THEME_IDS, STORAGE_KEYS } from '../shared/constants.js';
 import {
   findProfile,
   normalizeCustomThemes,
@@ -7,10 +7,55 @@ import {
   resolveProfileSettings,
   validateProfile,
 } from '../shared/collections.js';
-import { validateSchedule } from '../shared/profiles.js';
+import { computeCurrentSlot, validateSchedule } from '../shared/profiles.js';
 import { validateTheme } from '../shared/theme-schema.js';
 
 const isPlainObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+
+const SAFE_ID_RE = /^[a-z0-9_-]{1,32}$/;
+const HEX_RE = /^#[0-9a-fA-F]{6}$/;
+const TEXT_SCALES = [0.9, 1, 1.1, 1.25, 1.5];
+
+/**
+ * Whitelists and type-checks a partial settings patch from an extension page. Unknown keys are dropped; a known key with a
+ * bad value rejects the whole patch. `calm` is merged key by key by the caller, never replaced wholesale.
+ * @returns {{ok: true, patch: object} | {ok: false, error: string}}
+ */
+export function sanitizeSettingsPatch(raw) {
+  if (!isPlainObject(raw)) return { ok: false, error: 'Settings patch must be an object' };
+  const out = {};
+  if ('themeId' in raw) {
+    if (typeof raw.themeId !== 'string' || !SAFE_ID_RE.test(raw.themeId)) return { ok: false, error: 'Invalid themeId' };
+    out.themeId = raw.themeId;
+  }
+  if ('accent' in raw) {
+    if (raw.accent !== null && !(typeof raw.accent === 'string' && HEX_RE.test(raw.accent))) return { ok: false, error: 'Accent must be #rrggbb or null' };
+    out.accent = raw.accent === null ? null : raw.accent.toLowerCase();
+  }
+  if ('density' in raw) {
+    if (raw.density !== null && ![1, 2, 3, 4, 5].includes(raw.density)) return { ok: false, error: 'Density must be 1-5 or null' };
+    out.density = raw.density;
+  }
+  if ('animations' in raw) {
+    if (typeof raw.animations !== 'boolean') return { ok: false, error: 'animations must be a boolean' };
+    out.animations = raw.animations;
+  }
+  if ('textScale' in raw) {
+    if (raw.textScale !== null && !TEXT_SCALES.includes(raw.textScale)) return { ok: false, error: 'Unsupported textScale' };
+    out.textScale = raw.textScale;
+  }
+  if ('calm' in raw) {
+    if (!isPlainObject(raw.calm)) return { ok: false, error: 'calm must be an object' };
+    out.calm = {};
+    for (const key of CALM_KEYS) {
+      if (key in raw.calm) {
+        if (typeof raw.calm[key] !== 'boolean') return { ok: false, error: `calm.${key} must be a boolean` };
+        out.calm[key] = raw.calm[key];
+      }
+    }
+  }
+  return Object.keys(out).length ? { ok: true, patch: out } : { ok: false, error: 'Nothing to save' };
+}
 
 function utf8Bytes(str) {
   return new TextEncoder().encode(str).length;
@@ -68,9 +113,8 @@ export function createSettingsStore(deps) {
   };
 
   async function checkPro() {
-    if (!licence || typeof licence.getState !== 'function') return false;
-    const lic = await licence.getState();
-    return lic.plan === 'pro' && (lic.status === 'active' || lic.status === 'grace');
+    // In Cinedrape free-with-support, custom themes, profiles, and scheduling are 100% free for everyone.
+    return true;
   }
 
   // ---- Read Methods (transparently normalise legacy shapes) ---------------------------------------------
@@ -160,6 +204,7 @@ export function createSettingsStore(deps) {
       }
 
       const updatedItems = current.items.filter((p) => p.id !== id);
+      if (updatedItems.length === current.items.length) return { ok: false, reason: 'not-found' };
       const newRecord = {
         schema: 1,
         revision: current.revision + 1,
@@ -382,6 +427,8 @@ export function createSettingsStore(deps) {
         schedule.manualOverrideUntil = null;
         schedule.lastError = null;
       }
+      // An explicit edit also forgets which slot was applied, so the current slot is applied again right away.
+      schedule.lastAppliedSlot = null;
 
       await chrome.storage.local.set({ [STORAGE_KEYS.schedule]: schedule });
       return { ok: true, schedule };
@@ -390,10 +437,12 @@ export function createSettingsStore(deps) {
 
   async function saveSettings(patch) {
     return serial(async () => {
-      if (!isPlainObject(patch)) return { ok: false, reason: 'invalid' };
+      const clean = sanitizeSettingsPatch(patch);
+      if (!clean.ok) return { ok: false, reason: 'invalid', error: clean.error };
 
       const current = (await getSettingsRecord()) || {};
-      const merged = { ...current, ...patch };
+      const merged = { ...current, ...clean.patch };
+      if (clean.patch.calm) merged.calm = { ...(isPlainObject(current.calm) ? current.calm : {}), ...clean.patch.calm };
 
       const writes = { [STORAGE_KEYS.settings]: merged };
 
@@ -412,6 +461,56 @@ export function createSettingsStore(deps) {
     });
   }
 
+  /**
+   * Applies the schedule's current slot, once. Runs in the same queue as every other mutation, so it can neither lose nor
+   * overwrite a concurrent save. A slot is applied when it starts (alarm), at browser start, or when the schedule is edited;
+   * in between, the user's own changes stay (they are not reverted every minute).
+   * @returns {Promise<{ok: boolean, reason?: string, profileId?: string, applied?: boolean, overridden?: boolean, manualOverrideUntil?: number}>}
+   */
+  async function checkSchedule() {
+    return serial(async () => {
+      if (!(await checkPro())) return { ok: false, reason: 'free' };
+      const schedule = await getScheduleRecord();
+      if (!schedule || !schedule.enabled) return { ok: false, reason: 'disabled' };
+
+      const nowMs = now();
+      let next = schedule;
+      if (typeof schedule.manualOverrideUntil === 'number') {
+        if (nowMs < schedule.manualOverrideUntil) {
+          return { ok: true, overridden: true, manualOverrideUntil: schedule.manualOverrideUntil };
+        }
+        next = { ...schedule, manualOverrideUntil: null };
+      }
+
+      const slot = computeCurrentSlot(schedule, nowMs);
+      if (!slot) return { ok: false, reason: 'no-target' };
+
+      const profilesRecord = await getProfilesRecord();
+      const target = resolveProfileSettings(slot.profileId, profilesRecord);
+      if (!target) {
+        await chrome.storage.local.set({
+          [STORAGE_KEYS.schedule]: { ...next, enabled: false, lastError: 'missing-profile' },
+        });
+        return { ok: false, reason: 'profile-not-found' };
+      }
+
+      if (schedule.lastAppliedSlot === slot.key) {
+        if (next !== schedule) await chrome.storage.local.set({ [STORAGE_KEYS.schedule]: next });
+        return { ok: true, profileId: slot.profileId, applied: false };
+      }
+
+      const currentSettings = (await getSettingsRecord()) || {};
+      const { schema, ...patch } = target;
+      const merged = { ...currentSettings, ...patch };
+      const needsUpdate = Object.keys(patch).some((k) => JSON.stringify(currentSettings[k] ?? null) !== JSON.stringify(patch[k] ?? null));
+
+      const writes = { [STORAGE_KEYS.schedule]: { ...next, lastAppliedSlot: slot.key, lastError: null } };
+      if (needsUpdate) writes[STORAGE_KEYS.settings] = merged;
+      await chrome.storage.local.set(writes);
+      return { ok: true, profileId: slot.profileId, applied: needsUpdate };
+    });
+  }
+
   return {
     getProfilesRecord,
     getCustomThemesRecord,
@@ -424,5 +523,6 @@ export function createSettingsStore(deps) {
     deleteTheme,
     updateSchedule,
     saveSettings,
+    checkSchedule,
   };
 }

@@ -4,7 +4,7 @@
   "name": "Arcade",
   "author": "Cinedrape",
   "version": "1.0.0",
-  "tier": "pro",
+  "tier": "free",
   "tokens": {
     "color": {
       "bg": "#07070d",
@@ -14,10 +14,22 @@
       "accent": "#ff3df2",
       "border": "#6d6da0"
     },
-    "type": { "family": "Condensed", "baseSize": 14, "headingWeight": 700 },
-    "shape": { "radius": 4, "shadow": true, "spacing": 2 }
+    "type": {
+      "family": "Condensed",
+      "baseSize": 14,
+      "headingWeight": 700
+    },
+    "shape": {
+      "radius": 4,
+      "shadow": true,
+      "spacing": 2
+    }
   },
-  "layout": { "home": "grid", "watch": "default", "density": 1 },
+  "layout": {
+    "home": "grid",
+    "watch": "default",
+    "density": 1
+  },
   "calm": {},
-  "css": ".cd-card{border:1px solid var(--cd-border);border-radius:var(--cd-radius);background:var(--cd-surface)}\n.cd-card:hover{border-color:var(--cd-accent);box-shadow:0 0 0 1px var(--cd-accent),0 0 18px var(--cd-accent)}\n.cd-card-title{text-transform:uppercase;letter-spacing:0.04em;font-weight:700;font-size:0.9em}\n.cd-card-meta{letter-spacing:0.03em;color:var(--cd-muted)}\n.cd-card-duration{background:var(--cd-accent);color:var(--cd-accent-text);border-radius:2px;font-weight:700}\n.cd-row-title{text-transform:uppercase;letter-spacing:0.12em;text-shadow:0 0 10px var(--cd-accent)}\n.cd-hero-title{text-transform:uppercase;letter-spacing:0.06em;text-shadow:0 0 14px var(--cd-accent)}\n.cd-hero-cta{background:var(--cd-accent);color:var(--cd-accent-text);box-shadow:0 0 16px var(--cd-accent);border-radius:var(--cd-radius)}"
+  "css": ".cd-card{border:1px solid var(--cd-border);border-radius:var(--cd-radius);background:var(--cd-surface);transition:transform var(--cd-duration) ease,border-color var(--cd-duration) ease,box-shadow var(--cd-duration) ease}\n.cd-card:hover{border-color:var(--cd-accent);box-shadow:0 0 0 1px var(--cd-accent),0 0 18px var(--cd-accent);transform:translateY(-2px)}\n.cd-card-thumb{border-radius:2px}\n.cd-card-title{text-transform:uppercase;letter-spacing:0.04em;font-weight:700;font-size:0.9em}\n.cd-card-meta{letter-spacing:0.03em;color:var(--cd-muted)}\n.cd-card-duration{background:var(--cd-accent);color:var(--cd-accent-text);border-radius:2px;font-weight:700}\n.cd-row-title{text-transform:uppercase;letter-spacing:0.12em;text-shadow:0 0 10px var(--cd-accent)}\n.cd-hero-title{text-transform:uppercase;letter-spacing:0.06em;text-shadow:0 0 14px var(--cd-accent)}\n.cd-hero-cta{background:var(--cd-accent);color:var(--cd-accent-text);box-shadow:0 0 16px var(--cd-accent);border-radius:var(--cd-radius)}"
 }

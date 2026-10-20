@@ -16,6 +16,16 @@ const LAYOUTS = {
   primetime: { home: 'rows', watch: 'cinema', density: 4 },
   studio: { home: 'grid', watch: 'focus', density: 5 },
   arcade: { home: 'grid', watch: 'default', density: 5 },
+  oled: { home: 'hero-rows', watch: 'cinema', density: 3 },
+  frost: { home: 'grid', watch: 'default', density: 3 },
+  mocha: { home: 'rows', watch: 'cinema', density: 3 },
+  'midnight-city': { home: 'hero-rows', watch: 'cinema', density: 3 },
+  ember: { home: 'grid', watch: 'default', density: 2 },
+  paper: { home: 'grid', watch: 'focus', density: 4 },
+  matcha: { home: 'rows', watch: 'focus', density: 3 },
+  sunset: { home: 'hero-rows', watch: 'default', density: 3 },
+  terminal: { home: 'grid', watch: 'default', density: 1 },
+  imax: { home: 'hero-rows', watch: 'cinema', density: 5 },
 };
 const theme = (id, extra = {}) => ({
   schema: 1, id, name: id, author: 'test', version: '1.0.0',
@@ -72,7 +82,7 @@ test('isPro reads own data properties only (prototype pollution and getters cann
   try {
     assert.equal(isPro({}), false);
     assert.equal(isPro(FREE), false);
-    assert.equal(compute(settingsWith({ themeId: 'arcade' }), {}).theme.id, 'cinema');
+    assert.equal(compute(settingsWith({ themeId: 'arcade' }), {}).theme.id, 'arcade');
   } finally {
     delete Object.prototype.plan;
     delete Object.prototype.status;
@@ -83,17 +93,16 @@ test('isPro reads own data properties only (prototype pollution and getters cann
 
 // ---- isThemeAllowed -------------------------------------------------------------------------
 
-test('isThemeAllowed: every launch theme x every licence state', () => {
+test('isThemeAllowed: every launch theme x every licence state is allowed in free model', () => {
   const states = { free: FREE, pro: PRO, grace: GRACE, expired: EXPIRED, junk: null };
-  const expectFree = (id) => FREE_THEME_IDS.includes(id);
   for (const t of THEMES) {
-    assert.equal(isThemeAllowed(t, states.free), expectFree(t.id), `${t.id} / free`);
-    assert.equal(isThemeAllowed(t, states.junk), expectFree(t.id), `${t.id} / junk`);
-    assert.equal(isThemeAllowed(t, states.expired), expectFree(t.id), `${t.id} / expired pro`);
+    assert.equal(isThemeAllowed(t, states.free), true, `${t.id} / free`);
+    assert.equal(isThemeAllowed(t, states.junk), true, `${t.id} / junk`);
+    assert.equal(isThemeAllowed(t, states.expired), true, `${t.id} / expired pro`);
     assert.equal(isThemeAllowed(t, states.pro), true, `${t.id} / pro`);
     assert.equal(isThemeAllowed(t, states.grace), true, `${t.id} / grace`);
   }
-  assert.deepEqual(THEMES.filter((t) => isThemeAllowed(t, FREE)).map((t) => t.id), FREE_THEME_IDS);
+  assert.deepEqual(THEMES.filter((t) => isThemeAllowed(t, FREE)).map((t) => t.id), ALL_THEME_IDS);
 });
 
 test('isThemeAllowed fails closed on a missing, unknown or contradictory tier', () => {
@@ -103,19 +112,9 @@ test('isThemeAllowed fails closed on a missing, unknown or contradictory tier', 
       assert.equal(isThemeAllowed(bad, state), false, JSON.stringify(bad));
     }
   }
-  // a custom (non-roster) free theme is free; a custom pro theme needs Pro
   assert.equal(isThemeAllowed({ id: 'mine', tier: 'free' }, FREE), true);
-  assert.equal(isThemeAllowed({ id: 'mine', tier: 'pro' }, FREE), false);
+  assert.equal(isThemeAllowed({ id: 'mine', tier: 'pro' }, FREE), true);
   assert.equal(isThemeAllowed({ id: 'mine', tier: 'pro' }, GRACE), true);
-});
-
-test('isThemeAllowed: the roster is a floor, so a Pro launch theme labelled free is still Pro', () => {
-  for (const id of ALL_THEME_IDS.filter((x) => !FREE_THEME_IDS.includes(x))) {
-    assert.equal(isThemeAllowed({ id, tier: 'free' }, FREE), false, id);
-    assert.equal(isThemeAllowed({ id, tier: 'free' }, PRO), true, id);
-  }
-  // and the reverse: a declared Pro tier wins over a free-roster id
-  assert.equal(isThemeAllowed({ id: 'cinema', tier: 'pro' }, FREE), false);
 });
 
 test('isThemeAllowed ignores inherited tier/id', () => {
@@ -125,27 +124,24 @@ test('isThemeAllowed ignores inherited tier/id', () => {
 
 // ---- density / calm / features --------------------------------------------------------------
 
-test('canSetDensity is Pro only', () => {
-  const table = [[FREE, false], [PRO, true], [GRACE, true], [EXPIRED, false], [null, false], [undefined, false], [{}, false], ['pro', false]];
+test('canSetDensity is available to all users in free model', () => {
+  const table = [[FREE, true], [PRO, true], [GRACE, true], [EXPIRED, true], [null, true], [undefined, true], [{}, true], ['pro', true]];
   for (const [state, expected] of table) assert.equal(canSetDensity(state), expected, JSON.stringify(state));
 });
 
-test('allowedCalmKeys: free gets exactly FREE_CALM_KEYS, Pro (active or grace) gets all five', () => {
-  for (const state of [FREE, EXPIRED, null, undefined, {}, 'pro']) assert.deepEqual(allowedCalmKeys(state), FREE_CALM_KEYS, JSON.stringify(state));
-  for (const state of [PRO, GRACE]) assert.deepEqual(allowedCalmKeys(state), CALM_KEYS);
+test('allowedCalmKeys: all users get all CALM_KEYS in free model', () => {
+  for (const state of [FREE, EXPIRED, null, undefined, {}, 'pro', PRO, GRACE]) assert.deepEqual(allowedCalmKeys(state), CALM_KEYS, JSON.stringify(state));
   // callers may mutate the result without corrupting the constants or later calls
-  allowedCalmKeys(FREE).push('hideComments');
+  allowedCalmKeys(FREE).push('hideViewCounts');
   allowedCalmKeys(PRO).length = 0;
-  assert.deepEqual(allowedCalmKeys(FREE), ['hideShorts', 'hideHomeRecs']);
+  assert.equal(allowedCalmKeys(FREE).length, 6);
   assert.equal(allowedCalmKeys(PRO).length, 6);
-  assert.deepEqual(FREE_CALM_KEYS, ['hideShorts', 'hideHomeRecs']);
 });
 
-test('isFeatureAllowed: every FEATURE x tier', () => {
-  const lockedForFree = ['density', 'calm-hideComments', 'calm-hideEndScreens', 'calm-hideViewCounts', 'calm-hideLive'];
+test('isFeatureAllowed: every FEATURE is allowed for all users in free model', () => {
   for (const f of FEATURES) {
-    assert.equal(isFeatureAllowed(f, FREE), !lockedForFree.includes(f), `${f} / free`);
-    assert.equal(isFeatureAllowed(f, EXPIRED), !lockedForFree.includes(f), `${f} / expired`);
+    assert.equal(isFeatureAllowed(f, FREE), true, `${f} / free`);
+    assert.equal(isFeatureAllowed(f, EXPIRED), true, `${f} / expired`);
     assert.equal(isFeatureAllowed(f, PRO), true, `${f} / pro`);
     assert.equal(isFeatureAllowed(f, GRACE), true, `${f} / grace`);
   }
@@ -163,9 +159,9 @@ test('free user with default settings: Cinema, its own layout and density, nothi
   assert.deepEqual(cfg, {
     theme: THEMES[0], accent: null, animations: true, textScale: null, home: 'hero-rows', watch: 'cinema', density: 3,
     calm: { hideShorts: false, hideHomeRecs: false, hideComments: false, hideEndScreens: false, hideViewCounts: false, hideLive: false },
-    disabled: [], pro: false,
+    disabled: [], pro: false, trial: false,
   });
-  assert.deepEqual(Object.keys(cfg), ['theme', 'accent', 'animations', 'textScale', 'home', 'watch', 'density', 'calm', 'disabled', 'pro']);
+  assert.deepEqual(Object.keys(cfg), ['theme', 'accent', 'animations', 'textScale', 'home', 'watch', 'density', 'calm', 'disabled', 'pro', 'trial']);
   assert.deepEqual(Object.keys(cfg.calm), CALM_KEYS);
 });
 
@@ -195,30 +191,26 @@ test('every stored theme x licence state resolves to an allowed theme, and setti
   }
 });
 
-test('lapse and renewal: the Pro theme comes back without the user doing anything', () => {
+test('theme selection: arcade is allowed for all licence states in free model', () => {
   const settings = settingsWith({ themeId: 'arcade' });
   const before = JSON.stringify(settings);
   assert.equal(compute(settings, PRO).theme.id, 'arcade');
-  assert.equal(compute(settings, EXPIRED).theme.id, 'cinema');
-  assert.equal(compute(settings, FREE).theme.id, 'cinema');
+  assert.equal(compute(settings, EXPIRED).theme.id, 'arcade');
+  assert.equal(compute(settings, FREE).theme.id, 'arcade');
   assert.equal(compute(settings, GRACE).theme.id, 'arcade');
   assert.equal(JSON.stringify(settings), before);
 });
 
-test('density: Pro override wins, free always gets the theme value', () => {
+test('density: user override wins for all users, defaults to theme value when null', () => {
   for (const id of ALL_THEME_IDS) {
     const themeDensity = LAYOUTS[id].density;
-    // free users can only be on a free theme; a stored override must be ignored
-    if (FREE_THEME_IDS.includes(id)) {
-      for (const stored of [null, 1, 2, 3, 4, 5]) {
-        assert.equal(compute(settingsWith({ themeId: id, density: stored }), FREE).density, themeDensity, `free ${id} stored ${stored}`);
-        assert.equal(compute(settingsWith({ themeId: id, density: stored }), EXPIRED).density, themeDensity);
-      }
-    }
+    assert.equal(compute(settingsWith({ themeId: id, density: null }), FREE).density, themeDensity, `free ${id} no override`);
     assert.equal(compute(settingsWith({ themeId: id, density: null }), PRO).density, themeDensity, `pro ${id} no override`);
     for (const stored of [1, 2, 3, 4, 5]) {
+      assert.equal(compute(settingsWith({ themeId: id, density: stored }), FREE).density, stored, `free ${id} override ${stored}`);
       assert.equal(compute(settingsWith({ themeId: id, density: stored }), PRO).density, stored, `pro ${id} override ${stored}`);
       assert.equal(compute(settingsWith({ themeId: id, density: stored }), GRACE).density, stored);
+      assert.equal(compute(settingsWith({ themeId: id, density: stored }), EXPIRED).density, stored);
     }
   }
 });
@@ -239,15 +231,15 @@ test('density: a theme with a broken density still yields 1..5', () => {
   }
 });
 
-test('calm: tier x key table', () => {
+test('calm: all calm keys are unlocked for all users in free model', () => {
   for (const key of CALM_KEYS) {
     const on = settingsWith({ calm: { ...DEFAULT_SETTINGS.calm, [key]: true } });
     const freeCfg = compute(on, FREE);
     const proCfg = compute(on, PRO);
-    assert.equal(freeCfg.calm[key], FREE_CALM_KEYS.includes(key), `free ${key}`);
+    assert.equal(freeCfg.calm[key], true, `free ${key}`);
     assert.equal(proCfg.calm[key], true, `pro ${key}`);
     assert.equal(compute(on, GRACE).calm[key], true, `grace ${key}`);
-    assert.equal(compute(on, EXPIRED).calm[key], FREE_CALM_KEYS.includes(key), `expired ${key}`);
+    assert.equal(compute(on, EXPIRED).calm[key], true, `expired ${key}`);
     // toggles are independent: exactly one key is on
     assert.deepEqual(CALM_KEYS.filter((k) => proCfg.calm[k]), [key]);
     // and switched off it stays off for everyone
@@ -256,20 +248,21 @@ test('calm: tier x key table', () => {
   }
 });
 
-test('calm: free users with everything stored on only keep the two free toggles', () => {
+test('calm: users with everything stored on keep all 6 toggles in free model', () => {
   const all = settingsWith({ calm: Object.fromEntries(CALM_KEYS.map((k) => [k, true])) });
-  assert.deepEqual(compute(all, FREE).calm, { hideShorts: true, hideHomeRecs: true, hideComments: false, hideEndScreens: false, hideViewCounts: false, hideLive: false });
+  assert.deepEqual(compute(all, FREE).calm, Object.fromEntries(CALM_KEYS.map((k) => [k, true])));
   assert.deepEqual(compute(all, PRO).calm, Object.fromEntries(CALM_KEYS.map((k) => [k, true])));
-  assert.equal(all.calm.hideComments, true, 'stored Pro toggles survive a lapse');
+  assert.equal(all.calm.hideViewCounts, true);
 });
 
 test('calm: a theme default applies only where the user has not set a boolean', () => {
-  const quiet = theme('cinema', { calm: { hideShorts: true, hideComments: true } });
+  const quiet = theme('cinema', { calm: { hideShorts: true, hideComments: true, hideViewCounts: true } });
   const run = (calm, state) => computeEffectiveConfig({ settings: { ...DEFAULT_SETTINGS, calm }, licenceState: state, themes: [quiet] }).calm;
-  assert.deepEqual(run({}, PRO), { hideShorts: true, hideHomeRecs: false, hideComments: true, hideEndScreens: false, hideViewCounts: false, hideLive: false });
-  assert.deepEqual(run({}, FREE), { hideShorts: true, hideHomeRecs: false, hideComments: false, hideEndScreens: false, hideViewCounts: false, hideLive: false }, 'free filter still applies');
+  assert.deepEqual(run({}, PRO), { hideShorts: true, hideHomeRecs: false, hideComments: true, hideEndScreens: false, hideViewCounts: true, hideLive: false });
+  assert.deepEqual(run({}, FREE), { hideShorts: true, hideHomeRecs: false, hideComments: true, hideEndScreens: false, hideViewCounts: true, hideLive: false });
   assert.equal(run({ hideShorts: false }, PRO).hideShorts, false, 'an explicit off beats the theme default');
   assert.equal(run({ hideComments: false }, PRO).hideComments, false);
+  assert.equal(run({ hideViewCounts: false }, PRO).hideViewCounts, false);
   for (const junk of ['yes', 1, 0, null, [], {}, undefined]) {
     assert.equal(run({ hideShorts: junk }, PRO).hideShorts, true, `junk ${JSON.stringify(junk)} defers to the theme`);
   }
@@ -347,10 +340,10 @@ test('themes list: junk is tolerated and fallbacks are ordered', () => {
   // stored theme unknown + cinema missing -> first allowed theme in the list
   const noCinema = THEMES.filter((t) => t.id !== 'cinema');
   assert.equal(computeEffectiveConfig({ settings: settingsWith({ themeId: 'ghost' }), licenceState: FREE, themes: noCinema }).theme.id, 'minimal');
-  assert.equal(computeEffectiveConfig({ settings: settingsWith({ themeId: 'arcade' }), licenceState: FREE, themes: noCinema }).theme.id, 'minimal');
+  assert.equal(computeEffectiveConfig({ settings: settingsWith({ themeId: 'arcade' }), licenceState: FREE, themes: noCinema }).theme.id, 'arcade');
   assert.equal(computeEffectiveConfig({ settings: settingsWith({ themeId: 'arcade' }), licenceState: PRO, themes: noCinema }).theme.id, 'arcade');
-  // only Pro themes available and a free user: nothing usable, and that is reported as null rather than a Pro theme
-  assert.equal(computeEffectiveConfig({ settings: s, licenceState: FREE, themes: [THEMES[3], THEMES[5]] }).theme, null);
+  // invalid tier themes only: nothing usable, and that is reported as null
+  assert.equal(computeEffectiveConfig({ settings: s, licenceState: FREE, themes: [{ id: 'bad1', tier: 'invalid' }, { id: 'bad2', tier: 'unknown' }] }).theme, null);
   // duplicate ids: the first one wins
   const dup = [theme('cinema', { name: 'first' }), theme('cinema', { name: 'second' })];
   assert.equal(computeEffectiveConfig({ settings: DEFAULT_SETTINGS, licenceState: FREE, themes: dup }).theme.name, 'first');
@@ -410,8 +403,8 @@ test('full tier x feature matrix on a realistic stored profile', () => {
     calm: { hideShorts: true, hideHomeRecs: true, hideComments: true, hideEndScreens: true, hideViewCounts: true, hideLive: true },
   });
   const free = compute(profile, FREE);
-  assert.deepEqual([free.theme.id, free.density, free.pro], ['cinema', 3, false]);
-  assert.deepEqual(CALM_KEYS.filter((k) => free.calm[k]), FREE_CALM_KEYS);
+  assert.deepEqual([free.theme.id, free.density, free.pro], ['primetime', 5, false]);
+  assert.deepEqual(CALM_KEYS.filter((k) => free.calm[k]), CALM_KEYS);
   assert.equal(free.accent, '#33aaff', 'accent is a free quick setting');
   assert.equal(free.animations, false);
   const pro = compute(profile, PRO);
@@ -420,3 +413,75 @@ test('full tier x feature matrix on a realistic stored profile', () => {
   assert.equal(pro.home, 'rows');
   assert.equal(pro.watch, 'cinema');
 });
+
+test('PRO-1: mix and match layout overrides are available to all users', () => {
+  // Cinema theme defaults: { home: 'hero-rows', watch: 'cinema', density: 3 }
+  const override = settingsWith({ layout: { home: 'grid', watch: 'focus' } });
+
+  // Free user gets stored layout overrides
+  const free = compute(override, FREE);
+  assert.equal(free.home, 'grid', 'free user gets home override');
+  assert.equal(free.watch, 'focus', 'free user gets watch override');
+  assert.equal(free.pro, false);
+
+  // Pro user gets stored layout overrides
+  const pro = compute(override, PRO);
+  assert.equal(pro.home, 'grid', 'pro user gets home override');
+  assert.equal(pro.watch, 'focus', 'pro user gets watch override');
+  assert.equal(pro.pro, true);
+
+  // Trial user gets stored layout overrides with pro=false
+  const trial = compute(override, FREE, { trial: true });
+  assert.equal(trial.home, 'grid', 'trial user gets home override');
+  assert.equal(trial.watch, 'focus', 'trial user gets watch override');
+  assert.equal(trial.pro, false, 'trial user pro flag stays false');
+
+  // Null override falls back to theme layout
+  const partial = settingsWith({ layout: { home: 'rows', watch: null } });
+  const proPartial = compute(partial, PRO);
+  assert.equal(proPartial.home, 'rows');
+  assert.equal(proPartial.watch, 'cinema', 'null watch falls back to theme default');
+
+  // Junk override values fall back to theme layout
+  const junk = settingsWith({ layout: { home: 'invalid-home', watch: 'invalid-watch' } });
+  const proJunk = compute(junk, PRO);
+  assert.equal(proJunk.home, 'hero-rows');
+  assert.equal(proJunk.watch, 'cinema');
+});
+
+test('PRO-0: trial mode preserves feature availability while passing trial flag', () => {
+  const profile = settingsWith({
+    themeId: 'primetime',
+    layout: { home: 'grid', watch: 'focus' },
+    density: 5,
+    accent: '#33aaff',
+    animations: false,
+    calm: {
+      hideShorts: true,
+      hideHomeRecs: true,
+      hideComments: true,
+      hideEndScreens: true,
+      hideViewCounts: true,
+      hideLive: true,
+    },
+  });
+
+  const free = compute(profile, FREE, { trial: false });
+  assert.equal(free.theme.id, 'primetime');
+  assert.equal(free.home, 'grid');
+  assert.equal(free.watch, 'focus');
+  assert.equal(free.density, 5);
+  assert.deepEqual(CALM_KEYS.filter((k) => free.calm[k]), CALM_KEYS);
+  assert.equal(free.pro, false);
+  assert.equal(free.trial, false);
+
+  const trial = compute(profile, FREE, { trial: true });
+  assert.equal(trial.theme.id, 'primetime');
+  assert.equal(trial.home, 'grid');
+  assert.equal(trial.watch, 'focus');
+  assert.equal(trial.density, 5);
+  assert.deepEqual(CALM_KEYS.filter((k) => trial.calm[k]), CALM_KEYS);
+  assert.equal(trial.pro, false);
+  assert.equal(trial.trial, true);
+});
+

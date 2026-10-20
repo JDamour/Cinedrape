@@ -1,6 +1,6 @@
-# Cinedrape — Status (Features F1–F9)
+# Cinedrape — Status (Launch Release: 100% Free with Voluntary Support Migration)
 
-Last verified: 14 Oct 2026 (F7–F9 integration pass — see `docs/GEMINI-IMPLEMENTATION-SPECS.md`, `docs/IMPLEMENTATION-AUDIT-2026-10-14.md` and `docs/TASKS.md`), Windows, Node 25, jsdom 29.1.1, esbuild 0.28.2, Chrome 154. Contract: `docs/ARCHITECTURE.md`. Spec: `YouTube Skin Studio — Product Spec.md`.
+Last verified: 15 Oct 2026 (Free-with-Support Migration pass — see `docs/FREE-SUPPORT-LAUNCH-PLAN.md`, `docs/TASKS.md`), Windows, Node 25, jsdom 29.1.1, esbuild 0.28.2, Chrome 154. Contract: `docs/ARCHITECTURE.md`. Spec: `docs/FREE-SUPPORT-LAUNCH-PLAN.md`.
 
 ## Build and tests
 
@@ -8,24 +8,25 @@ Last verified: 14 Oct 2026 (F7–F9 integration pass — see `docs/GEMINI-IMPLEM
 npm test            node --test "test/**/*.test.js"
 npm run keys        idempotent; dev key pairs in .keys/ (gitignored)
 npm run sign-map    src/data/selector-map.source.json -> selector-map.signed.json
+npm run licence:mint production twin of dev-licence (--order, --tier, sales.csv)
 npm run build:strict
 npm run e2e:home    real Chrome live YouTube features & calm mode (F1-F5)
 npm run e2e:popup   real Chrome live YouTube popup, breakage, service worker & trust audit (F4, F6)
 ```
 
-`npm test` (full run, 48 test files):
+`npm test` (full run, 49 test files):
 
 ```
-ℹ tests 2007
+ℹ tests 2055
 ℹ suites 89
-ℹ pass 2007
+ℹ pass 2055
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
 ```
 
-`npm run build:strict`: `content.js` 227.7 KB raw, **76,109 bytes gzipped (74.3 KB)** against the 150 KB budget; service-worker 44.7 KB gz, popup 51.9 KB gz, editor 49.9 KB gz.
+`npm run build:strict`: `content.js` 237.7 KB raw, **75,774 bytes gzipped (75.8 KB)** against the 150 KB budget; service-worker 49.9 KB gz, popup 58.7 KB gz, editor 52.2 KB gz.
 0 forbidden constructs in any shipped file; `content.js` has no `fetch` / `XMLHttpRequest`. `dist/` ends as the production build.
 
 ### E2E Verification (Real Chrome on Live YouTube)
@@ -36,7 +37,9 @@ npm run e2e:popup   real Chrome live YouTube popup, breakage, service worker & t
    - Calm toggle latency: attrMs 9ms p50 (max 17ms), effectMs 28ms p50 (max 136ms) (well within 1000ms budget).
 
 2. **Popup, Breakage & Trust (`npm run e2e:popup`):**
-   - 235 checks pass, **0 warnings, 0 failures**.
+   - 238 checks pass, **0 warnings, 0 failures**.
+   - PRO-7 Founder badge (`#founder-badge`) and thank-you states (`#pro-thank-you`) verified on real Chrome.
+   - Pro activation banner (`#pro-activated-banner`) dismisses cleanly on click.
    - Zero third-party network calls, zero eval/wasm, storage scoped exclusively to `cd.*`.
    - Service worker idle-stop invariant verified: worker stays asleep during popup theme switching without waking.
    - Extension trust scan verified: `content.js`, `editor/editor.js`, `popup/popup.js`, and `service-worker.js` have 0 fetch, 0 xhr, 0 eval.
@@ -55,6 +58,9 @@ npm run e2e:popup   real Chrome live YouTube popup, breakage, service worker & t
 - Visual Theme Editor (Spec F7 / S14): visual appearance controls, live YouTube preview (Home/Watch/New UI), contrast auditor, theme save & apply.
 - Custom theme export/import (Spec F9): Schema v1 validation, 64 KB storage quota, 10-theme limit, Pro CSS gating, file export/import in popup.
 - Saved profiles & time-based scheduling (Spec F8): profile persistence, day/night profile selection with time thresholds, `cd-schedule` background alarm.
+- One-click Calm Presets (Feature 1): Study, Wind-down, Zen, and Reset presets in Calm mode with entitlement-aware key scoping.
+- Settings Backup & Restore JSON (Feature 3): Full export and import with schema validation for settings, custom themes, and profiles.
+- Privacy-safe Diagnostics (Feature 5): One-click non-PII diagnostic report in popup footer for fast troubleshooting.
 
 
 `dist/` is a loadable MV3 extension: every file `manifest.json` points at exists, no `web_accessible_resources`, permissions `storage` + `alarms`, host `https://www.youtube.com/*`.
@@ -74,7 +80,7 @@ The built `dist/content.js` was also run in jsdom from a bare `<html>` (document
 | ad safety (contract section 6.2, static + jsdom + whole engine) | done | `test/ad-safety.test.js` (about 2.5 s) |
 | background: service-worker, licence-manager, map-updater | done | `test/background/*` |
 | popup | done | `test/popup/*` |
-| themes (6) | done | `test/themes/themes.test.js` |
+| themes (16: 3 free, 3 pro, 10 Pack 1) | done | `test/themes/themes.test.js` |
 | tools: gen-keys, sign-map, dev-licence | done | `test/tools/trust-tools.test.js` |
 | e2e (real Chrome) | separate agent, not part of this run | `test/e2e/` |
 

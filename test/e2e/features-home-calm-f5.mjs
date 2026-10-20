@@ -323,17 +323,17 @@ async function gating(ctx) {
   const pro = await readAttrs();
   const proState = await page.evaluate(() => ({ comments: window.__cdh.rendered('ytd-comments'), views: window.__cdh.datesAndViews().viewsShown }));
   await ctx.bridge.run(swRemove, ['cd.licence']);
-  await until(page, () => !document.documentElement.hasAttribute('cd-calm-hideComments'), null, 6000);
+  await until(page, () => !document.documentElement.hasAttribute('cd-calm-hideViewCounts'), null, 6000);
   await sleep(1200);
   const free = await readAttrs();
   const freeState = await page.evaluate(() => ({ comments: window.__cdh.rendered('ytd-comments'), views: window.__cdh.datesAndViews().viewsShown }));
-  check(P2, 'gating:free-honours-only-shorts-and-home-recs-on-watch', free.length === 2 && free.includes('hideShorts') && free.includes('hideHomeRecs') && freeState.comments > 0 && freeState.views > 0 && pro.length === 6 && proState.comments === 0, { pro, proState, free, freeState });
-  // free on home: the two free toggles still do their job
+  check(P2, 'gating:free-honours-free-calm-on-watch', free.length === 4 && free.includes('hideShorts') && free.includes('hideHomeRecs') && free.includes('hideComments') && free.includes('hideEndScreens') && freeState.comments === 0 && freeState.views > 0 && pro.length === 6 && proState.comments === 0, { pro, proState, free, freeState });
+  // free on home: the four free toggles still do their job
   await visit(ctx, 'home');
   await sleep(1500);
   const freeHome = await page.evaluate((ks) => ({ attrs: ks.filter((k) => document.documentElement.hasAttribute(`cd-calm-${k}`)), recs: window.__cdh.missed('hideHomeRecs').length, shorts: window.__cdh.missed('hideShorts').length, views: window.__cdh.datesAndViews().viewsShown }), CALM_KEYS);
   info(P2, 'gating:free-home-readings', freeHome, 'view counts stay visible for free users (hideViewCounts is Pro)');
-  check(P2, 'gating:free-home-recs-and-shorts-hidden-view-counts-shown', freeHome.attrs.length === 2 && freeHome.recs === 0 && freeHome.shorts === 0, freeHome);
+  check(P2, 'gating:free-home-recs-and-shorts-hidden-view-counts-shown', freeHome.attrs.length === 4 && freeHome.recs === 0 && freeHome.shorts === 0, freeHome);
   await ctx.bridge.run(swSeed, { 'cd.licence': ctx.licence });
   const back = await until(page, () => document.documentElement.hasAttribute('cd-calm-hideViewCounts'), null, 8000);
   check(P2, 'gating:pro-restored-when-licence-returns', !!back, { hideViewCounts: !!back });

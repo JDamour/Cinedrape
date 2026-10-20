@@ -4,6 +4,14 @@ Themes for YouTube™. A Manifest V3 browser extension that restyles and re-lays
 
 This repository includes **features F1–F9** from `YouTube Skin Studio — Product Spec.md`: theme engine (F1), six bundled themes (F2), layout modes (F3), quick-settings popup (F4), calm mode (F5), breakage detection (F6), visual theme studio/editor (F7), saved profiles and local time scheduling (F8), and theme JSON import/export (F9). There is no external account requirement, payments sync, AI generator, or telemetry.
 
+## Website & Live Demo
+
+The project landing page is ready for GitHub Pages hosting:
+- Live Demo & Features: [https://jdamour.github.io/Cinedrape/](https://jdamour.github.io/Cinedrape/)
+- Local preview: Open `index.html` in any modern web browser.
+- Automated deployment: Handled via `.github/workflows/deploy-pages.yml` (or via GitHub Pages branch deploy from root `/`).
+
+
 ## Try it
 
 ```bash
@@ -13,6 +21,8 @@ npm run build          # production build into dist/
 
 1. Open `chrome://extensions`, switch on **Developer mode**, choose **Load unpacked**, and select the `dist/` folder.
 2. Open youtube.com and click the Cinedrape toolbar icon.
+
+For **Microsoft Edge**, run `npm run build:edge`, open `edge://extensions`, enable **Developer mode**, and choose **Load unpacked** → `E:\Cinedrape\dist-edge`. After updating, click **Reload** on the extension card. The popup reconnects existing YouTube tabs automatically; if access is blocked, allow Cinedrape on YouTube in Edge’s extension settings and use **Reload YouTube tab** in the popup.
 
 Free themes (Cinema, Minimal, Classic) work immediately. To try Pro (the other three themes, density, all calm toggles, custom theme saving, profiles, and scheduling) with the dev keys:
 
@@ -40,7 +50,7 @@ The e2e scripts drive a throwaway headless Chrome (fresh temporary profile, your
 - **Themes are data.** A theme is JSON (colour tokens, layout choices, optional validated CSS), never code. The CSS validator refuses anything that could hide or cover ads, sponsorship disclosures or player controls.
 - **YouTube's markup lives in a signed selector map** (`src/data/selector-map.source.json`, signed into `selector-map.signed.json`). Element names, the colour-variable bridge and the health-check requirements are data, so a YouTube change is a map update, not a store release. A health check turns off only the broken feature and shows a notice.
 - **Fail-open.** Any error leaves YouTube in its default look. The layout renderers mirror tiles into their own cards and restore the original DOM exactly on unmount.
-- **Private.** No network access from the extension content script or popup, no accounts for free use, no telemetry. Permissions are exactly `storage`, `alarms` and `https://www.youtube.com/*`.
+- **Private.** No network access from the extension content script or popup, no accounts for free use, no telemetry. Permissions are exactly `storage`, `alarms`, `scripting` and access to `https://www.youtube.com/*` / `https://youtube.com/*`. The scripting permission reconnects an already open YouTube tab when its content script is missing.
 
 Details: `docs/ARCHITECTURE.md` (the build contract: module APIs, shared names, verified YouTube DOM facts), `docs/STATUS.md` (per-module status, decisions and known gaps).
 

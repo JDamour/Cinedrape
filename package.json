@@ -1,6 +1,6 @@
 {
   "name": "cinedrape",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "description": "Cinedrape: themes, layouts and calm mode for YouTube (Manifest V3 Chrome extension).",
@@ -8,14 +8,21 @@
     "build": "node build.mjs",
     "build:dev": "node build.mjs --dev",
     "build:strict": "node build.mjs --strict",
+    "build:firefox": "node build.mjs --strict --target firefox",
+    "build:edge": "node build.mjs --strict --target edge",
+    "build:all": "node build.mjs --strict --target chrome && node build.mjs --strict --target edge && node build.mjs --strict --target firefox",
     "test": "node --test --test-concurrency=6 \"test/**/*.test.js\"",
     "keys": "node tools/gen-keys.mjs",
     "sign-map": "node tools/sign-map.mjs",
     "licence:dev": "node tools/dev-licence.mjs",
+    "licence:mint": "node tools/mint-licence.mjs",
     "e2e": "node test/e2e/run.mjs",
     "e2e:home": "node test/e2e/features-home-calm.mjs --extension dist-home",
     "e2e:popup": "node test/e2e/features-popup-breakage.mjs --extension dist-popup",
-    "package": "node tools/package.mjs"
+    "package": "node tools/package.mjs",
+    "package:firefox": "node tools/package.mjs --target firefox",
+    "package:edge": "node tools/package.mjs --target edge",
+    "package:all": "node tools/package.mjs --all"
   },
   "devDependencies": {
     "esbuild": "^0.28.2",

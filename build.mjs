@@ -247,10 +247,18 @@ function walk(dir) {
  */
 export async function main(argv = process.argv.slice(2), env = process.env, io = {}) {
   const { root = ROOT, log = console.log, logError = console.error } = io;
+  const targetAt = Math.max(argv.indexOf('--target'), argv.indexOf('--browser'));
+  const target = targetAt >= 0 ? String(argv[targetAt + 1] ?? '').toLowerCase() : 'chrome';
+  if (!['chrome', 'firefox', 'edge'].includes(target)) {
+    logError(`--target/--browser must be "chrome", "firefox", or "edge", got "${target}"`);
+    return 2;
+  }
+
   // --out dist-<name> builds into a sibling directory so parallel runs (e2e agents) never clobber each other's dist/.
   // The name is restricted to dist or dist-<name>: this directory is deleted and recreated on every build.
   const outAt = argv.indexOf('--out');
-  const outName = outAt >= 0 ? String(argv[outAt + 1] ?? '') : 'dist';
+  const defaultOut = target === 'chrome' ? 'dist' : `dist-${target}`;
+  const outName = outAt >= 0 ? String(argv[outAt + 1] ?? '') : defaultOut;
   if (!/^dist(-[a-z0-9]+)*$/.test(outName)) {
     logError(`--out must be "dist" or "dist-<name>" (lowercase letters and digits), got "${outName}"`);
     return 2;
@@ -269,10 +277,11 @@ export async function main(argv = process.argv.slice(2), env = process.env, io =
   rmSync(dist, { recursive: true, force: true });
   mkdirSync(dist, { recursive: true });
 
+  const jsTarget = target === 'firefox' ? 'firefox109' : target === 'edge' ? 'edge105' : 'chrome105';
   const common = {
     bundle: true,
     platform: 'browser',
-    target: 'chrome105',
+    target: jsTarget,
     loader: { '.json': 'json' },
     define: { __DEV__: String(dev) },
     legalComments: 'none',
@@ -281,9 +290,10 @@ export async function main(argv = process.argv.slice(2), env = process.env, io =
     absWorkingDir: root,
   };
 
+  const swFormat = target === 'firefox' ? 'iife' : 'esm';
   const entries = [
     { name: 'content.js', entry: 'src/content/index.js', out: `${outName}/content.js`, format: 'iife', minify: true },
-    { name: 'service-worker.js', entry: 'src/background/service-worker.js', out: `${outName}/service-worker.js`, format: 'esm', minify: !dev },
+    { name: 'service-worker.js', entry: 'src/background/service-worker.js', out: `${outName}/service-worker.js`, format: swFormat, minify: !dev },
     { name: 'popup/popup.js', entry: 'src/popup/popup.js', out: `${outName}/popup/popup.js`, format: 'iife', minify: !dev },
     { name: 'editor/editor.js', entry: 'src/editor/editor.js', out: `${outName}/editor/editor.js`, format: 'iife', minify: !dev },
   ];
@@ -322,7 +332,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, io =
     }
   }
 
-  // manifest.json (required): inject the package version
+  // manifest.json (required): inject the package version & browser adjustments
   const manifestPath = join(root, 'manifest.json');
   if (!existsSync(manifestPath)) {
     rows.push({ name: 'manifest.json', status: 'FAIL', note: 'missing' });
@@ -331,9 +341,26 @@ export async function main(argv = process.argv.slice(2), env = process.env, io =
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
     manifest.version = pkg.version;
     if (dev) manifest.version_name = `${pkg.version}-dev`;
+
+    if (target === 'firefox') {
+      delete manifest.minimum_chrome_version;
+      manifest.background = {
+        scripts: ['service-worker.js'],
+      };
+      manifest.browser_specific_settings = {
+        gecko: {
+          id: 'cinedrape@cinedrape.org',
+          strict_min_version: '109.0',
+        },
+      };
+    } else if (target === 'edge') {
+      manifest.minimum_edge_version = manifest.minimum_chrome_version || '105';
+    }
+
     const text = `${JSON.stringify(manifest, null, 2)}\n`;
     writeFileSync(join(dist, 'manifest.json'), text);
-    rows.push({ name: 'manifest.json', status: 'ok', bytes: Buffer.byteLength(text), note: `v${manifest.version}${dev ? ' (dev)' : ''}` });
+    const targetTag = target !== 'chrome' ? ` [${target}]` : '';
+    rows.push({ name: 'manifest.json', status: 'ok', bytes: Buffer.byteLength(text), note: `v${manifest.version}${dev ? ' (dev)' : ''}${targetTag}` });
   }
 
   // plain copies
@@ -381,6 +408,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, io =
     const refs = new Set([
       m.action?.default_popup,
       m.background?.service_worker,
+      ...(m.background?.scripts || []),
       ...Object.values(m.icons || {}),
       ...Object.values(m.action?.default_icon || {}),
       ...(m.content_scripts || []).flatMap((cs) => [...(cs.js || []), ...(cs.css || [])]),
@@ -395,7 +423,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, io =
   if (content?.status === 'ok') {
     const ok = content.gzip <= GZIP_BUDGET_BYTES;
     log(`content.js gzip: ${content.gzip} bytes (${fmtKB(content.gzip)}) / budget ${GZIP_BUDGET_BYTES} bytes (${fmtKB(GZIP_BUDGET_BYTES)}) ${ok ? 'OK' : 'OVER BUDGET'}`);
-    if (!ok) fail(`dist/content.js gzip is ${content.gzip} bytes, over the ${GZIP_BUDGET_BYTES} byte budget`);
+    if (!ok) fail(`${outName}/content.js gzip is ${content.gzip} bytes, over the ${GZIP_BUDGET_BYTES} byte budget`);
   } else {
     log('content.js gzip: n/a (content.js not built)');
   }
@@ -416,7 +444,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, io =
 
   // ---- summary -----------------------------------------------------------
   const w = Math.max(...rows.map((r) => r.name.length), 8);
-  const flags = [dev && 'dev', strict && 'strict'].filter(Boolean);
+  const flags = [target !== 'chrome' && target, dev && 'dev', strict && 'strict'].filter(Boolean);
   log(`\nCinedrape build${flags.length ? ` (${flags.join(', ')})` : ''}`);
   log(`${'artifact'.padEnd(w)}  ${'status'.padEnd(6)}  ${'size'.padStart(9)}  ${'gzip'.padStart(9)}  note`);
   for (const r of rows) {

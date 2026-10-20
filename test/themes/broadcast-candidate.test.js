@@ -32,7 +32,7 @@ describe('Broadcast theme candidate (E7 / S10)', () => {
     assert.equal(BROADCAST.name, 'Broadcast');
     assert.equal(BROADCAST.author, 'Cinedrape');
     assert.equal(BROADCAST.version, '1.0.0');
-    assert.equal(BROADCAST.tier, 'pro');
+    assert.equal(BROADCAST.tier, 'free');
 
     // 16 px base font as specified
     assert.equal(BROADCAST.tokens.type.baseSize, 16);

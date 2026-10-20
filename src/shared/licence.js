@@ -6,6 +6,7 @@ import { LIMITS } from './constants.js';
 import { base64urlDecode, base64urlEncode, signPayload, verifySignature } from './signing.js';
 
 export const PLANS = ['free', 'pro'];
+export const TIERS = ['founder', 'standard'];
 export const CLOCK_SKEW_MS = 5 * 60 * 1000;     // an `iat` further ahead than this is rejected
 const MAX_TOKEN_CHARS = 4096;
 const MAX_SUB_CHARS = 320;
@@ -29,9 +30,13 @@ export function parseClaims(raw) {
   if (raw.devices !== undefined && !(Number.isInteger(raw.devices) && raw.devices >= 1 && raw.devices <= 10000)) {
     return { ok: false, reason: 'bad-claims' };
   }
+  if (raw.tier !== undefined && (typeof raw.tier !== 'string' || !TIERS.includes(raw.tier))) {
+    return { ok: false, reason: 'bad-claims' };
+  }
   const claims = { v: 1, sub: raw.sub, plan: raw.plan, iat: raw.iat };
   if (raw.exp !== undefined) claims.exp = raw.exp;
   if (raw.devices !== undefined) claims.devices = raw.devices;
+  if (raw.tier !== undefined) claims.tier = raw.tier;
   return { ok: true, claims };
 }
 
@@ -123,7 +128,7 @@ export function claimsMatch(stored, verified) {
   const a = parseClaims(stored);
   const b = parseClaims(verified);
   if (!a.ok || !b.ok) return false;
-  return a.claims.plan === b.claims.plan && a.claims.sub === b.claims.sub && a.claims.iat === b.claims.iat && a.claims.exp === b.claims.exp;
+  return a.claims.plan === b.claims.plan && a.claims.sub === b.claims.sub && a.claims.iat === b.claims.iat && a.claims.exp === b.claims.exp && a.claims.tier === b.claims.tier;
 }
 
 export const LAPSE_REASONS = ['token-expired', 'not-rechecked', 'invalid'];

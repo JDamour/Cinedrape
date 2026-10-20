@@ -70,7 +70,10 @@ export const PAGES = {
 };
 
 export const FALLBACK = {
-  allThemes: ['cinema', 'minimal', 'classic', 'primetime', 'studio', 'arcade'],
+  allThemes: [
+    'cinema', 'minimal', 'classic', 'primetime', 'studio', 'arcade',
+    'oled', 'frost', 'mocha', 'midnight-city', 'ember', 'paper', 'matcha', 'sunset', 'terminal', 'imax',
+  ],
   freeThemes: ['cinema', 'minimal', 'classic'],
 };
 

@@ -1,7 +1,7 @@
 // What the popup shows for each licence state and stored setting, and that every control is accessible.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CALM_KEYS, DEFAULT_SETTINGS, FREE_CALM_KEYS, STORAGE_KEYS } from '../../src/shared/constants.js';
+import { CALM_KEYS, CHECKOUT_URL, DEFAULT_SETTINGS, FREE_CALM_KEYS, STORAGE_KEYS } from '../../src/shared/constants.js';
 import { signLicenceToken } from '../../src/shared/licence.js';
 import { toPublicJwk } from '../../src/shared/signing.js';
 import {
@@ -30,25 +30,23 @@ const visibleText = (el) => {
 };
 const locked = (el) => el.getAttribute('aria-disabled') === 'true';
 
-test('free user: six theme cards in contract order, Cinema selected, Pro themes locked and explained', async () => {
+test('all 16 themes are rendered unlocked in contract order, Cinema selected by default', async () => {
   const t = await mount({ licence: FREE });
   try {
+    const headers = [...t.doc.querySelectorAll('#theme-grid .theme-group-header')].map((h) => h.textContent);
+    assert.deepEqual(headers, ['Themes']);
     const cards = [...t.doc.querySelectorAll('#theme-grid [role="radio"]')];
-    assert.deepEqual(cards.map((c) => c.dataset.themeId), ['cinema', 'minimal', 'classic', 'primetime', 'studio', 'arcade']);
-    assert.deepEqual(cards.map((c) => c.getAttribute('aria-checked')), ['true', 'false', 'false', 'false', 'false', 'false']);
-    assert.deepEqual(cards.map(locked), [false, false, false, true, true, true]);
-    for (const id of ['primetime', 'studio', 'arcade']) {
-      const card = t.card(id);
-      assert.equal(card.getAttribute('aria-describedby'), 'theme-locked-desc');
-      assert.equal(card.querySelector('.tag-lock').hidden, false, 'lock icon shown');
-      assert.match(visibleText(card), /Pro/);
-      assert.match(accessibleName(card), /Pro ?, locked/); // an inline tag and its screen-reader suffix, joined by the harness
+    assert.deepEqual(cards.map((c) => c.dataset.themeId), [
+      'cinema', 'minimal', 'classic', 'primetime', 'studio', 'arcade',
+      'oled', 'frost', 'mocha', 'midnight-city', 'ember', 'paper', 'matcha', 'sunset', 'terminal', 'imax',
+    ]);
+    assert.deepEqual(cards.map((c) => c.getAttribute('aria-checked')), ['true', ...Array(15).fill('false')]);
+    assert.deepEqual(cards.map(locked), Array(16).fill(false));
+    for (const card of cards) {
+      assert.equal(card.querySelector('.tag-lock'), null, 'no lock icon on any theme card');
+      assert.equal(card.querySelector('.tag-pro'), null, 'no Pro badge on any theme card');
+      assert.equal(card.hasAttribute('aria-describedby'), false);
     }
-    for (const id of ['cinema', 'minimal', 'classic']) {
-      assert.equal(t.card(id).querySelector('.tag-pro'), null, 'free cards carry no Pro badge');
-      assert.equal(t.card(id).hasAttribute('aria-describedby'), false);
-    }
-    assert.match(t.$('theme-locked-desc').textContent, /Requires Cinedrape Pro/);
     assert.equal(t.$('theme-group').getAttribute('role'), 'radiogroup');
     assert.equal(accessibleName(t.$('theme-group')), 'Theme');
   } finally { t.close(); }
@@ -62,182 +60,58 @@ test('free user: a roving tab stop on the selected card only', async () => {
   } finally { t.close(); }
 });
 
-test('free user: density is disabled with a lock and a note; Pro calm toggles are locked; free ones are not', async () => {
+test('density is enabled and adjustable for all users; all 6 calm toggles are unlocked', async () => {
   const t = await mount({ licence: FREE });
   try {
-    assert.equal(t.$('density').disabled, true);
-    assert.equal(t.$('density-pro').hidden, false);
+    assert.equal(t.$('density').disabled, false);
     assert.match(accessibleName(t.$('density-group').querySelector('legend')), /Density/);
-    assert.match(t.$('density-note').textContent, /^Pro feature\. Free users get Cinema.s own spacing\.$/);
-    assert.equal(t.$('density-unlock').hidden, false);
+    assert.match(t.$('density-note').textContent, /^Using Cinema’s own spacing\.$/);
     assert.equal(t.$('density-reset').hidden, true);
     assert.equal(t.$('density').value, '3');
     assert.equal(t.$('density-value').textContent, 'Balanced');
 
     for (const key of CALM_KEYS) {
       const toggle = t.calm(key);
-      const free = FREE_CALM_KEYS.includes(key);
-      assert.equal(locked(toggle), !free, key);
-      assert.equal(t.$(`calm-${key}-pro`).hidden, free, `${key} Pro tag`);
+      assert.equal(locked(toggle), false, `${key} is unlocked`);
       assert.equal(toggle.getAttribute('aria-checked'), 'false');
       assert.equal(toggle.getAttribute('role'), 'switch');
-      assert.equal(toggle.getAttribute('aria-describedby').includes(`calm-${key}-pro`), !free);
     }
-    assert.match(accessibleName(t.calm('hideComments')), /^Hide comments$/);
-    // The visible Pro tag says why (text, not colour alone).
-    assert.match(text(t.$('calm-hideComments-pro')), /Pro setting, locked/);
+    assert.match(accessibleName(t.calm('hideViewCounts')), /^Hide view counts$/);
   } finally { t.close(); }
 });
 
-test('free user: the Pro card says Free and offers the token form, open', async () => {
+
+test('Support card renders in popup with Buy me a coffee button linking to SUPPORT_URL', async () => {
   const t = await mount({ licence: FREE });
   try {
-    assert.equal(text(t.$('pro-state-text')), 'Free');
-    assert.equal(t.$('pro-state').dataset.state, 'free');
-    assert.equal(t.$('activate').open, true);
-    assert.equal(text(t.$('activate-summary')), 'Activate Pro');
-    assert.equal(t.$('token').value, '');
-    assert.equal(t.$('pro-saved').textContent, '', 'nothing is saved-and-waiting');
+    assert.ok(t.$('support'), 'support section exists');
+    assert.match(text(t.doc.querySelector('#support-heading')), /Support Cinedrape/);
+    assert.match(text(t.doc.querySelector('.support-tagline')), /Cinedrape is 100% free/);
+    const link = t.$('support-link');
+    assert.equal(link.getAttribute('href'), 'https://github.com/sponsors/JDamour');
+    assert.equal(link.getAttribute('target'), '_blank');
+    assert.equal(link.getAttribute('rel'), 'noopener noreferrer');
+
+    const footerCoffee = t.$('footer-coffee-link');
+    assert.equal(footerCoffee.getAttribute('href'), 'https://github.com/sponsors/JDamour');
+    assert.equal(footerCoffee.getAttribute('target'), '_blank');
   } finally { t.close(); }
 });
 
-test('Pro active: nothing is locked and the token form tucks away', async () => {
-  const t = await mount({ licence: PRO, settings: { ...DEFAULT_SETTINGS, themeId: 'studio', density: 5, calm: { ...DEFAULT_SETTINGS.calm, hideComments: true } } });
-  try {
-    assert.equal(text(t.$('pro-state-text')), 'Pro active');
-    assert.equal(t.$('pro-state').dataset.state, 'active');
-    assert.equal(t.doc.querySelectorAll('[aria-disabled="true"]:not(#accent-reset)').length, 0, 'no locked control');
-    assert.equal(t.card('studio').getAttribute('aria-checked'), 'true');
-    assert.equal(t.card('studio').querySelector('.tag-lock').hidden, true, 'a Pro theme keeps its Pro badge but not the lock');
-    assert.equal(t.$('density').disabled, false);
-    assert.equal(t.$('density').value, '5');
-    assert.equal(t.$('density-value').textContent, 'Roomy');
-    assert.equal(t.$('density-reset').hidden, false, 'a custom density can go back to the theme default');
-    assert.equal(t.$('density-unlock').hidden, true);
-    assert.equal(t.calm('hideComments').getAttribute('aria-checked'), 'true');
-    assert.equal(t.calm('hideComments').querySelector('.switch-state').textContent, 'On');
-    assert.equal(t.$('activate').open, false);
-    assert.equal(text(t.$('activate-summary')), 'Use a different licence token');
-    assert.match(t.$('pro-detail').textContent, /unlocked/);
-  } finally { t.close(); }
-});
-
-test('offline grace: still Pro, and the line says so', async () => {
-  const t = await mount({ licence: GRACE });
-  try {
-    assert.equal(text(t.$('pro-state-text')), 'Pro (offline grace)');
-    assert.equal(t.$('pro-state').dataset.state, 'grace');
-    assert.equal(locked(t.card('studio')), false);
-    assert.match(t.$('pro-detail').textContent, /could not re-check your licence/);
-  } finally { t.close(); }
-});
-
-test('expired: Pro features lock, and the saved Pro choices are reported as waiting, not lost', async () => {
-  const settings = { ...DEFAULT_SETTINGS, themeId: 'arcade', density: 4, accent: '#7c8cff', calm: { ...DEFAULT_SETTINGS.calm, hideComments: true, hideShorts: true } };
-  const t = await mount({ licence: EXPIRED, settings });
-  try {
-    assert.equal(text(t.$('pro-state-text')), 'Pro expired');
-    assert.equal(t.$('pro-state').dataset.state, 'expired');
-    assert.equal(t.card('cinema').getAttribute('aria-checked'), 'true', 'the tab shows Cinema, so the popup does too');
-    assert.equal(t.card('arcade').getAttribute('aria-checked'), 'false');
-    assert.equal(text(t.$('theme-note')), 'Arcade theme is saved and returns when Pro is active.');
-    assert.equal(text(t.$('pro-saved')), 'Saved and waiting for Pro: Arcade theme, density, hide comments.');
-    assert.match(t.$('density-note').textContent, /saved density returns when Pro is active/);
-    assert.equal(t.calm('hideComments').getAttribute('aria-checked'), 'false');
-    assert.equal(t.calm('hideShorts').getAttribute('aria-checked'), 'true', 'a free calm key keeps working');
-    assert.equal(t.$('density').disabled, true);
-    assert.equal(t.$('accent-hex').value, '#7c8cff', 'the accent is free and stays');
-    assert.equal((await t.stored()).themeId, 'arcade', 'rendering never rewrites storage');
-    assert.equal(t.writes(), 0);
-  } finally { t.close(); }
-});
-
-const DAY = 86400000;
-const record = (ageDays, plan = 'pro', over = {}) => ({
-  token: TOKENS[plan], claims: claimsFor(plan), checkedAt: Date.now() - ageDays * DAY, ...over,
-});
-
-test('licence status unavailable only when neither the background nor storage can say; Pro stays locked and it is said plainly', async () => {
-  for (const licenceMode of ['silent', 'junk', 'hang']) {
-    const t = await mount({
-      licence: PRO, licenceMode, requestTimeoutMs: 60,
-      prepare: (x) => { x.chrome.storage.local.get = () => Promise.reject(new Error('storage is down')); },
-    });
+test('all features remain unlocked regardless of licence state (PRO, GRACE, EXPIRED, FREE)', async () => {
+  for (const licence of [FREE, PRO, GRACE, EXPIRED]) {
+    const t = await mount({ licence, settings: { ...DEFAULT_SETTINGS, themeId: 'studio', density: 5, calm: { ...DEFAULT_SETTINGS.calm, hideComments: true } } });
     try {
-      assert.equal(text(t.$('pro-state-text')), 'Licence status unavailable', licenceMode);
-      assert.equal(t.$('pro-state').dataset.state, 'unknown');
-      assert.equal(locked(t.card('studio')), true, 'fails closed: Pro stays locked');
-      assert.match(t.$('pro-detail').textContent, /reopen this popup/);
+      assert.equal(t.doc.querySelectorAll('[aria-disabled="true"]:not(#accent-reset)').length, 0, 'no locked control');
+      assert.equal(t.card('studio').getAttribute('aria-checked'), 'true');
+      assert.equal(t.$('density').disabled, false);
+      assert.equal(t.$('density').value, '5');
+      assert.equal(t.$('density-value').textContent, 'Roomy');
+      assert.equal(t.$('density-reset').hidden, false);
+      assert.equal(t.calm('hideComments').getAttribute('aria-checked'), 'true');
+      assert.equal(t.calm('hideComments').querySelector('.switch-state').textContent, 'On');
     } finally { t.close(); }
   }
-});
-
-test('the background asleep or restarting does not blank the licence: asked twice, then computed from the stored record (same rules, never a guess)', async () => {
-  const cases = [
-    ['fresh Pro record', record(2), 'Pro active', false],
-    ['record 10 days old: offline grace', record(10), 'Pro (offline grace)', false],
-    ['record 31 days old: not re-checked, said as such (the token has no expiry problem)', record(31), 'Pro paused', true],
-    ['claims edited by hand to Pro on a free token', record(1, 'free', { claims: claimsFor('pro') }), 'Pro paused', true],
-    ['a token that does not verify', record(1, 'pro', { token: 'aaaa.bbbb' }), 'Pro paused', true],
-    ['a token past its own exp', record(1, 'pro', { claims: claimsFor('pro', { exp: IAT + 5 }), token: TOKENS.pro }), 'Pro expired', true],
-    ['a free-plan record', record(1, 'free'), 'Free', true],
-    ['no record at all', null, 'Free', true],
-    ['a record with the wrong shape', { token: 'x' }, 'Free', true],
-    ['junk where the record should be', 'not a record', 'Free', true],
-  ];
-  for (const licenceMode of ['silent', 'junk', 'hang']) {
-    for (const [name, storedLicence, label, proLocked] of cases) {
-      const t = await mount({ licence: PRO, licenceMode, storedLicence, requestTimeoutMs: 60 });
-      try {
-        assert.equal(text(t.$('pro-state-text')), label, `${licenceMode}: ${name}`);
-        assert.equal(locked(t.card('studio')), proLocked, `${licenceMode}: ${name}`);
-        assert.notEqual(t.$('pro-state').dataset.state, 'unknown');
-        assert.equal(t.messages.filter((m) => m.type === 'cd:getLicence').length, 2, 'the background was asked twice (one retry), not more');
-        assert.equal(t.writes(), 0, 'reading the licence writes nothing');
-      } finally { t.close(); }
-    }
-  }
-});
-
-test('a worker that fails the first message and answers the second is believed over the stored record', async () => {
-  const t = await mount({ licence: PRO, licenceMode: 'flaky', storedLicence: record(31), requestTimeoutMs: 80 });
-  try {
-    assert.equal(text(t.$('pro-state-text')), 'Pro active', 'the worker answered on the retry');
-    assert.equal(t.messages.filter((m) => m.type === 'cd:getLicence').length, 2);
-    assert.equal(locked(t.card('studio')), false);
-  } finally { t.close(); }
-});
-
-test('a healthy background is asked once and the stored record is not even read', async () => {
-  const t = await mount({ licence: PRO, storedLicence: record(31) });
-  try {
-    assert.equal(text(t.$('pro-state-text')), 'Pro active', 'the background wins');
-    assert.equal(t.messages.filter((m) => m.type === 'cd:getLicence').length, 1);
-    assert.equal(t.mock.spies['storage.local.get'].calls.some((c) => JSON.stringify(c.args || c).includes('cd.licence')), false);
-  } finally { t.close(); }
-});
-
-test('activation retries once when the worker refuses the connection, but not after a timeout', async () => {
-  let calls = 0;
-  const t = await mount({
-    licence: FREE, requestTimeoutMs: 80,
-    prepare: (x) => {
-      const send = x.chrome.runtime.sendMessage.bind(x.chrome.runtime);
-      x.chrome.runtime.sendMessage = (message, ...rest) => {
-        if (message && message.type === 'cd:activateLicence' && ++calls === 1) return Promise.reject(new Error('Could not establish connection. Receiving end does not exist.'));
-        return send(message, ...rest);
-      };
-    },
-    activate: () => ({ ok: true, state: PRO }),
-  });
-  try {
-    t.$('token').value = 'aaaa.bbbb';
-    t.fire(t.$('activate-form'), 'submit');
-    await t.settle();
-    await t.settle();
-    assert.equal(calls, 2, 'one retry');
-    assert.match(text(t.$('activate-result')), /Pro is now active/);
-  } finally { t.close(); }
 });
 
 test('accent: eight labelled swatches, the stored one checked, a custom one leaves the group without a selection', async () => {
@@ -305,7 +179,7 @@ test('theme cards paint their swatches from tokens.color and refuse anything tha
     assert.equal(minimal.querySelector('.theme-preview').style.getPropertyValue('--tp-accent'), '');
     assert.equal(minimal.querySelector('.theme-preview').style.getPropertyValue('--tp-text'), FAKE_THEMES[1].tokens.color.text);
     assert.equal(minimal.querySelector('.theme-name').textContent, '<img src=x onerror=alert(1)>');
-    assert.equal(t.doc.querySelector('img'), null, 'a theme name is text, never markup');
+    assert.equal(t.$('theme-grid').querySelector('img'), null, 'a theme name is text, never markup');
     assert.equal(t.doc.querySelector('[onerror]'), null);
   } finally { t.close(); }
 });
@@ -348,16 +222,16 @@ test('animations switch shows its state in words as well as in aria-checked', as
   } finally { on.close(); off.close(); }
 });
 
-test('footer: version from the manifest, not-affiliated line, cinedrape.com opens safely in a new tab', async () => {
+test('footer: version from the manifest, not-affiliated line, Website link opens safely in a new tab', async () => {
   const t = await mount({ version: '2.5.1' });
   try {
     assert.equal(text(t.$('version')), 'Cinedrape v2.5.1');
     assert.match(text(t.doc.querySelector('.footer')), /Not affiliated with Google/);
     const link = t.$('site-link');
-    assert.equal(link.getAttribute('href'), 'https://cinedrape.com');
+    assert.equal(link.getAttribute('href'), 'https://jdamour.github.io/Cinedrape/');
     assert.equal(link.getAttribute('target'), '_blank');
     assert.ok(link.getAttribute('rel').split(/\s+/).includes('noopener'));
-    assert.match(accessibleName(link), /^cinedrape\.com \(opens in a new tab\)$/);
+    assert.match(accessibleName(link), /^Website \(opens in a new tab\)$/);
   } finally { t.close(); }
   for (const version of [undefined, '', '<b>1</b>', 'x'.repeat(80)]) {
     const odd = await mount({ version });
@@ -397,7 +271,7 @@ for (const [name, opts] of STATES) {
         assert.ok(['BUTTON', 'INPUT', 'SUMMARY', 'A'].includes(el.tagName), `tabindex on <${el.localName}>`);
       }
       for (const b of doc.querySelectorAll('button')) assert.ok(['button', 'submit'].includes(b.getAttribute('type')), 'button type set');
-      assert.equal(doc.querySelectorAll('button[type="submit"]').length, 1 + (opts.dev ? 0 : 0), 'only the activate form submits');
+      assert.equal(doc.querySelectorAll('button[type="submit"]').length, 0, 'no buttons submit in popup');
       for (const el of doc.querySelectorAll('*')) {
         for (const attr of el.attributes) assert.ok(!/^on/i.test(attr.name), `inline handler ${attr.name} on <${el.localName}>`);
       }
@@ -415,11 +289,11 @@ for (const [name, opts] of STATES) {
       // Groups: every fieldset has a legend; every radio sits in a radiogroup with exactly one tab stop.
       for (const fs of doc.querySelectorAll('fieldset')) assert.ok(fs.querySelector(':scope > legend'), `fieldset #${fs.id} needs a legend`);
       const groups = [...doc.querySelectorAll('[role="radiogroup"]')];
-      assert.equal(groups.length, 3);
+      assert.equal(groups.length, 5);
       for (const group of groups) {
         assert.ok(accessibleName(group), 'radiogroup is named');
         const radios = [...group.querySelectorAll('[role="radio"]')];
-        assert.ok(radios.length >= 5);
+        assert.ok(radios.length >= 3);
         assert.equal(radios.filter((r) => r.tabIndex === 0).length, 1, 'one tab stop per group');
         for (const r of radios) assert.ok(['true', 'false'].includes(r.getAttribute('aria-checked')));
       }
@@ -431,14 +305,18 @@ for (const [name, opts] of STATES) {
       const levels = [...doc.querySelectorAll('h1, h2, h3')].map((h) => Number(h.tagName[1]));
       assert.equal(levels[0], 1);
       assert.ok(levels.every((l, i) => i === 0 || l - levels[i - 1] <= 1), 'no skipped heading level');
-      for (const id of ['notice', 'status-text', 'accent-warning', 'activate-result']) assert.equal(t.$(id).getAttribute('role'), 'status', id);
+      for (const id of ['notice', 'status-text', 'accent-warning']) assert.equal(t.$(id).getAttribute('role'), 'status', id);
       assert.equal(t.$('accent-error').getAttribute('role'), 'alert');
       assert.equal(doc.querySelector('main').getAttribute('aria-labelledby'), 'app-title');
       assert.equal(doc.documentElement.lang, 'en');
 
       // Decorative SVG is hidden from assistive tech; nothing loads from the network.
       for (const svg of doc.querySelectorAll('svg:not(.sprite)')) assert.equal(svg.getAttribute('aria-hidden'), 'true');
-      assert.equal(doc.querySelectorAll('img, iframe, object, embed, video, audio, link[rel="stylesheet"][href^="http"]').length, 0);
+      assert.equal(doc.querySelectorAll('iframe, object, embed, video, audio, link[rel="stylesheet"][href^="http"]').length, 0);
+      const images = [...doc.querySelectorAll('img')];
+      assert.equal(images.length, 1);
+      assert.equal(images[0].getAttribute('src'), '../icons/icon-128.png');
+      assert.equal(images[0].getAttribute('alt'), '');
       const scripts = [...doc.querySelectorAll('script')];
       assert.deepEqual(scripts.map((s) => s.getAttribute('src')), ['popup.js']);
     } finally { t.close(); }
@@ -451,13 +329,10 @@ test('named controls read as people would expect', async () => {
     assert.equal(accessibleName(t.$('density')), 'Density, from compact to roomy');
     assert.equal(accessibleName(t.$('accent-hex')), 'Custom colour');
     assert.equal(accessibleName(t.$('accent-reset')), 'Reset to theme');
-    assert.equal(accessibleName(t.$('token')), 'Licence token');
-    assert.equal(accessibleName(t.$('activate-btn')), 'Activate Pro');
-    assert.equal(accessibleName(t.$('activate-summary')), 'Activate Pro');
     assert.equal(accessibleName(t.$('notice-dismiss')), 'Dismiss message');
     assert.equal(accessibleName(t.card('minimal')), 'Minimal');
     assert.equal(accessibleName(t.calm('hideHomeRecs')), 'Hide home recommendations');
-    assert.equal(accessibleName(t.$('density-unlock')), 'Activate Pro');
+    assert.equal(accessibleName(t.$('support-link')), 'Sponsor on GitHub');
     assert.equal(t.$('density').getAttribute('aria-valuetext'), '3 of 5, Balanced');
   } finally { t.close(); }
 });
@@ -549,22 +424,6 @@ test('theme import: toggles panel, validates input, imports and activates valid 
     t.click(t.$('theme-import-submit'));
     assert.match(t.$('theme-import-error').textContent, /valid JSON/);
 
-    // Pro theme import as free user fails
-    const proTheme = {
-      schema: 1, id: 'custom-pro', name: 'Custom Pro', author: 'Tester', version: '1.0.0', tier: 'pro',
-      tokens: {
-        color: { bg: '#080810', surface: '#141420', text: '#ffffff', muted: '#a0a0b0', accent: '#3b82f6', border: '#606070' },
-        type: { family: 'Inter', baseSize: 14, headingWeight: 700 },
-        shape: { radius: 8, shadow: false, spacing: 3 },
-      },
-      layout: { home: 'grid', watch: 'cinema', density: 3 },
-      calm: {}, css: '',
-    };
-    t.type(t.$('theme-import-json'), JSON.stringify(proTheme));
-    t.click(t.$('theme-import-submit'));
-    await t.settle();
-    assert.match(t.$('theme-import-error').textContent, /Theme requires Pro/);
-
     // Valid free theme succeeds
     const freeTheme = {
       schema: 1, id: 'custom-free', name: 'Custom Free', author: 'Tester', version: '1.0.0', tier: 'free',
@@ -653,7 +512,7 @@ test('custom theme deletion: deletes custom theme from storage and falls back to
 
 // ---- profiles & schedule (S13 / F8) ------------------------------------------------------------------------
 
-test('profiles & schedule: Free user clicking Manage button shows Pro notice', async () => {
+test('profiles & schedule: Free user clicking Manage button opens panel without Pro gate', async () => {
   const t = await mount({ licence: FREE });
   try {
     const manageBtn = t.$('profile-manage-btn');
@@ -661,8 +520,7 @@ test('profiles & schedule: Free user clicking Manage button shows Pro notice', a
     assert.equal(t.$('profile-schedule-panel').hidden, true);
 
     t.click(manageBtn);
-    assert.equal(t.$('profile-schedule-panel').hidden, true);
-    assert.match(text(t.$('notice')), /Profiles are a Pro feature/);
+    assert.equal(t.$('profile-schedule-panel').hidden, false);
   } finally { t.close(); }
 });
 
@@ -769,4 +627,274 @@ test('schedule: Pro user can toggle schedule and configure day/night times and p
     assert.equal(text(t.$('schedule-toggle-btn')), 'Schedule: Off');
   } finally { t.close(); }
 });
+
+// ---- calm presets (Feature 1) -----------------------------------------------------------------------------
+
+test('calm presets: clicking Study preset activates focus calm filters', async () => {
+  const t = await mount({ licence: PRO });
+  try {
+    const studyBtn = t.doc.querySelector('[data-calm-preset="study"]');
+    assert.ok(studyBtn, 'study preset button rendered');
+    t.click(studyBtn);
+    await t.settle();
+
+    const stored = await t.stored();
+    assert.equal(stored.calm.hideShorts, true);
+    assert.equal(stored.calm.hideHomeRecs, true);
+    assert.equal(stored.calm.hideComments, true);
+    assert.equal(stored.calm.hideEndScreens, true);
+    assert.equal(stored.calm.hideLive, true);
+    assert.match(text(t.$('notice')), /Applied "Study" preset/);
+
+    // Reset preset
+    const resetBtn = t.doc.querySelector('[data-calm-preset="reset"]');
+    assert.ok(resetBtn, 'reset preset button rendered');
+    t.click(resetBtn);
+    await t.settle();
+
+    const storedReset = await t.stored();
+    assert.equal(storedReset.calm.hideShorts, false);
+    assert.equal(storedReset.calm.hideHomeRecs, false);
+    assert.equal(storedReset.calm.hideComments, false);
+    assert.match(text(t.$('notice')), /Calm settings reset/);
+  } finally { t.close(); }
+});
+
+test('calm presets: Free user clicking Zen applies all calm filters without paywall', async () => {
+  const t = await mount({ licence: FREE });
+  try {
+    const zenBtn = t.doc.querySelector('[data-calm-preset="zen"]');
+    t.click(zenBtn);
+    await t.settle();
+
+    const stored = await t.stored();
+    assert.equal(stored.calm.hideShorts, true);
+    assert.equal(stored.calm.hideHomeRecs, true);
+    assert.equal(stored.calm.hideComments, true);
+    assert.equal(stored.calm.hideEndScreens, true);
+    assert.equal(stored.calm.hideViewCounts, true);
+    assert.equal(stored.calm.hideLive, true);
+    assert.match(text(t.$('notice')), /Applied "Zen" preset\./);
+  } finally { t.close(); }
+});
+
+// ---- backup & restore (Feature 3) -------------------------------------------------------------------------
+
+test('backup & restore: export copies backup JSON to clipboard; restore restores all settings', async () => {
+  let clipboardData = '';
+  const t = await mount({
+    licence: PRO,
+    settings: { ...DEFAULT_SETTINGS, themeId: 'minimal', density: 4 },
+    prepare: (env) => {
+      env.win.navigator.clipboard = {
+        writeText: async (str) => { clipboardData = str; },
+      };
+    },
+  });
+  try {
+    const backupBtn = t.$('backup-manage-btn');
+    assert.ok(backupBtn);
+    assert.equal(t.$('backup-panel').hidden, true);
+
+    t.click(backupBtn);
+    assert.equal(t.$('backup-panel').hidden, false);
+
+    // Export backup
+    t.click(t.$('backup-export-btn'));
+    await t.settle();
+
+    assert.ok(clipboardData, 'data written to clipboard');
+    const parsed = JSON.parse(clipboardData);
+    assert.equal(parsed.cinedrapeBackup, true);
+    assert.equal(parsed.settings.themeId, 'minimal');
+    assert.equal(parsed.settings.density, 4);
+    assert.match(text(t.$('notice')), /Backup copied to clipboard/);
+
+    // Empty restore fails
+    t.click(t.$('backup-import-submit'));
+    assert.match(t.$('backup-error').textContent, /Paste backup JSON or choose a file first/);
+
+    // Invalid JSON fails
+    t.type(t.$('backup-import-json'), '{ malformed json');
+    t.click(t.$('backup-import-submit'));
+    assert.match(t.$('backup-error').textContent, /valid JSON/);
+
+    // Valid restore
+    const toRestore = {
+      schema: 1,
+      cinedrapeBackup: true,
+      settings: { themeId: 'classic', density: 1, accent: '#ff7a45' },
+      customThemes: {},
+      profiles: [{ id: 'prof-restored', name: 'Restored Profile', settings: { themeId: 'classic' } }],
+    };
+    t.type(t.$('backup-import-json'), JSON.stringify(toRestore));
+    t.click(t.$('backup-import-submit'));
+    await t.settle();
+
+    assert.equal(t.$('backup-panel').hidden, true);
+    assert.match(text(t.$('notice')), /Backup restored successfully/);
+
+    const storedSettings = await t.stored();
+    assert.equal(storedSettings.themeId, 'classic');
+    assert.equal(storedSettings.density, 1);
+    assert.equal(storedSettings.accent, '#ff7a45');
+  } finally { t.close(); }
+});
+
+// ---- diagnostics (Feature 5) ------------------------------------------------------------------------------
+
+test('diagnostics: copy diagnostics button copies non-PII diagnostic report to clipboard', async () => {
+  let clipboardData = '';
+  const t = await mount({
+    licence: PRO,
+    settings: { ...DEFAULT_SETTINGS, themeId: 'arcade' },
+    prepare: (env) => {
+      env.win.navigator.clipboard = {
+        writeText: async (str) => { clipboardData = str; },
+      };
+    },
+  });
+  try {
+    const diagBtn = t.$('copy-diagnostics-btn');
+    assert.ok(diagBtn, 'copy diagnostics button exists in footer');
+
+    t.click(diagBtn);
+    await t.settle();
+
+    assert.ok(clipboardData, 'data written to clipboard');
+    const parsed = JSON.parse(clipboardData);
+    assert.equal(parsed.app, 'Cinedrape');
+    assert.equal(parsed.theme, 'arcade');
+    assert.equal(parsed.plan, 'pro');
+    assert.ok(parsed.version);
+    assert.ok(parsed.timestamp);
+    assert.equal(parsed.url, undefined);
+    assert.equal(parsed.token, undefined);
+    assert.match(text(t.$('notice')), /Diagnostics copied to clipboard/);
+  } finally { t.close(); }
+});
+
+test('PRO-1: Layout fieldset is unlocked for all users and allows customizing layout and reset', async () => {
+  const t = await mount({ licence: FREE });
+  try {
+    const group = t.$('layout-group');
+    assert.ok(group, 'layout fieldset exists');
+    assert.equal(t.$('layout-reset').hidden, true, 'reset button hidden when no custom layout');
+
+    const homeButtons = [...t.doc.querySelectorAll('#layout-home [role="radio"]')];
+    assert.equal(homeButtons.length, 3);
+    assert.deepEqual(homeButtons.map((b) => b.dataset.home), ['grid', 'rows', 'hero-rows']);
+    for (const b of homeButtons) assert.equal(b.hasAttribute('aria-disabled'), false, 'home buttons enabled for all users');
+
+    const watchButtons = [...t.doc.querySelectorAll('#layout-watch [role="radio"]')];
+    assert.equal(watchButtons.length, 3);
+    assert.deepEqual(watchButtons.map((b) => b.dataset.watch), ['default', 'cinema', 'focus']);
+    for (const b of watchButtons) assert.equal(b.hasAttribute('aria-disabled'), false, 'watch buttons enabled for all users');
+
+    // Click 'rows'
+    const rowsBtn = homeButtons.find((b) => b.dataset.home === 'rows');
+    t.click(rowsBtn);
+    await t.settle();
+
+    assert.equal(rowsBtn.getAttribute('aria-checked'), 'true');
+    assert.equal(t.$('layout-reset').hidden, false, 'reset button shown once customized');
+
+    // Click reset to theme defaults
+    t.click(t.$('layout-reset'));
+    await t.settle();
+
+    assert.equal(t.$('layout-reset').hidden, true, 'reset button hidden after reset');
+    // Cinema default is hero-rows
+    const heroBtn = homeButtons.find((b) => b.dataset.home === 'hero-rows');
+    assert.equal(heroBtn.getAttribute('aria-checked'), 'true');
+  } finally { t.close(); }
+});
+
+test('PRO-1: Layout fieldset also works for users with Pro licence state', async () => {
+  const t = await mount({ licence: PRO });
+  try {
+    assert.equal(t.$('layout-reset').hidden, true, 'reset button hidden initially');
+
+    const homeButtons = [...t.doc.querySelectorAll('#layout-home [role="radio"]')];
+    for (const b of homeButtons) assert.equal(b.hasAttribute('aria-disabled'), false);
+
+    // Click 'rows'
+    const rowsBtn = homeButtons.find((b) => b.dataset.home === 'rows');
+    t.click(rowsBtn);
+    await t.settle();
+
+    assert.equal(rowsBtn.getAttribute('aria-checked'), 'true');
+    assert.equal(t.$('layout-reset').hidden, false, 'reset button shown once customized');
+  } finally { t.close(); }
+});
+
+test('PRO-0: No paywall banners or lock sheets are rendered in popup', async () => {
+  const t = await mount({ licence: FREE });
+  try {
+    assert.equal(t.doc.querySelector('#trial-banner'), null, 'no trial banner in DOM');
+    assert.equal(t.doc.querySelector('#pro-sheet'), null, 'no pro sheet in DOM');
+    assert.equal(t.doc.querySelector('#pro-upgrade-card'), null, 'no pro upgrade card in DOM');
+  } finally { t.close(); }
+});
+
+// ---- Day 7 Upgrade Card (§6) ---------------------------------------------------------------------------------
+
+test('Day 7 support card: renders after 7 days for user and dismisses via close button', async () => {
+  const sevenDaysAgo = Date.now() - (7 * 864e5 + 2000);
+  const t = await mount({
+    licence: FREE,
+    install: { installedAt: sevenDaysAgo, day7Dismissed: false },
+  });
+  try {
+    assert.equal(t.$('day7-card').hidden, false);
+    assert.match(t.$('day7-title').textContent, /Enjoying Cinedrape\?/);
+    assert.equal(t.$('day7-buy-link').href, 'https://github.com/sponsors/JDamour');
+
+    // Click close button
+    t.click(t.$('day7-dismiss-btn'));
+    await t.settle();
+
+    assert.equal(t.$('day7-card').hidden, true);
+    const stored = (await t.chrome.storage.local.get(STORAGE_KEYS.install))[STORAGE_KEYS.install];
+    assert.equal(stored.day7Dismissed, true);
+  } finally { t.close(); }
+});
+
+test('Day 7 support card: Maybe later button dismisses card and persists to storage', async () => {
+  const sevenDaysAgo = Date.now() - (7 * 864e5 + 2000);
+  const t = await mount({
+    licence: FREE,
+    install: { installedAt: sevenDaysAgo, day7Dismissed: false },
+  });
+  try {
+    assert.equal(t.$('day7-card').hidden, false);
+
+    // Click Maybe later
+    t.click(t.$('day7-dismiss-link'));
+    await t.settle();
+
+    assert.equal(t.$('day7-card').hidden, true);
+    const stored = (await t.chrome.storage.local.get(STORAGE_KEYS.install))[STORAGE_KEYS.install];
+    assert.equal(stored.day7Dismissed, true);
+  } finally { t.close(); }
+});
+
+test('Day 7 support card: hidden when under 7 days or already dismissed', async () => {
+  const oneDayAgo = Date.now() - 864e5;
+  const tenDaysAgo = Date.now() - (10 * 864e5);
+
+  // 1. Under 7 days
+  const t1 = await mount({ licence: FREE, install: { installedAt: oneDayAgo, day7Dismissed: false } });
+  try {
+    assert.equal(t1.$('day7-card').hidden, true);
+  } finally { t1.close(); }
+
+  // 2. Already dismissed
+  const t2 = await mount({ licence: FREE, install: { installedAt: tenDaysAgo, day7Dismissed: true } });
+  try {
+    assert.equal(t2.$('day7-card').hidden, true);
+  } finally { t2.close(); }
+});
+
+
 

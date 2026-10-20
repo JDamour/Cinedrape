@@ -191,6 +191,20 @@ body {
   background-color: var(--ed-accent-hover);
 }
 
+.btn-coffee-nav {
+  background: rgba(255, 221, 0, 0.12);
+  border-color: rgba(255, 221, 0, 0.35);
+  color: #ffdd00;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.btn-coffee-nav:hover {
+  background: rgba(255, 221, 0, 0.22);
+  border-color: #ffdd00;
+  color: #fff;
+}
+
 /* --------------------------------------------------------------------------
    Editor Notice Banner
    -------------------------------------------------------------------------- */

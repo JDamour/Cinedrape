@@ -20,7 +20,7 @@ test('src/shared/constants.js is the ARCHITECTURE.md §3.2 block, verbatim', () 
 });
 
 test('constants are internally consistent', () => {
-  assert.equal(C.ALL_THEME_IDS.length, 6);
+  assert.equal(C.ALL_THEME_IDS.length, 16);
   assert.ok(C.FREE_THEME_IDS.every((id) => C.ALL_THEME_IDS.includes(id)));
   assert.ok(C.FREE_CALM_KEYS.every((k) => C.CALM_KEYS.includes(k)));
   assert.deepEqual(C.FEATURES.filter((f) => f.startsWith('calm-')), C.CALM_KEYS.map((k) => `calm-${k}`));
@@ -37,15 +37,15 @@ test('manifest.json matches ARCHITECTURE.md §5', () => {
   assert.match(m.description, /not affiliated with Google/i);
   assert.ok(m.description.length <= 132, 'Chrome Web Store description limit');
   assert.equal(m.minimum_chrome_version, '105');
-  assert.deepEqual(m.permissions, ['storage', 'alarms']);
-  assert.deepEqual(m.host_permissions, ['https://www.youtube.com/*']);
+  assert.deepEqual(m.permissions, ['storage', 'alarms', 'scripting']);
+  assert.deepEqual(m.host_permissions, ['https://www.youtube.com/*', 'https://youtube.com/*']);
   assert.equal(m.web_accessible_resources, undefined);
   assert.deepEqual(m.background, { service_worker: 'service-worker.js', type: 'module' });
   assert.equal(m.action.default_popup, 'popup/popup.html');
   assert.deepEqual(m.content_scripts, [{
-    matches: ['https://www.youtube.com/*'], js: ['content.js'], run_at: 'document_start',
+    matches: ['https://www.youtube.com/*', 'https://youtube.com/*'], js: ['content.js'], run_at: 'document_start',
   }]);
-  assert.deepEqual(Object.keys(m.icons), ['16', '32', '48', '128']);
+  assert.deepEqual(Object.keys(m.icons), ['16', '32', '48', '64', '96', '128', '256', '512']);
   for (const [size, path] of Object.entries(m.icons)) {
     assert.equal(path, `icons/icon-${size}.png`);
     assert.ok(existsSync(join(ROOT, path)), `${path} exists`);
@@ -66,9 +66,10 @@ test('package.json scripts and dev dependencies match the contract', () => {
   assert.match(pkg.scripts['build:strict'], /--strict/);
 });
 
-test('mock icon PNGs are real PNGs of the declared size', () => {
+test('manifest icon PNGs are real PNGs of the declared size', () => {
+  const manifest = JSON.parse(read('manifest.json'));
   for (const size of [16, 32, 48, 128]) {
-    const buf = readFileSync(join(ROOT, `icons/icon-${size}.png`));
+    const buf = readFileSync(join(ROOT, manifest.icons[size]));
     assert.equal(buf.subarray(1, 4).toString('ascii'), 'PNG');
     assert.equal(buf.readUInt32BE(16), size);
     assert.equal(buf.readUInt32BE(20), size);

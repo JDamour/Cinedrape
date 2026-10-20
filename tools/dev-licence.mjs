@@ -8,7 +8,7 @@
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { PLANS, parseClaims, signLicenceToken, verifyLicenceToken } from '../src/shared/licence.js';
+import { PLANS, TIERS, parseClaims, signLicenceToken, verifyLicenceToken } from '../src/shared/licence.js';
 import { ToolError, loadKeyPair } from './gen-keys.mjs';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -18,12 +18,13 @@ const MAX_DAYS = 36500;
 export const BANNER = '*** DEV ONLY *** signed with the local DEV licence key. Never sell, ship or share it; real licences come from the licence server.';
 
 /**
- * @param {{root?: string, plan?: string, days?: number, lifetime?: boolean, sub?: string, devices?: number, now?: number}} [options]
+ * @param {{root?: string, plan?: string, tier?: string, days?: number, lifetime?: boolean, sub?: string, devices?: number, now?: number}} [options]
  *   `days` is the validity from `now` (default 30); `lifetime` omits `exp`; `now` is ms.
  * @returns {Promise<{token: string, claims: object}>}
  */
-export async function makeDevLicence({ root = REPO_ROOT, plan = 'pro', days = 30, lifetime = false, sub = 'dev@cinedrape.local', devices, now = Date.now() } = {}) {
+export async function makeDevLicence({ root = REPO_ROOT, plan = 'pro', tier, days = 30, lifetime = false, sub = 'dev@cinedrape.local', devices, now = Date.now() } = {}) {
   if (!PLANS.includes(plan)) throw new ToolError(`--plan must be one of ${PLANS.join(', ')}, got ${JSON.stringify(plan)}.`);
+  if (tier !== undefined && !TIERS.includes(tier)) throw new ToolError(`--tier must be one of ${TIERS.join(', ')}, got ${JSON.stringify(tier)}.`);
   if (!lifetime && !(typeof days === 'number' && Number.isFinite(days) && days > 0 && days <= MAX_DAYS)) {
     throw new ToolError(`--days must be a number greater than 0 and at most ${MAX_DAYS}, got ${JSON.stringify(days)}.`);
   }
@@ -31,6 +32,7 @@ export async function makeDevLicence({ root = REPO_ROOT, plan = 'pro', days = 30
 
   const iat = Math.floor(now / 1000);
   const claims = { v: 1, sub, plan, iat };
+  if (tier !== undefined) claims.tier = tier;
   if (!lifetime) claims.exp = iat + Math.round(days * DAY_S);
   if (devices !== undefined) claims.devices = devices;
   const parsed = parseClaims(claims);
@@ -43,7 +45,7 @@ export async function makeDevLicence({ root = REPO_ROOT, plan = 'pro', days = 30
   return { token, claims: parsed.claims };
 }
 
-const USAGE = 'usage: node tools/dev-licence.mjs [--plan pro|free] [--days N | --lifetime] [--sub email] [--devices N] [--root <dir>]';
+const USAGE = 'usage: node tools/dev-licence.mjs [--plan pro|free] [--tier founder|standard] [--days N | --lifetime] [--sub email] [--devices N] [--root <dir>]';
 
 export async function main(argv = process.argv.slice(2)) {
   let values;
@@ -51,7 +53,7 @@ export async function main(argv = process.argv.slice(2)) {
     ({ values } = parseArgs({
       args: argv,
       options: {
-        plan: { type: 'string' }, days: { type: 'string' }, lifetime: { type: 'boolean' }, sub: { type: 'string' },
+        plan: { type: 'string' }, tier: { type: 'string' }, days: { type: 'string' }, lifetime: { type: 'boolean' }, sub: { type: 'string' },
         devices: { type: 'string' }, root: { type: 'string' }, help: { type: 'boolean' },
       },
       strict: true,
@@ -73,13 +75,14 @@ export async function main(argv = process.argv.slice(2)) {
     const { token, claims } = await makeDevLicence({
       root: values.root ? resolve(values.root) : REPO_ROOT,
       plan: values.plan,
+      tier: values.tier,
       days: num(values.days),
       lifetime: Boolean(values.lifetime),
       sub: values.sub,
       devices: num(values.devices),
     });
     console.error(BANNER);
-    console.error(`plan ${claims.plan}, sub ${claims.sub}, ${claims.exp ? `expires ${new Date(claims.exp * 1000).toISOString()}` : 'no expiry'}${claims.devices ? `, ${claims.devices} devices` : ''}`);
+    console.error(`plan ${claims.plan}${claims.tier ? ` (${claims.tier})` : ''}, sub ${claims.sub}, ${claims.exp ? `expires ${new Date(claims.exp * 1000).toISOString()}` : 'no expiry'}${claims.devices ? `, ${claims.devices} devices` : ''}`);
     console.log(token);
     return 0;
   } catch (err) {

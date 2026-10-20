@@ -4,7 +4,7 @@
   "name": "Prime Time",
   "author": "Cinedrape",
   "version": "1.0.0",
-  "tier": "pro",
+  "tier": "free",
   "tokens": {
     "color": {
       "bg": "#0a1330",
@@ -14,10 +14,22 @@
       "accent": "#5cc8ff",
       "border": "#6a7dbf"
     },
-    "type": { "family": "Inter", "baseSize": 14, "headingWeight": 800 },
-    "shape": { "radius": 12, "shadow": true, "spacing": 3 }
+    "type": {
+      "family": "Inter",
+      "baseSize": 14,
+      "headingWeight": 800
+    },
+    "shape": {
+      "radius": 12,
+      "shadow": true,
+      "spacing": 3
+    }
   },
-  "layout": { "home": "rows", "watch": "cinema", "density": 3 },
+  "layout": {
+    "home": "rows",
+    "watch": "cinema",
+    "density": 3
+  },
   "calm": {},
-  "css": ".cd-row-title{font-size:1.35em;font-weight:800;border-left:4px solid var(--cd-accent);padding-left:0.5em}\n.cd-row:first-child .cd-row-title{font-size:1.7em}\n.cd-row:first-child .cd-card{flex:0 0 max(var(--cd-card-min, 190px), calc((100% - (max(3, var(--cd-row-visible, 6) - 2) - 1) * var(--cd-gap, 16px)) / max(3, var(--cd-row-visible, 6) - 2)))}\n.cd-card{background:var(--cd-surface);border-radius:var(--cd-radius);box-shadow:var(--cd-shadow)}\n.cd-card-thumb{border-radius:var(--cd-radius)}\n.cd-card-title{font-weight:700}\n.cd-card-meta{color:var(--cd-muted)}\n.cd-card:hover{box-shadow:0 0 0 2px var(--cd-accent)}\n.cd-hero{background:linear-gradient(135deg,var(--cd-surface),var(--cd-bg));border-radius:calc(var(--cd-radius) * 1.5)}\n.cd-hero-cta{background:var(--cd-accent);color:var(--cd-accent-text);border-radius:var(--cd-radius);font-weight:700}"
+  "css": ".cd-row-title{font-size:1.35em;font-weight:800;border-left:4px solid var(--cd-accent);padding-left:0.5em}\n.cd-row:first-child .cd-row-title{font-size:1.7em}\n.cd-row:first-child .cd-card{flex:0 0 max(var(--cd-card-min, 190px), calc((100% - (max(3, var(--cd-row-visible, 6) - 2) - 1) * var(--cd-gap, 16px)) / max(3, var(--cd-row-visible, 6) - 2)))}\n.cd-row-prev,.cd-row-next{background:var(--cd-surface);border:1px solid var(--cd-border);color:var(--cd-text);border-radius:var(--cd-radius)}\n.cd-card{background:var(--cd-surface);border:1px solid var(--cd-border);border-radius:var(--cd-radius);box-shadow:var(--cd-shadow);transition:transform var(--cd-duration) ease,box-shadow var(--cd-duration) ease}\n.cd-card:hover{box-shadow:0 0 0 2px var(--cd-accent);transform:translateY(-2px)}\n.cd-card-thumb{border-radius:var(--cd-radius)}\n.cd-card-title{font-weight:700}\n.cd-card-meta{color:var(--cd-muted)}\n.cd-card-duration{border-radius:calc(var(--cd-radius) / 2);font-weight:700;background:var(--cd-surface);color:var(--cd-text);border:1px solid var(--cd-border)}\n.cd-hero{background:linear-gradient(135deg,var(--cd-surface),var(--cd-bg));border:1px solid var(--cd-border);border-radius:calc(var(--cd-radius) * 1.5);box-shadow:var(--cd-shadow)}\n.cd-hero-title{letter-spacing:-0.02em;font-weight:800}\n.cd-hero-cta{background:var(--cd-accent);color:var(--cd-accent-text);border-radius:var(--cd-radius);font-weight:700}"
 }

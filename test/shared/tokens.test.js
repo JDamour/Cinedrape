@@ -280,7 +280,11 @@ describe('deriveTokens: the --cd-* variables', () => {
   });
 
   test('color-scheme follows the background luminance', () => {
-    const want = { cinema: 'dark', primetime: 'dark', arcade: 'dark', minimal: 'light', classic: 'light', studio: 'light' };
+    const want = {
+      cinema: 'dark', primetime: 'dark', arcade: 'dark', minimal: 'light', classic: 'light', studio: 'light',
+      oled: 'dark', frost: 'dark', mocha: 'dark', 'midnight-city': 'dark', ember: 'dark',
+      paper: 'light', matcha: 'light', sunset: 'light', terminal: 'dark', imax: 'dark',
+    };
     for (const t of THEMES) assert.equal(deriveTokens(t, {}, MAP)['color-scheme'], want[t.id], t.id);
     const scheme = (bg) => deriveTokens(withTokens('cinema', { color: { bg } }), {}, MAP)['color-scheme'];
     assert.equal(scheme('#000000'), 'dark');

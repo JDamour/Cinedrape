@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "id": "terminal",
+  "name": "Retro Terminal",
+  "author": "Cinedrape",
+  "version": "1.0.0",
+  "tier": "free",
+  "tokens": {
+    "color": {
+      "bg": "#050905",
+      "surface": "#0d140d",
+      "text": "#2df551",
+      "muted": "#20a038",
+      "accent": "#00ff41",
+      "border": "#3c7d45"
+    },
+    "type": {
+      "family": "Mono",
+      "baseSize": 13,
+      "headingWeight": 700
+    },
+    "shape": {
+      "radius": 2,
+      "shadow": false,
+      "spacing": 1
+    }
+  },
+  "layout": {
+    "home": "grid",
+    "watch": "default",
+    "density": 1
+  },
+  "calm": {},
+  "css": ".cd-home{font-family:var(--cd-font-family)}\n.cd-card{border:1px solid var(--cd-border);border-radius:var(--cd-radius);background:var(--cd-surface)}\n.cd-card:hover{border-color:var(--cd-accent)}\n.cd-card-thumb{border-radius:var(--cd-radius)}\n.cd-card-title{font-weight:var(--cd-heading-weight);letter-spacing:0.02em}\n.cd-card-duration{border-radius:1px;font-family:var(--cd-font-family)}"
+}

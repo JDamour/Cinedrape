@@ -154,21 +154,27 @@ const lum = (hex) => relativeLuminance(hex);
 // =============================================================================================================================
 
 describe('the bundle', () => {
-  test('six themes, in the order of ALL_THEME_IDS, ids and names unique', () => {
-    assert.equal(THEMES.length, 6);
+  test('16 themes, in the order of ALL_THEME_IDS, ids and names unique', () => {
+    assert.equal(THEMES.length, 16);
     assert.deepEqual(THEMES.map((t) => t.id), ALL_THEME_IDS);
-    assert.deepEqual(ALL_THEME_IDS, ['cinema', 'minimal', 'classic', 'primetime', 'studio', 'arcade']);
-    assert.deepEqual(THEMES.map((t) => t.name), ['Cinema', 'Minimal', 'Classic', 'Prime Time', 'Studio', 'Arcade']);
-    assert.equal(new Set(THEMES.map((t) => t.id)).size, 6);
-    assert.equal(new Set(THEMES.map((t) => t.name)).size, 6);
+    assert.deepEqual(ALL_THEME_IDS, [
+      'cinema', 'minimal', 'classic', 'primetime', 'studio', 'arcade',
+      'oled', 'frost', 'mocha', 'midnight-city', 'ember', 'paper', 'matcha', 'sunset', 'terminal', 'imax',
+    ]);
+    assert.deepEqual(THEMES.map((t) => t.name), [
+      'Cinema', 'Minimal', 'Classic', 'Prime Time', 'Studio', 'Arcade',
+      'True Black', 'Frost', 'Mocha', 'Midnight City', 'Ember', 'Paper Study', 'Matcha', 'Sunset', 'Retro Terminal', 'Big Screen',
+    ]);
+    assert.equal(new Set(THEMES.map((t) => t.id)).size, 16);
+    assert.equal(new Set(THEMES.map((t) => t.name)).size, 16);
   });
 
-  test('tiers match the constants: Cinema, Minimal, Classic free; Prime Time, Studio, Arcade Pro (3/3)', () => {
+  test('tiers match the constants: all 16 themes are free', () => {
     assert.deepEqual(THEMES.filter((t) => t.tier === 'free').map((t) => t.id), FREE_THEME_IDS);
-    assert.deepEqual(FREE_THEME_IDS, ['cinema', 'minimal', 'classic']);
-    assert.equal(THEMES.filter((t) => t.tier === 'free').length, 3);
-    assert.equal(THEMES.filter((t) => t.tier === 'pro').length, 3);
-    for (const t of THEMES) assert.equal(t.tier, FREE_THEME_IDS.includes(t.id) ? 'free' : 'pro', t.id);
+    assert.deepEqual(FREE_THEME_IDS, ALL_THEME_IDS);
+    assert.equal(THEMES.filter((t) => t.tier === 'free').length, 16);
+    assert.equal(THEMES.filter((t) => t.tier === 'pro').length, 0);
+    for (const t of THEMES) assert.equal(t.tier, 'free', t.id);
   });
 
   test('every theme file is fully specified: the bundled object equals the file, and every field of section 3.3 is present', () => {
@@ -201,8 +207,8 @@ describe('the bundle', () => {
   });
 
   test('each theme is distinct: backgrounds, accents and personalities all differ', () => {
-    for (const key of ['bg', 'accent']) assert.equal(new Set(THEMES.map((t) => t.tokens.color[key])).size, 6, key);
-    assert.equal(new Set(THEMES.map((t) => t.css)).size, 6);
+    for (const key of ['bg', 'accent']) assert.equal(new Set(THEMES.map((t) => t.tokens.color[key])).size, 16, key);
+    assert.equal(new Set(THEMES.map((t) => t.css)).size, 16);
   });
 
   test('the bundle is frozen all the way down: a caller cannot change a theme for everyone', () => {
@@ -388,7 +394,7 @@ describe('the briefs', () => {
     assert.ok(lum(t.tokens.color.bg) < 0.03, 'deep');
     assert.ok(['rows', 'hero-rows'].includes(t.layout.home));
     assert.equal(t.layout.watch, 'cinema');
-    assert.equal(t.tier, 'pro');
+    assert.equal(t.tier, 'free');
     assert.ok(t.tokens.type.headingWeight >= 800, 'bold rows');
     assert.match(t.css, /\.cd-row:first-child \.cd-row-title\{[^}]*font-size/, 'the first row title is bigger');
   });
@@ -431,7 +437,7 @@ describe('the briefs', () => {
     assert.ok(lum(t.tokens.color.bg) > 0.85);
     assert.ok(t.tokens.shape.spacing >= 4, 'airy');
     assert.ok(t.layout.density >= 4, 'roomy');
-    assert.equal(t.tier, 'pro');
+    assert.equal(t.tier, 'free');
     assert.equal(t.layout.home, 'hero-rows');
     assert.equal(t.layout.watch, 'focus');
     assert.match(t.css, /--cd-heading-font:\s*Georgia[^;}]*serif/, 'serif heading font');
@@ -449,9 +455,112 @@ describe('the briefs', () => {
     assert.equal(t.layout.home, 'grid');
     assert.ok(t.layout.density <= 2, 'dense');
     assert.equal(t.tokens.type.family, 'Condensed');
-    assert.equal(t.tier, 'pro');
+    assert.equal(t.tier, 'free');
     assert.match(t.css, /\.cd-card:hover\{[^}]*box-shadow:[^}]*var\(--cd-accent\)/, 'glow on hover');
     assert.match(t.css, /\.cd-card-title\{[^}]*text-transform:uppercase/);
+  });
+
+  test('OLED: True Black base, dark surface, cool cyan accent, hero-rows cinema', () => {
+    const t = byId.oled;
+    assert.equal(t.tokens.color.bg, '#000000');
+    assert.equal(t.tokens.color.surface, '#0d0d0d');
+    assert.equal(t.layout.home, 'hero-rows');
+    assert.equal(t.layout.watch, 'cinema');
+    assert.equal(t.tier, 'free');
+  });
+
+  test('Frost: slate/ice with cyan accent, calm developer look', () => {
+    const t = byId.frost;
+    assert.equal(t.tokens.color.bg, '#0f172a');
+    assert.equal(t.tokens.color.surface, '#1e293b');
+    assert.equal(t.tokens.color.accent, '#22d3ee');
+    assert.equal(t.layout.home, 'grid');
+    assert.equal(t.layout.watch, 'default');
+    assert.equal(t.tier, 'free');
+  });
+
+  test('Mocha: warm espresso dark, peach accent, rows cinema', () => {
+    const t = byId.mocha;
+    assert.equal(t.tokens.color.bg, '#1e181b');
+    assert.equal(t.tokens.color.surface, '#2a2226');
+    assert.equal(t.tokens.color.accent, '#f5a97f');
+    assert.equal(t.layout.home, 'rows');
+    assert.equal(t.layout.watch, 'cinema');
+    assert.equal(t.tier, 'free');
+  });
+
+  test('Midnight City: cyberpunk dark navy, neon violet accent', () => {
+    const t = byId['midnight-city'];
+    assert.equal(t.tokens.color.bg, '#060814');
+    assert.equal(t.tokens.color.surface, '#0f1224');
+    assert.equal(t.tokens.color.accent, '#a855f7');
+    assert.equal(t.layout.home, 'hero-rows');
+    assert.equal(t.layout.watch, 'cinema');
+    assert.equal(t.tier, 'free');
+  });
+
+  test('Ember: retro warm dark olive, rust accent', () => {
+    const t = byId.ember;
+    assert.equal(t.tokens.color.bg, '#151811');
+    assert.equal(t.tokens.color.surface, '#21261b');
+    assert.equal(t.tokens.color.accent, '#e06b3a');
+    assert.equal(t.layout.home, 'grid');
+    assert.equal(t.layout.watch, 'default');
+    assert.equal(t.tier, 'free');
+  });
+
+  test('Paper Study: warm editorial cream, serif headings, calm defaults', () => {
+    const t = byId.paper;
+    assert.equal(t.tokens.color.bg, '#f6f3eb');
+    assert.equal(t.tokens.color.surface, '#ffffff');
+    assert.equal(t.tokens.color.accent, '#8c3822');
+    assert.equal(t.tokens.type.family, 'Serif');
+    assert.equal(t.layout.home, 'grid');
+    assert.equal(t.layout.watch, 'focus');
+    assert.equal(t.calm.hideShorts, true);
+    assert.equal(t.calm.hideHomeRecs, true);
+    assert.equal(t.tier, 'free');
+  });
+
+  test('Matcha: soft sage light green, quiet rows focus', () => {
+    const t = byId.matcha;
+    assert.equal(t.tokens.color.bg, '#edf3eb');
+    assert.equal(t.tokens.color.surface, '#f7faf5');
+    assert.equal(t.tokens.color.accent, '#2c6e3b');
+    assert.equal(t.layout.home, 'rows');
+    assert.equal(t.layout.watch, 'focus');
+    assert.equal(t.tier, 'free');
+  });
+
+  test('Sunset: rose dawn pastel peach light, playful hero-rows', () => {
+    const t = byId.sunset;
+    assert.equal(t.tokens.color.bg, '#fff2eb');
+    assert.equal(t.tokens.color.surface, '#ffffff');
+    assert.equal(t.tokens.color.accent, '#c93b66');
+    assert.equal(t.layout.home, 'hero-rows');
+    assert.equal(t.layout.watch, 'default');
+    assert.equal(t.tier, 'free');
+  });
+
+  test('Retro Terminal: CRT phosphor monochrome, Mono font, density 1', () => {
+    const t = byId.terminal;
+    assert.equal(t.tokens.color.bg, '#050905');
+    assert.equal(t.tokens.color.surface, '#0d140d');
+    assert.equal(t.tokens.color.accent, '#00ff41');
+    assert.equal(t.tokens.type.family, 'Mono');
+    assert.equal(t.layout.density, 1);
+    assert.equal(t.tier, 'free');
+  });
+
+  test('Big Screen (IMAX): cinematic wide near-black, density 5, amber accent', () => {
+    const t = byId.imax;
+    assert.equal(t.tokens.color.bg, '#07070a');
+    assert.equal(t.tokens.color.surface, '#111116');
+    assert.equal(t.tokens.color.accent, '#ff9f1c');
+    assert.equal(t.layout.density, 5);
+    assert.equal(t.layout.home, 'hero-rows');
+    assert.equal(t.layout.watch, 'cinema');
+    assert.equal(t.tier, 'free');
   });
 
   test('density and layout values are what the engine accepts (LAYOUT_HOME, LAYOUT_WATCH, 1..5)', () => {
@@ -661,10 +770,10 @@ describe('the themes through the rest of the pipeline', () => {
   const FREE = { plan: 'free', status: 'none' };
   const PRO = { plan: 'pro', status: 'active' };
 
-  test('a free user gets the three free themes and falls back to Cinema for the Pro ones', () => {
+  test('every theme is available for all users under the free model', () => {
     for (const t of THEMES) {
       const cfg = computeEffectiveConfig({ settings: settings(t.id), licenceState: FREE, themes: THEMES });
-      assert.equal(cfg.theme.id, t.tier === 'free' ? t.id : 'cinema', t.id);
+      assert.equal(cfg.theme.id, t.id, t.id);
       assert.equal(cfg.pro, false);
     }
   });
@@ -679,10 +788,10 @@ describe('the themes through the rest of the pipeline', () => {
     }
   });
 
-  test('a lapsed licence silently returns to the free roster and the stored choice is not rewritten', () => {
+  test('a lapsed licence preserves the user theme choice under the free model', () => {
     const stored = settings('arcade');
     const cfg = computeEffectiveConfig({ settings: stored, licenceState: { plan: 'pro', status: 'expired' }, themes: THEMES });
-    assert.equal(cfg.theme.id, 'cinema');
+    assert.equal(cfg.theme.id, 'arcade');
     assert.equal(stored.themeId, 'arcade');
   });
 

@@ -7,7 +7,13 @@ import { EXIT, HarnessError, PAGES, parseCli } from './e2e/lib/cli.mjs';
 import { AUDIT_DEFAULTS, GATE, auditPage, gateChecks } from './e2e/lib/audit.mjs';
 import { buildReport, toMarkdown } from './e2e/lib/report.mjs';
 
-const CATALOGUE = { allThemes: ['cinema', 'minimal', 'classic', 'primetime', 'studio', 'arcade'], freeThemes: ['cinema', 'minimal', 'classic'] };
+const CATALOGUE = {
+  allThemes: [
+    'cinema', 'minimal', 'classic', 'primetime', 'studio', 'arcade',
+    'oled', 'frost', 'mocha', 'midnight-city', 'ember', 'paper', 'matcha', 'sunset', 'terminal', 'imax',
+  ],
+  freeThemes: ['cinema', 'minimal', 'classic'],
+};
 const usage = (argv) => { try { parseCli(argv, CATALOGUE); } catch (err) { return err; } return null; };
 
 describe('cli: --mode, --no-perf, --shots, --offenders', () => {

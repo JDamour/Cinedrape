@@ -5,3 +5,8 @@ dist-*
 test/e2e/out
 *.log
 release
+/content.js
+/service-worker.js
+/popup/
+/editor/
+/data/

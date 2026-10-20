@@ -11,8 +11,8 @@
 //  - The last health verdict is remembered (chrome.storage.local, STORAGE_KEYS.health) and is the initial disabled set of the next
 //    page load, so a feature that is broken everywhere does not flash on for the settle time after every load. It is never trusted
 //    past a healthy settle, a different map version, or (for the readability verdict) a different theme / a day's age.
-import { ALL_THEME_IDS, ATTR, CALM_KEYS, DEFAULT_SETTINGS, FEATURES, MSG, PAGE_TYPES, STORAGE_KEYS } from '../shared/constants.js';
-import { computeEffectiveConfig, isFeatureAllowed } from '../shared/entitlements.js';
+import { ALL_THEME_IDS, ATTR, CALM_KEYS, DEFAULT_SETTINGS, FEATURES, LAYOUT_HOME, LAYOUT_WATCH, MSG, PAGE_TYPES, STORAGE_KEYS } from '../shared/constants.js';
+import { computeEffectiveConfig, isFeatureAllowed, isTrialActive } from '../shared/entitlements.js';
 import { claimsMatch, licenceState as toLicenceState, verifyLicenceToken } from '../shared/licence.js';
 import { LICENCE_PUBLIC_KEY, SELECTOR_MAP_PUBLIC_KEY } from '../shared/public-keys.js';
 import { parseEnvelopePayload } from '../shared/selector-map.js';
@@ -47,6 +47,12 @@ export function normalizeSettings(raw) {
   if (raw.density === null || (Number.isInteger(raw.density) && raw.density >= 1 && raw.density <= 5)) out.density = raw.density;
   if (typeof raw.animations === 'boolean') out.animations = raw.animations;
   if (raw.textScale === null || (typeof raw.textScale === 'number' && [0.9, 1, 1.1, 1.25, 1.5].includes(raw.textScale))) out.textScale = raw.textScale;
+  if (isPlain(raw.layout)) {
+    out.layout = {
+      home: LAYOUT_HOME.includes(raw.layout.home) ? raw.layout.home : null,
+      watch: LAYOUT_WATCH.includes(raw.layout.watch) ? raw.layout.watch : null,
+    };
+  }
   if (typeof raw.telemetryOptIn === 'boolean') out.telemetryOptIn = raw.telemetryOptIn;
   if (isPlain(raw.calm)) for (const key of CALM_KEYS) if (typeof raw.calm[key] === 'boolean') out.calm[key] = raw.calm[key];
   return out;
@@ -190,6 +196,8 @@ export function createEngine(deps = {}) {
     stopWatchLiveWatch(s);
     if (s.disposeWatch) { try { s.disposeWatch(); } catch { /* ignore */ } s.disposeWatch = null; }
     if (s.handle !== null && typeof win.cancelAnimationFrame === 'function') { try { win.cancelAnimationFrame(s.handle); } catch { /* ignore */ } }
+    if (s.frameTimer !== null) win.clearTimeout(s.frameTimer);
+    s.frameTimer = null;
     s.handle = null;
     s.pending = false;
   }
@@ -221,13 +229,20 @@ export function createEngine(deps = {}) {
   function schedule(s) {
     if (st !== s || s.stopped || s.pending) return;
     s.pending = true;
-    s.handle = frame(() => {
-      if (st !== s || s.stopped) return;
+    const flush = () => {
+      if (st !== s || s.stopped || !s.pending) return;
+      if (s.frameTimer !== null) win.clearTimeout(s.frameTimer);
+      s.frameTimer = null;
+      if (s.handle !== null && typeof win.cancelAnimationFrame === 'function') win.cancelAnimationFrame(s.handle);
       s.pending = false;
       s.handle = null;
       if (!alive()) { orphan(s); return; }
       if (s.loaded) guarded(s, () => applyAll(s));
-    });
+    };
+    // Edge can suspend animation frames while its extension popup has focus or
+    // a tab is backgrounded. Settings must still reach the page in that state.
+    s.frameTimer = win.setTimeout(flush, 100);
+    s.handle = frame(flush);
   }
 
   // ---- the pipeline ----------------------------------------------------------------------------------------------------
@@ -236,13 +251,20 @@ export function createEngine(deps = {}) {
     const list = ['theme'];
     if (cfg.home !== 'grid') list.push('layout-home');
     if (cfg.watch !== 'default') list.push('layout-watch');
-    if (cfg.pro && Number.isInteger(s.settings.density)) list.push('density');
+    if (Number.isInteger(s.settings.density)) list.push('density');
     for (const key of CALM_KEYS) if (cfg.calm[key]) list.push(`calm-${key}`);
     return list;
   }
 
   function applyAll(s) {
-    const cfg = computeEffectiveConfig({ settings: s.settings, licenceState: effectiveLicence(s), themes: activeThemes(s), disabled: [...s.disabled] });
+    const trial = isTrialActive(s.trialRecord, now());
+    const cfg = computeEffectiveConfig({
+      settings: s.settings,
+      licenceState: effectiveLicence(s),
+      themes: activeThemes(s),
+      disabled: [...s.disabled],
+      trial,
+    });
     if (!cfg.theme) throw new Error('no usable theme');
     if (reducedMotion()) cfg.animations = false;
     s.cfg = cfg;
@@ -533,7 +555,7 @@ export function createEngine(deps = {}) {
   // ---- events ----------------------------------------------------------------------------------------------------------
 
   function onStorage(s, changes, area) {
-    if (st !== s || s.stopped || (area && area !== 'local') || !isPlain(changes)) return;
+    if (st !== s || s.stopped || (area && area !== 'local' && area !== 'session') || !isPlain(changes)) return;
     guarded(s, () => {
       if (!alive()) { orphan(s); return; }
       let changed = false;
@@ -546,6 +568,11 @@ export function createEngine(deps = {}) {
         setLicenceRecord(s, changes[STORAGE_KEYS.licence].newValue);
         verifyLicence(s);
         s.touched.add('licence');
+        changed = true;
+      }
+      if (has(changes, STORAGE_KEYS.trial)) {
+        s.trialRecord = isPlain(changes[STORAGE_KEYS.trial].newValue) ? changes[STORAGE_KEYS.trial].newValue : null;
+        s.touched.add('trial');
         changed = true;
       }
       if (has(changes, STORAGE_KEYS.customThemes)) {
@@ -576,9 +603,9 @@ export function createEngine(deps = {}) {
 
   function createState() {
     return {
-      stopped: false, failed: false, loaded: false, pending: false, handle: null,
+      stopped: false, failed: false, loaded: false, pending: false, handle: null, frameTimer: null,
       injector: createStyleInjector({ doc, win }),
-      settings: normalizeSettings(null), licenceRecord: null, verified: new Map(), verdict: null,
+      settings: normalizeSettings(null), licenceRecord: null, trialRecord: null, verified: new Map(), verdict: null,
       customThemes: new Map(),
       bundledMap: null, map: null, selectors: null, health: null, layout: null,
       cfg: null, pageType: 'other', disabled: new Set(), missing: [], warnings: [],
@@ -618,12 +645,20 @@ export function createEngine(deps = {}) {
 
   async function load(s) {
     let got = {};
+    let sessionTrial = null;
     try {
       got = (await chrome.storage.local.get([STORAGE_KEYS.settings, STORAGE_KEYS.licence, STORAGE_KEYS.selectorMap, STORAGE_KEYS.health, STORAGE_KEYS.customThemes])) || {};
     } catch { got = {}; }
+    try {
+      if (chrome.storage && chrome.storage.session && typeof chrome.storage.session.get === 'function') {
+        const sGot = await chrome.storage.session.get([STORAGE_KEYS.trial]);
+        sessionTrial = sGot ? sGot[STORAGE_KEYS.trial] : null;
+      }
+    } catch {}
     if (st !== s || s.stopped) return;
     if (!s.touched.has('settings')) s.settings = normalizeSettings(got[STORAGE_KEYS.settings]);
     if (!s.touched.has('licence')) setLicenceRecord(s, got[STORAGE_KEYS.licence]);
+    if (!s.touched.has('trial')) s.trialRecord = sessionTrial;
     if (!s.touched.has('customThemes')) loadCustomThemes(s, got[STORAGE_KEYS.customThemes]);
     if (got[STORAGE_KEYS.selectorMap] !== undefined) {
       const seq = s.mapSeq;
@@ -654,6 +689,7 @@ export function createEngine(deps = {}) {
     const s = createState();
     st = s;
     try {
+      listen(s);
       s.bundledMap = parseEnvelopePayload(bundledEnvelope);
       if (!s.bundledMap) throw new Error('the bundled selector map is unreadable');
       s.map = s.bundledMap;
@@ -694,7 +730,6 @@ export function createEngine(deps = {}) {
           }
         }
       }
-      listen(s);
     } catch (err) {
       failOpen(s, err);
       return s.ready;
@@ -731,7 +766,7 @@ export function createEngine(deps = {}) {
     if (id === 'theme') return 'on';
     if (id === 'layout-home') return cfg.home !== 'grid' ? 'on' : 'off';
     if (id === 'layout-watch') return cfg.watch !== 'default' ? 'on' : 'off';
-    if (id === 'density') return cfg.pro && Number.isInteger(s.settings.density) ? 'on' : 'off';
+    if (id === 'density') return Number.isInteger(s.settings.density) ? 'on' : 'off';
     return cfg.calm[id.slice('calm-'.length)] ? 'on' : 'off';
   }
 

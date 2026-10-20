@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "id": "imax",
+  "name": "Big Screen",
+  "author": "Cinedrape",
+  "version": "1.0.0",
+  "tier": "free",
+  "tokens": {
+    "color": {
+      "bg": "#07070a",
+      "surface": "#111116",
+      "text": "#fafafc",
+      "muted": "#a2a2b0",
+      "accent": "#ff9f1c",
+      "border": "#636374"
+    },
+    "type": {
+      "family": "Inter",
+      "baseSize": 16,
+      "headingWeight": 800
+    },
+    "shape": {
+      "radius": 8,
+      "shadow": true,
+      "spacing": 5
+    }
+  },
+  "layout": {
+    "home": "hero-rows",
+    "watch": "cinema",
+    "density": 5
+  },
+  "calm": {},
+  "css": ".cd-hero{border-radius:var(--cd-radius);box-shadow:var(--cd-shadow);border:1px solid var(--cd-border)}\n.cd-hero-title{letter-spacing:-0.03em;font-weight:var(--cd-heading-weight);font-size:2.4em}\n.cd-hero-cta{background:var(--cd-accent);color:var(--cd-accent-text);border-radius:var(--cd-radius);font-weight:700}\n.cd-row-title{letter-spacing:0.04em;text-transform:uppercase;font-size:0.9em}\n.cd-card-thumb{border-radius:var(--cd-radius);box-shadow:var(--cd-shadow)}\n.cd-card:hover .cd-card-thumb{transform:scale(1.03)}"
+}

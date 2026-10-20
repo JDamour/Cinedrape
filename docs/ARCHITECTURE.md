@@ -184,7 +184,7 @@ src/content/{stylesheet,engine,style-injector,index}.js                  [engine
 src/background/{service-worker,licence-manager,map-updater}.js           [background]
 src/popup/{popup.html,popup.css,popup.js,…}                              [popup]
 src/editor/{editor.html,editor.css,editor.js,editor-model.js}            [editor — Spec F7]
-src/themes/{cinema,minimal,classic,primetime,studio,arcade}.json,index.js [skin]
+src/themes/{cinema,minimal,classic,primetime,studio,arcade,oled,frost,mocha,midnight-city,ember,paper,matcha,sunset,terminal,imax}.json,index.js [skin]
 test/helpers/{chrome-mock,dom}.js   test/fixtures/real/*.html            [scaffold, fixtures]
 test/**                             one test file per module, next to its owner's work
 ```
@@ -254,25 +254,32 @@ export const ATTR = {            // attributes set on <html> by the engine
 export const SRC_ATTR = 'cd-source';      // on a YouTube tile Cinedrape has mirrored into its own card
 export const PAGE_TYPES = ['home','watch','search','channel','subscriptions','history','playlist','shorts','other'];
 export const CALM_KEYS = ['hideShorts','hideHomeRecs','hideComments','hideEndScreens','hideViewCounts','hideLive'];
-export const FREE_CALM_KEYS = ['hideShorts','hideHomeRecs'];
+export const FREE_CALM_KEYS = [...CALM_KEYS];
 export const FEATURES = ['theme','layout-home','layout-watch','density',
   'calm-hideShorts','calm-hideHomeRecs','calm-hideComments','calm-hideEndScreens','calm-hideViewCounts','calm-hideLive'];
-export const ALL_THEME_IDS = ['cinema','minimal','classic','primetime','studio','arcade'];
-export const FREE_THEME_IDS = ['cinema','minimal','classic'];
+export const PACK_1_THEME_IDS = ['oled','frost','mocha','midnight-city','ember','paper','matcha','sunset','terminal','imax'];
+export const ALL_THEME_IDS = ['cinema','minimal','classic','primetime','studio','arcade',...PACK_1_THEME_IDS];
+export const FREE_THEME_IDS = [...ALL_THEME_IDS];
 export const LAYOUT_HOME = ['grid','rows','hero-rows'];
 export const LAYOUT_WATCH = ['default','cinema','focus'];
 export const RESERVED_THEME_IDS = Object.freeze([...ALL_THEME_IDS, 'broadcast']);
 export const STORAGE_KEYS = { settings:'cd.settings', licence:'cd.licence', selectorMap:'cd.selectorMap',
   health:'cd.health', telemetry:'cd.telemetry', firstPaint:'cd.firstPaint', customThemes:'cd.customThemes',
-  profiles:'cd.profiles', schedule:'cd.schedule', backup:'cd.backup', draft:'cd.editorDraft' };
+  profiles:'cd.profiles', schedule:'cd.schedule', backup:'cd.backup', draft:'cd.editorDraft',
+  trial:'cd.trial', trialLog:'cd.trialLog', install:'cd.install' };
 export const DEFAULT_SETTINGS = { schema:1, themeId:'cinema', accent:null, density:null, animations:true,
-  textScale:null, calm:{ hideShorts:false, hideHomeRecs:false, hideComments:false, hideEndScreens:false, hideViewCounts:false, hideLive:false },
+  textScale:null, layout:{ home:null, watch:null }, calm:{ hideShorts:false, hideHomeRecs:false, hideComments:false, hideEndScreens:false, hideViewCounts:false, hideLive:false },
   telemetryOptIn:false };
 export const DEFAULT_SCHEDULE = { schema:1, enabled:false, dayProfileId:'cinema', nightProfileId:'cinema',
   dayTime:'08:00', nightTime:'20:00', manualOverrideUntil:null, lastError:null };
 export const LIMITS = { cssMaxBytes:20480, contentMaxChars:100, offlineGraceMs:30*864e5,
   licenceRecheckMs:7*864e5, mapRefreshMs:6*36e5, maxBrowsersPerLicence:3,
-  maxCustomThemes:10, maxCustomThemeBytes:65536, maxProfiles:10 };
+  maxCustomThemes:10, maxCustomThemeBytes:65536, maxProfiles:10,
+  trialDurationMs:10*60*1000, maxDailyTrials:3, day7UpgradeMs:7*864e5 };
+export const CHECKOUT_URL = 'https://cinedrape.lemonsqueezy.com/checkout'; // TODO-OWNER: replace with production checkout URL
+export const SUPPORT_URL = 'https://github.com/sponsors/JDamour';
+export const WELCOME_URL = 'https://jdamour.github.io/Cinedrape/#welcome';
+export const UNINSTALL_URL = 'https://jdamour.github.io/Cinedrape/#bye';
 export const MSG = {
   GET_STATUS:'cd:getStatus',
   ACTIVATE_LICENCE:'cd:activateLicence',
@@ -286,6 +293,8 @@ export const MSG = {
   APPLY_PROFILE:'cd:applyProfile',
   UPDATE_SCHEDULE:'cd:updateSchedule',
   SAVE_SETTINGS:'cd:saveSettings',
+  START_TRIAL:'cd:startTrial',
+  GET_TRIAL:'cd:getTrial',
 };
 export const FIRST_PAINT_LS_KEY = 'cd:v1:firstPaint';   // localStorage key used by the engine (§5)
 ```
@@ -307,9 +316,10 @@ export const FIRST_PAINT_LS_KEY = 'cd:v1:firstPaint';   // localStorage key used
   home: 'grid'|'rows'|'hero-rows',
   watch: 'default'|'cinema'|'focus',
   density: 1|2|3|4|5,                    // settings.density ?? theme.layout.density; free users get the theme's own value
-  calm: { hideShorts, hideHomeRecs, hideComments, hideEndScreens, hideViewCounts },   // effective: free users only keep FREE_CALM_KEYS
+  calm: { hideShorts, hideHomeRecs, hideComments, hideEndScreens, hideViewCounts, hideLive },   // effective: free users only keep FREE_CALM_KEYS
   disabled: string[],                    // FEATURES turned off by the health check
-  pro: boolean
+  pro: boolean,
+  trial: boolean
 }
 ```
 `computeEffectiveConfig({settings, licenceState, themes}) → EffectiveConfig` lives in `entitlements.js`.
@@ -372,11 +382,11 @@ through this**), `protectedCss(map, group?)`, `parseEnvelopePayload(envelope)`.
 
 **shared/signing.js** — `base64urlEncode/Decode`, `verifyEnvelope(envelope, publicKeyJwk) → Promise<{ok, payload?, reason?}>`
 (WebCrypto ECDSA P-256 SHA-256 over the UTF-8 bytes of `payload`).
-**shared/licence.js** — token = `base64url(JSON claims).base64url(sig)`, claims `{v:1, sub, plan, iat, exp?, devices?}`;
+**shared/licence.js** — token = `base64url(JSON claims).base64url(sig)`, claims `{v:1, sub, plan, iat, exp?, devices?, tier?:'founder'|'standard'}`;
 `verifyLicenceToken(token, nowMs, publicKeyJwk) → Promise<{valid, reason, claims}>`;
 `licenceState({token, claims, checkedAt}, nowMs) → {plan, status}` (grace = within `offlineGraceMs` of `checkedAt`).
 **Claims are bound to the signed token.** The stored record's `claims` are a hand-editable copy, so every decision that can grant
-something uses the claims of the VERIFIED token: `claimsMatch(stored, verified)` (plan, sub, iat, exp must agree; a mismatch is
+something uses the claims of the VERIFIED token: `claimsMatch(stored, verified)` (plan, sub, iat, exp, tier must agree; a mismatch is
 lapsed), `verifiedLicenceState(record, nowMs, publicKeyJwk) → Promise<{plan, status, reason?}>` (the worker's and the popup's
 answer; `reason` on an expired state is one of `LAPSE_REASONS`: `token-expired` = the signed exp passed, `not-rechecked` = older
 than the grace period, `invalid` = signature/key/time failed or the stored claims disagree) and `lapseReason(record, nowMs)`. The
@@ -547,8 +557,8 @@ Semantic controls only (`button`, `input`, `fieldset`), labelled, focus-visible,
 `data/selector-map.json`); fails if `gzip(content.js) > 150 KB` or any file contains `eval(`/`new Function`.
 `npm test`, `npm run keys`, `npm run sign-map`, `npm run licence:dev`, `npm run e2e` (phase 3).
 `CINEDRAPE_DEV=1 npm run build` defines `__DEV__ = true` (dev-only Pro unlock helper in the popup; stripped otherwise).
-Manifest: MV3, `permissions:["storage","alarms"]`, `host_permissions:["https://www.youtube.com/*"]`, content script
-`matches:["https://www.youtube.com/*"]`, `run_at:"document_start"`, no `web_accessible_resources`,
+Manifest: MV3, `permissions:["storage","alarms","scripting"]`, `host_permissions:["https://www.youtube.com/*","https://youtube.com/*"]`, content script
+`matches:["https://www.youtube.com/*","https://youtube.com/*"]`, `run_at:"document_start"`, no `web_accessible_resources`,
 `minimum_chrome_version:"105"` (`:has`), name `Cinedrape`, description states it is not affiliated with Google.
 
 Performance budgets from the spec apply: first-paint overhead < 50 ms, theme switch < 150 ms, content script < 150 KB

@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "id": "ember",
+  "name": "Ember",
+  "author": "Cinedrape",
+  "version": "1.0.0",
+  "tier": "free",
+  "tokens": {
+    "color": {
+      "bg": "#151811",
+      "surface": "#21261b",
+      "text": "#f5eedc",
+      "muted": "#b0ad98",
+      "accent": "#e06b3a",
+      "border": "#7d826a"
+    },
+    "type": {
+      "family": "System",
+      "baseSize": 14,
+      "headingWeight": 600
+    },
+    "shape": {
+      "radius": 4,
+      "shadow": false,
+      "spacing": 2
+    }
+  },
+  "layout": {
+    "home": "grid",
+    "watch": "default",
+    "density": 2
+  },
+  "calm": {},
+  "css": ".cd-card{border-radius:var(--cd-radius);border:1px solid var(--cd-border);background:var(--cd-surface)}\n.cd-card:hover{border-color:var(--cd-accent)}\n.cd-card-thumb{border-radius:var(--cd-radius)}\n.cd-card-title{font-weight:var(--cd-heading-weight);letter-spacing:-0.01em}\n.cd-card-meta{color:var(--cd-muted)}\n.cd-card-duration{border-radius:2px}"
+}

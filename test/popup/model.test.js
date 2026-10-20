@@ -6,10 +6,11 @@ import {
 } from '../../src/shared/constants.js';
 import { contrastRatio } from '../../src/shared/contrast.js';
 import {
-  ACCENT_SWATCHES, CALM_COPY, DENSITY_LABELS, FEATURE_LABELS, LICENCE_COPY, PAGE_LABELS,
-  accentWarning, activationErrorCopy, checkEntitlement, deriveView, isTextScale, licenceFromRecord, licenceKey, lockedCopy, mergeSettings,
-  normalizeToken, parseActivateResponse, parseHex, parseLicence, safeCssColor, sanitizePatch, statusCopy,
-  strictHex, summarizeStatus, usableThemes, withDefaults,
+  ACCENT_SWATCHES, CALM_COPY, CALM_PRESETS, DENSITY_LABELS, FEATURE_LABELS, LICENCE_COPY, PAGE_LABELS,
+  accentWarning, activationErrorCopy, applyCalmPreset, canStartTrial, checkEntitlement, createBackupBundle, createDiagnostics,
+  deriveView, formatCountdown, isTextScale, isTrialActive, licenceFromRecord, licenceKey, lockedCopy, mergeSettings,
+  normalizeToken, parseActivateResponse, parseHex, parseLicence, safeCssColor, sanitizePatch, sheetFeatureInfo, statusCopy,
+  strictHex, summarizeStatus, usableThemes, validateBackupBundle, withDefaults,
 } from '../../src/popup/model.js';
 import { EXPIRED, FAKE_THEMES, FREE, GRACE, PRO } from './_harness.js';
 
@@ -57,6 +58,8 @@ test('sanitizePatch accepts every valid setting and normalises the accent', () =
   assert.deepEqual(sanitizePatch({ textScale: 1.5 }), { ok: true, patch: { textScale: 1.5 } });
   assert.deepEqual(sanitizePatch({ textScale: null }), { ok: true, patch: { textScale: null } });
   assert.deepEqual(sanitizePatch({ calm: { hideShorts: true } }), { ok: true, patch: { calm: { hideShorts: true } } });
+  assert.deepEqual(sanitizePatch({ layout: { home: 'rows', watch: 'cinema' } }), { ok: true, patch: { layout: { home: 'rows', watch: 'cinema' } } });
+  assert.deepEqual(sanitizePatch({ layout: { home: null, watch: null } }), { ok: true, patch: { layout: { home: null, watch: null } } });
   for (const id of ALL_THEME_IDS) assert.equal(sanitizePatch({ themeId: id }).ok, true);
 });
 
@@ -69,6 +72,7 @@ test('sanitizePatch rejects invalid values and unknown keys', () => {
     { animations: 'true' }, { animations: 1 }, { animations: null }, { animations: undefined },
     { textScale: 0.8 }, { textScale: 2 }, { textScale: -1 }, { textScale: '1' }, { textScale: NaN }, { textScale: Infinity }, { textScale: true },
     { calm: { hideEverything: true } }, { calm: { hideShorts: 'yes' } }, { calm: { __proto__x: true } }, { calm: [] }, { calm: null }, { calm: 'hideShorts' },
+    { layout: { home: 'carousel' } }, { layout: { watch: 'imax' } }, { layout: 'rows' }, { layout: null }, { layout: { unknown: 'grid' } },
     { schema: 2 }, { telemetryOptIn: true }, { constructor: 1 }, { __proto__: { themeId: 'cinema' }, nope: 1 },
     {}, null, undefined, 'themeId', 5, [],
   ];
@@ -125,51 +129,55 @@ test('usableThemes keeps known ids with a real tier, once each', () => {
   assert.deepEqual(usableThemes(FAKE_THEMES).map((t) => t.id), ALL_THEME_IDS);
 });
 
-test('view: a free user sees free themes selectable and Pro themes locked, Cinema selected by default', () => {
+test('view: all 16 bundled themes are selectable and unlocked for all users, Cinema selected by default', () => {
   const v = view(undefined, FREE);
   assert.deepEqual(v.themes.map((t) => [t.id, t.pro, t.locked, t.checked]), [
     ['cinema', false, false, true], ['minimal', false, false, false], ['classic', false, false, false],
-    ['primetime', true, true, false], ['studio', true, true, false], ['arcade', true, true, false]]);
+    ['primetime', false, false, false], ['studio', false, false, false], ['arcade', false, false, false],
+    ['oled', false, false, false], ['frost', false, false, false], ['mocha', false, false, false],
+    ['midnight-city', false, false, false], ['ember', false, false, false], ['paper', false, false, false],
+    ['matcha', false, false, false], ['sunset', false, false, false], ['terminal', false, false, false],
+    ['imax', false, false, false]]);
   assert.equal(v.licenceKey, 'free');
   assert.equal(v.pro, false);
 });
 
-test('view: Pro unlocks every theme; grace counts as Pro; expired does not', () => {
+test('view: every theme is unlocked across all licence states', () => {
   for (const [licence, key, pro] of [[PRO, 'active', true], [GRACE, 'grace', true], [EXPIRED, 'expired', false], [FREE, 'free', false]]) {
     const v = view({ themeId: 'studio' }, licence);
     assert.equal(v.licenceKey, key);
     assert.equal(v.pro, pro);
-    assert.equal(v.themes.find((t) => t.id === 'studio').locked, !pro);
-    assert.equal(v.theme.id, pro ? 'studio' : 'cinema');
+    assert.equal(v.themes.find((t) => t.id === 'studio').locked, false);
+    assert.equal(v.theme.id, 'studio');
   }
 });
 
-test('view: a saved Pro choice is shown as suppressed, not erased, when the licence lapses', () => {
-  const settings = { themeId: 'arcade', density: 4, calm: { ...DEFAULT_SETTINGS.calm, hideComments: true, hideShorts: true } };
+test('view: a saved theme, density, and calm choice is applied directly, not suppressed', () => {
+  const settings = { themeId: 'arcade', density: 4, calm: { ...DEFAULT_SETTINGS.calm, hideViewCounts: true, hideShorts: true } };
   const v = view(settings, EXPIRED);
-  assert.equal(v.theme.id, 'cinema');
-  assert.equal(v.density.locked, true);
-  assert.equal(v.density.suppressed, true);
-  assert.equal(v.density.value, 3, 'free users get the theme own density');
-  assert.equal(v.calm.find((c) => c.key === 'hideComments').on, false);
-  assert.equal(v.calm.find((c) => c.key === 'hideComments').suppressed, true);
-  assert.equal(v.calm.find((c) => c.key === 'hideShorts').on, true, 'a free calm key is unaffected');
-  assert.deepEqual(v.suppressed, ['Arcade theme', 'density', 'hide comments']);
-  // ... and comes straight back with Pro.
+  assert.equal(v.theme.id, 'arcade');
+  assert.equal(v.density.locked, false);
+  assert.equal(v.density.suppressed, false);
+  assert.equal(v.density.value, 4);
+  assert.equal(v.calm.find((c) => c.key === 'hideViewCounts').on, true);
+  assert.equal(v.calm.find((c) => c.key === 'hideViewCounts').suppressed, false);
+  assert.equal(v.calm.find((c) => c.key === 'hideShorts').on, true);
+  assert.deepEqual(v.suppressed, []);
+  // ... and also with Pro
   const back = view(settings, PRO);
   assert.equal(back.theme.id, 'arcade');
   assert.equal(back.density.value, 4);
   assert.equal(back.density.custom, true);
-  assert.equal(back.calm.find((c) => c.key === 'hideComments').on, true);
+  assert.equal(back.calm.find((c) => c.key === 'hideViewCounts').on, true);
   assert.deepEqual(back.suppressed, []);
 });
 
-test('view: density is the theme default until Pro sets one', () => {
+test('view: density is the theme default until a custom density is set', () => {
   assert.equal(view({ themeId: 'classic' }, PRO).density.value, 2);
   assert.equal(view({ themeId: 'classic' }, PRO).density.custom, false);
   assert.equal(view({ themeId: 'classic', density: 5 }, PRO).density.value, 5);
   assert.equal(view({ themeId: 'classic', density: 5 }, PRO).density.label, DENSITY_LABELS[4]);
-  assert.equal(view({ themeId: 'classic' }, FREE).density.locked, true);
+  assert.equal(view({ themeId: 'classic' }, FREE).density.locked, false);
 });
 
 test('view: textScale is 1 (not custom) by default, and reflects stored valid scale', () => {
@@ -227,24 +235,25 @@ test('view: an unnamed theme falls back to its id; colours come only from tokens
 
 // ---- entitlements -----------------------------------------------------------------------------------------------------
 
-test('checkEntitlement blocks exactly what the tier forbids', () => {
+test('checkEntitlement allows all valid settings under the free model', () => {
   const ctx = (licence) => ({ licence, themes: FAKE_THEMES });
   assert.deepEqual(checkEntitlement({ themeId: 'minimal' }, ctx(FREE)), { ok: true });
-  assert.deepEqual(checkEntitlement({ themeId: 'studio' }, ctx(FREE)), { ok: false, kind: 'theme', key: 'studio', name: 'Studio' });
-  assert.deepEqual(checkEntitlement({ themeId: 'studio' }, ctx(EXPIRED)), { ok: false, kind: 'theme', key: 'studio', name: 'Studio' });
+  assert.deepEqual(checkEntitlement({ themeId: 'studio' }, ctx(FREE)), { ok: true });
+  assert.deepEqual(checkEntitlement({ themeId: 'studio' }, ctx(EXPIRED)), { ok: true });
   assert.deepEqual(checkEntitlement({ themeId: 'studio' }, ctx(PRO)), { ok: true });
   assert.deepEqual(checkEntitlement({ themeId: 'studio' }, ctx(GRACE)), { ok: true });
-  assert.equal(checkEntitlement({ density: 4 }, ctx(FREE)).kind, 'density');
-  assert.equal(checkEntitlement({ density: null }, ctx(FREE)).kind, 'density');
+  assert.equal(checkEntitlement({ density: 4 }, ctx(FREE)).ok, true);
+  assert.equal(checkEntitlement({ density: null }, ctx(FREE)).ok, true);
   assert.equal(checkEntitlement({ density: 4 }, ctx(PRO)).ok, true);
   assert.equal(checkEntitlement({ calm: { hideShorts: true } }, ctx(FREE)).ok, true);
-  assert.equal(checkEntitlement({ calm: { hideComments: true } }, ctx(FREE)).kind, 'calm');
-  assert.equal(checkEntitlement({ calm: { hideShorts: true, hideViewCounts: true } }, ctx(FREE)).key, 'hideViewCounts');
+  assert.equal(checkEntitlement({ calm: { hideComments: true } }, ctx(FREE)).ok, true);
+  assert.equal(checkEntitlement({ calm: { hideEndScreens: true } }, ctx(FREE)).ok, true);
+  assert.equal(checkEntitlement({ calm: { hideShorts: true, hideViewCounts: true } }, ctx(FREE)).ok, true);
   assert.equal(checkEntitlement({ calm: { hideViewCounts: true } }, ctx(PRO)).ok, true);
-  assert.equal(checkEntitlement({ calm: { hideShorts: true, hideLive: true } }, ctx(FREE)).key, 'hideLive');
+  assert.equal(checkEntitlement({ calm: { hideShorts: true, hideLive: true } }, ctx(FREE)).ok, true);
   assert.equal(checkEntitlement({ calm: { hideLive: true } }, ctx(PRO)).ok, true);
   assert.equal(checkEntitlement({ accent: '#e8b04a', animations: false }, ctx(FREE)).ok, true, 'accent and animations are free');
-  assert.equal(checkEntitlement({ themeId: 'studio', density: 3 }, ctx(FREE)).kind, 'theme', 'first violation wins');
+  assert.equal(checkEntitlement({ themeId: 'studio', density: 3 }, ctx(FREE)).ok, true);
 });
 
 test('checkEntitlement refuses a theme the popup does not know, even for Pro', () => {
@@ -252,18 +261,45 @@ test('checkEntitlement refuses a theme the popup does not know, even for Pro', (
   assert.equal(checkEntitlement({ themeId: 'studio' }, { licence: PRO, themes: [] }).ok, false);
 });
 
-test('checkEntitlement treats a theme the contract names as Pro as Pro even when its data says free', () => {
+test('checkEntitlement treats known bundled themes as valid and usable', () => {
   const lie = FAKE_THEMES.map((t) => (t.id === 'arcade' ? { ...t, tier: 'free' } : t));
-  assert.equal(checkEntitlement({ themeId: 'arcade' }, { licence: FREE, themes: lie }).kind, 'theme');
-  assert.equal(view(undefined, FREE, lie).themes.find((t) => t.id === 'arcade').pro, true);
+  assert.equal(checkEntitlement({ themeId: 'arcade' }, { licence: FREE, themes: lie }).ok, true);
+  assert.equal(view(undefined, FREE, lie).themes.find((t) => t.id === 'arcade').pro, false);
+});
+
+test('checkEntitlement allows layout customization for all users', () => {
+  assert.equal(checkEntitlement({ layout: { home: 'rows' } }, { licence: FREE }).ok, true);
+  assert.equal(checkEntitlement({ layout: { home: 'rows' } }, { licence: PRO }).ok, true);
+  assert.equal(checkEntitlement({ layout: { watch: 'focus' } }, { licence: PRO }).ok, true);
 });
 
 test('lockedCopy explains the lock and mentions an expired licence only when it is one', () => {
   assert.equal(lockedCopy({ kind: 'theme', name: 'Studio' }, 'free'), 'Studio is a Pro theme. Activate Pro to use it.');
   assert.match(lockedCopy({ kind: 'theme', name: 'Studio' }, 'expired'), /^Your Pro licence has expired\. Studio is a Pro theme/);
   assert.match(lockedCopy({ kind: 'density' }, 'free'), /Density is a Pro setting/);
-  assert.match(lockedCopy({ kind: 'calm', name: 'Hide comments' }, 'free'), /^Hide comments is a Pro setting\. Activate Pro/);
-  assert.doesNotMatch(lockedCopy({ kind: 'calm', name: 'Hide comments' }, 'free'), /expired/);
+  assert.match(lockedCopy({ kind: 'layout' }, 'free'), /Layout customisation is a Pro feature/);
+  assert.match(lockedCopy({ kind: 'calm', name: 'Hide view counts' }, 'free'), /^Hide view counts is a Pro setting\. Activate Pro/);
+  assert.doesNotMatch(lockedCopy({ kind: 'calm', name: 'Hide view counts' }, 'free'), /expired/);
+});
+
+test('deriveView exposes layout overrides and flags custom and suppressed states', () => {
+  // Free user with stored layout: values are applied directly, locked is false, suppressed is false
+  const freeStored = { ...DEFAULT_SETTINGS, layout: { home: 'rows', watch: 'focus' } };
+  const freeV = view(freeStored, FREE);
+  assert.equal(freeV.layout.locked, false);
+  assert.equal(freeV.layout.suppressed, false);
+  assert.equal(freeV.layout.home.value, 'rows');
+  assert.equal(freeV.layout.watch.value, 'focus');
+  assert.equal(freeV.suppressed.includes('layout'), false);
+
+  // Pro user with stored layout: values are overridden, locked is false, custom is true
+  const proV = view(freeStored, PRO);
+  assert.equal(proV.layout.locked, false);
+  assert.equal(proV.layout.custom, true);
+  assert.equal(proV.layout.home.value, 'rows');
+  assert.equal(proV.layout.watch.value, 'focus');
+  assert.equal(proV.layout.home.custom, true);
+  assert.equal(proV.layout.watch.custom, true);
 });
 
 // ---- licence ----------------------------------------------------------------------------------------------------------
@@ -272,10 +308,31 @@ test('parseLicence reads a bare or wrapped {plan,status} and nothing else', () =
   assert.deepEqual(parseLicence({ plan: 'pro', status: 'grace' }), { plan: 'pro', status: 'grace' });
   assert.deepEqual(parseLicence({ state: { plan: 'free', status: 'expired' } }), { plan: 'free', status: 'expired' });
   assert.deepEqual(parseLicence({ plan: 'pro', status: 'active', token: 'secret', claims: {} }), { plan: 'pro', status: 'active' });
+  assert.deepEqual(parseLicence({ plan: 'pro', status: 'active', tier: 'founder' }), { plan: 'pro', status: 'active', tier: 'founder' });
+  assert.deepEqual(parseLicence({ plan: 'pro', status: 'active', tier: 'standard' }), { plan: 'pro', status: 'active', tier: 'standard' });
+  assert.deepEqual(parseLicence({ plan: 'pro', status: 'active', tier: 'invalid' }), { plan: 'pro', status: 'active' });
   for (const bad of [null, undefined, 'pro', 5, [], {}, { plan: 'pro' }, { status: 'active' }, { plan: 'enterprise', status: 'active' },
     { plan: 'pro', status: 'lifetime' }, { state: 'x' }, { state: { plan: 'pro' } }, { hello: 'world' }]) {
     assert.equal(parseLicence(bad), null, `rejects ${JSON.stringify(bad)}`);
   }
+});
+
+test('PRO-7: deriveView exposes tier when Pro is active', () => {
+  const founderV = view(undefined, { plan: 'pro', status: 'active', tier: 'founder' });
+  assert.equal(founderV.pro, true);
+  assert.equal(founderV.tier, 'founder');
+
+  const standardV = view(undefined, { plan: 'pro', status: 'active', tier: 'standard' });
+  assert.equal(standardV.pro, true);
+  assert.equal(standardV.tier, 'standard');
+
+  const defaultProV = view(undefined, { plan: 'pro', status: 'active' });
+  assert.equal(defaultProV.pro, true);
+  assert.equal(defaultProV.tier, 'standard');
+
+  const freeV = view(undefined, FREE);
+  assert.equal(freeV.pro, false);
+  assert.equal(freeV.tier, null);
 });
 
 test('licenceFromRecord: the stored record gives the same states as the background (7 d active, 30 d grace, then expired) and junk is "no licence"', () => {
@@ -341,7 +398,7 @@ test('parseActivateResponse accepts ok/valid, carries the new state, and bounds 
 
 test('activationErrorCopy covers every reason the licence code can produce and never repeats the input', () => {
   const reasons = ['bad-time', 'malformed-token', 'bad-key', 'bad-signature', 'bad-claims', 'unsupported-version', 'bad-plan',
-    'not-yet-valid', 'expired', 'verify-error', 'malformed', 'no-key', 'invalid', 'storage-error', 'no-response', 'timeout'];
+    'not-yet-valid', 'expired', 'verify-error', 'malformed', 'no-key', 'invalid', 'storage-error', 'no-response', 'timeout', 'refunded', 'revoked'];
   const seen = new Set();
   for (const r of reasons) {
     const copy = activationErrorCopy(r);
@@ -351,6 +408,10 @@ test('activationErrorCopy covers every reason the licence code can produce and n
   }
   assert.ok(seen.size >= 6, 'distinct situations get distinct advice');
   assert.match(activationErrorCopy('expired'), /expired/);
+  assert.equal(activationErrorCopy('refunded'), 'This token was refunded.');
+  assert.equal(activationErrorCopy('revoked'), 'This token was refunded.');
+  assert.equal(activationErrorCopy('bad-signature'), "That token isn't valid — check you copied all of it.");
+  assert.equal(activationErrorCopy('invalid'), "That token isn't valid — check you copied all of it.");
   for (const hostile of ['<img src=x onerror=alert(1)>', 'eyJ2IjoxfQ.sig', '', undefined, null, 5, 'x'.repeat(100)]) {
     const copy = activationErrorCopy(hostile);
     assert.doesNotMatch(copy, /[<>]|eyJ|onerror/);
@@ -372,9 +433,9 @@ test('accentWarning fires below 3:1 on the active theme background and names the
   assert.equal(accentWarning(view({ themeId: 'minimal', accent: '#222222' }, FREE)), null);
 });
 
-test('accentWarning follows the effective theme, not the stored one', () => {
-  // Stored Studio (light) but free: the tab shows Cinema (dark), so a dark accent is the problem.
-  assert.ok(accentWarning(view({ themeId: 'studio', accent: '#222222' }, FREE)).includes('Cinema'));
+test('accentWarning follows the effective theme', () => {
+  // Studio (light) is effective for both free and pro users; gold (#e8b04a) on light fails contrast
+  assert.ok(accentWarning(view({ themeId: 'studio', accent: '#e8b04a' }, FREE)).includes('Studio'));
   assert.ok(accentWarning(view({ themeId: 'studio', accent: '#e8b04a' }, PRO)).includes('Studio'));
 });
 
@@ -536,18 +597,17 @@ test('checkEntitlement and sanitizePatch accept allowed custom themes', () => {
   assert.deepEqual(sanitizePatch({ themeId: 'my-custom' }, ['my-custom']), { ok: true, patch: { themeId: 'my-custom' } });
   assert.equal(sanitizePatch({ themeId: 'my-custom' }, []).ok, false);
 
-  // checkEntitlement allows free custom theme for free user
+  // checkEntitlement allows custom themes for free user
   assert.deepEqual(checkEntitlement({ themeId: 'my-custom' }, { licence: FREE, themes: FAKE_THEMES, customThemes: [custom] }), { ok: true });
 
-  // checkEntitlement blocks Pro custom theme for free user
   const proCustom = { ...custom, id: 'pro-custom', tier: 'pro' };
-  assert.equal(checkEntitlement({ themeId: 'pro-custom' }, { licence: FREE, themes: FAKE_THEMES, customThemes: [proCustom] }).ok, false);
+  assert.equal(checkEntitlement({ themeId: 'pro-custom' }, { licence: FREE, themes: FAKE_THEMES, customThemes: [proCustom] }).ok, true);
   assert.equal(checkEntitlement({ themeId: 'pro-custom' }, { licence: PRO, themes: FAKE_THEMES, customThemes: [proCustom] }).ok, true);
 });
 
 // ---- profiles & schedule (S13 / F8) ------------------------------------------------------------------------
 
-test('deriveView exposes profiles and schedule, gated by Pro licence', () => {
+test('deriveView exposes profiles and schedule, unlocked for all users', () => {
   const sampleProfiles = [
     { id: 'work', name: 'Work Profile', settings: { themeId: 'minimal' } },
   ];
@@ -566,8 +626,8 @@ test('deriveView exposes profiles and schedule, gated by Pro licence', () => {
     profiles: sampleProfiles,
     schedule: sampleSchedule,
   });
-  assert.equal(freeView.profilesLocked, true);
-  assert.equal(freeView.scheduleLocked, true);
+  assert.equal(freeView.profilesLocked, false);
+  assert.equal(freeView.scheduleLocked, false);
   assert.equal(freeView.profiles.length, 1);
   assert.equal(freeView.profiles[0].id, 'work');
   assert.equal(freeView.schedule.enabled, true);
@@ -584,18 +644,292 @@ test('deriveView exposes profiles and schedule, gated by Pro licence', () => {
   assert.equal(proView.scheduleLocked, false);
 });
 
-test('checkEntitlement and lockedCopy gate profiles and schedule to Pro', () => {
-  // Profiles gating
-  assert.equal(checkEntitlement({ profiles: [] }, { licence: FREE, themes: FAKE_THEMES }).ok, false);
+test('checkEntitlement allows profiles and schedule for all users', () => {
+  // Profiles entitlement
+  assert.equal(checkEntitlement({ profiles: [] }, { licence: FREE, themes: FAKE_THEMES }).ok, true);
   assert.equal(checkEntitlement({ profiles: [] }, { licence: PRO, themes: FAKE_THEMES }).ok, true);
 
-  // Schedule gating
-  assert.equal(checkEntitlement({ schedule: {} }, { licence: FREE, themes: FAKE_THEMES }).ok, false);
+  // Schedule entitlement
+  assert.equal(checkEntitlement({ schedule: {} }, { licence: FREE, themes: FAKE_THEMES }).ok, true);
   assert.equal(checkEntitlement({ schedule: {} }, { licence: PRO, themes: FAKE_THEMES }).ok, true);
 
   // Copy checks
   assert.match(lockedCopy({ kind: 'profiles' }), /Profiles are a Pro feature/);
   assert.match(lockedCopy({ kind: 'schedule' }), /Time-based scheduling is a Pro feature/);
 });
+
+// ---- calm presets -----------------------------------------------------------------------------------------------------
+
+test('CALM_PRESETS defines valid presets with expected toggles', () => {
+  for (const id of ['study', 'winddown', 'zen', 'reset']) {
+    const p = CALM_PRESETS[id];
+    assert.ok(p, `preset ${id} exists`);
+    assert.equal(typeof p.name, 'string');
+    assert.equal(typeof p.hint, 'string');
+    assert.ok(p.calm && typeof p.calm === 'object');
+    for (const [k, v] of Object.entries(p.calm)) {
+      assert.ok(CALM_KEYS.includes(k), `valid key ${k}`);
+      assert.equal(typeof v, 'boolean');
+    }
+  }
+});
+
+test('applyCalmPreset applies preset correctly for all users under free model', () => {
+  // Free user applying Study: allows all preset keys
+  const freeStudy = applyCalmPreset('study', {}, FREE);
+  assert.equal(freeStudy.ok, true);
+  assert.equal(freeStudy.calm.hideShorts, true);
+  assert.equal(freeStudy.calm.hideHomeRecs, true);
+  assert.equal(Boolean(freeStudy.calm.hideComments), true);
+  assert.equal(Boolean(freeStudy.calm.hideEndScreens), true);
+  assert.equal(Boolean(freeStudy.calm.hideLive), true);
+  assert.equal(freeStudy.proBlockedCount, 0);
+  assert.equal(freeStudy.notice, 'Applied "Study" preset.');
+
+  // Pro user applying Study: enables all preset keys
+  const proStudy = applyCalmPreset('study', {}, PRO);
+  assert.equal(proStudy.ok, true);
+  assert.equal(proStudy.calm.hideShorts, true);
+  assert.equal(proStudy.calm.hideHomeRecs, true);
+  assert.equal(proStudy.calm.hideComments, true);
+  assert.equal(proStudy.calm.hideLive, true);
+  assert.equal(proStudy.proBlockedCount, 0);
+  assert.equal(proStudy.notice, 'Applied "Study" preset.');
+
+  // Reset preset: turns all toggles off
+  const resetRes = applyCalmPreset('reset', { hideShorts: true, hideComments: true }, PRO);
+  assert.equal(resetRes.ok, true);
+  assert.equal(resetRes.calm.hideShorts, false);
+  assert.equal(resetRes.calm.hideComments, false);
+  assert.equal(resetRes.notice, 'Calm settings reset.');
+
+  const freeReset = applyCalmPreset('reset', { hideShorts: true }, FREE);
+  assert.equal(freeReset.ok, true);
+  assert.equal(freeReset.calm.hideShorts, false);
+  assert.equal(freeReset.notice, 'Calm settings reset.');
+
+  // Unknown preset
+  const bad = applyCalmPreset('non-existent', {}, PRO);
+  assert.equal(bad.ok, false);
+  assert.equal(bad.error, 'Unknown calm preset.');
+});
+
+// ---- backup & restore -------------------------------------------------------------------------------------------------
+
+test('createBackupBundle creates valid, schema-compliant backup structure', () => {
+  const custom = { 'my-theme': { id: 'my-theme', name: 'My Theme' } };
+  const profiles = [{ id: 'p1', name: 'Day' }];
+  const schedule = { enabled: true, dayTime: '09:00' };
+  const bundle = createBackupBundle({
+    settings: { ...DEFAULT_SETTINGS, themeId: 'minimal' },
+    customThemes: custom,
+    profiles,
+    schedule,
+  });
+
+  assert.equal(bundle.schema, 1);
+  assert.equal(bundle.cinedrapeBackup, true);
+  assert.equal(bundle.version, '0.1.0');
+  assert.ok(bundle.exportedAt);
+  assert.equal(bundle.settings.themeId, 'minimal');
+  assert.deepEqual(bundle.customThemes, custom);
+  assert.deepEqual(bundle.profiles, profiles);
+  assert.deepEqual(bundle.schedule, schedule);
+});
+
+test('validateBackupBundle validates correct backups and rejects malformed ones', () => {
+  const valid = {
+    schema: 1,
+    cinedrapeBackup: true,
+    settings: { themeId: 'minimal', density: 2 },
+    customThemes: { 't1': { id: 't1' } },
+    profiles: [{ id: 'prof-1', name: 'Focus' }],
+    schedule: { enabled: true },
+  };
+
+  const res = validateBackupBundle(valid);
+  assert.equal(res.ok, true);
+  assert.equal(res.bundle.settings.themeId, 'minimal');
+  assert.equal(res.bundle.settings.density, 2);
+  assert.ok(res.bundle.customThemes.t1);
+  assert.equal(res.bundle.profiles.length, 1);
+
+  // Rejects non-objects
+  assert.equal(validateBackupBundle(null).ok, false);
+  assert.equal(validateBackupBundle('string').ok, false);
+  assert.equal(validateBackupBundle([]).ok, false);
+
+  // Rejects object with no cinedrape data
+  assert.equal(validateBackupBundle({ foo: 'bar' }).ok, false);
+
+  // Rejects invalid settings inside backup
+  assert.equal(validateBackupBundle({ cinedrapeBackup: true, settings: { themeId: 'unsupported-xyz' } }).ok, false);
+});
+
+// ---- diagnostics ------------------------------------------------------------------------------------------------------
+
+test('createDiagnostics creates anonymous, privacy-safe report', () => {
+  const diag = createDiagnostics({
+    manifestVersion: '0.1.0',
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/154.0.0.0',
+    pageType: 'watch',
+    settings: { themeId: 'cinema', accent: '#e8b04a', calm: { hideShorts: true } },
+    schedule: { enabled: false },
+    licence: PRO,
+    selectorMapVersion: '2026.10.14.1',
+  });
+
+  assert.equal(diag.app, 'Cinedrape');
+  assert.equal(diag.version, '0.1.0');
+  assert.equal(diag.pageType, 'watch');
+  assert.equal(diag.theme, 'cinema');
+  assert.equal(diag.accent, '#e8b04a');
+  assert.equal(diag.calm.hideShorts, true);
+  assert.equal(diag.plan, 'pro');
+  assert.equal(diag.mapVersion, '2026.10.14.1');
+  assert.ok(diag.timestamp);
+  // Never captures personal URLs, tokens or history
+  assert.equal(diag.url, undefined);
+  assert.equal(diag.token, undefined);
+});
+
+// ---- PRO-0: Try Pro for 10 minutes ------------------------------------------------------------------
+
+test('formatCountdown formats remaining milliseconds into M:SS', () => {
+  assert.equal(formatCountdown(10 * 60 * 1000), '10:00');
+  assert.equal(formatCountdown(7 * 60 * 1000 + 42 * 1000), '7:42');
+  assert.equal(formatCountdown(5000), '0:05');
+  assert.equal(formatCountdown(0), '0:00');
+  assert.equal(formatCountdown(-5000), '0:00');
+});
+
+test('deriveView with active trial unlocks Pro features, exposes trial state, and preserves pro=false', () => {
+  const now = Date.now();
+  const trial = { until: now + 600000, used: 1 };
+  const v = deriveView({
+    settings: {
+      themeId: 'primetime',
+      layout: { home: 'grid', watch: 'focus' },
+      density: 5,
+      calm: { hideViewCounts: true },
+    },
+    licence: FREE,
+    themes: FAKE_THEMES,
+    trial,
+    nowMs: now,
+  });
+
+  assert.equal(v.pro, false, 'pro stays false');
+  assert.equal(v.trial.active, true, 'trial is active');
+  assert.equal(v.trial.formatted, '10:00');
+  assert.equal(v.theme.id, 'primetime', 'primetime is selected');
+  assert.equal(v.themes.find((t) => t.id === 'primetime').locked, false, 'pro theme is unlocked');
+  assert.equal(v.layout.locked, false, 'layout is unlocked');
+  assert.equal(v.layout.home.value, 'grid');
+  assert.equal(v.layout.watch.value, 'focus');
+  assert.equal(v.density.locked, false, 'density is unlocked');
+  assert.equal(v.density.value, 5);
+  assert.equal(v.calm.find((c) => c.key === 'hideViewCounts').locked, false, 'calm is unlocked');
+});
+
+test('deriveView preserves user settings even with expired legacy licence state', () => {
+  const now = Date.now();
+  const expiredTrial = { until: now - 1000, used: 1 };
+  const v = deriveView({
+    settings: {
+      themeId: 'primetime',
+      layout: { home: 'grid', watch: 'focus' },
+      density: 5,
+      calm: { hideViewCounts: true },
+    },
+    licence: FREE,
+    themes: FAKE_THEMES,
+    trial: expiredTrial,
+    trialEnded: true,
+    nowMs: now,
+  });
+
+  assert.equal(v.pro, false);
+  assert.equal(v.trial.active, false);
+  assert.equal(v.trial.ended, true);
+  assert.equal(v.theme.id, 'primetime', 'theme is preserved under free model');
+  assert.equal(v.themes.find((t) => t.id === 'primetime').locked, false, 'theme is unlocked');
+  assert.equal(v.layout.locked, false, 'layout is unlocked');
+  assert.equal(v.density.locked, false, 'density is unlocked');
+});
+
+test('checkEntitlement allows Pro themes, layout, density and calm during active trial', () => {
+  const trial = { until: Date.now() + 600000, used: 1 };
+  assert.equal(checkEntitlement({ themeId: 'primetime' }, { licence: FREE, trial, themes: FAKE_THEMES }).ok, true);
+  assert.equal(checkEntitlement({ layout: { home: 'grid' } }, { licence: FREE, trial, themes: FAKE_THEMES }).ok, true);
+  assert.equal(checkEntitlement({ density: 5 }, { licence: FREE, trial, themes: FAKE_THEMES }).ok, true);
+  assert.equal(checkEntitlement({ calm: { hideViewCounts: true } }, { licence: FREE, trial, themes: FAKE_THEMES }).ok, true);
+});
+
+test('sheetFeatureInfo provides correct titles, descriptions, and preview styles for Pro features', () => {
+  const pt = FAKE_THEMES.find((t) => t.id === 'primetime');
+  const themeInfo = sheetFeatureInfo('theme', 'primetime', pt);
+  assert.match(themeInfo.title, /Prime Time Theme/);
+  assert.ok(themeInfo.desc);
+
+  const layoutInfo = sheetFeatureInfo('layout', 'layout');
+  assert.equal(layoutInfo.title, 'Mix & Match Layouts');
+
+  const densityInfo = sheetFeatureInfo('density', 'density');
+  assert.equal(densityInfo.title, 'Custom Density');
+
+  const calmInfo = sheetFeatureInfo('calm', 'hideViewCounts');
+  assert.equal(calmInfo.title, 'Advanced Calm Mode');
+});
+
+// ---- Day 7 Upgrade Card (§6) ---------------------------------------------------------------------------------
+
+test('deriveView: Day 7 support card appears after 7 days if not dismissed', () => {
+  const now = 1760000000000;
+  const sevenDaysAgo = now - (7 * 864e5);
+  const sixDaysAgo = now - (6 * 864e5);
+
+  // 1. Exactly 7 days after install: card is shown
+  const vDay7 = deriveView({
+    licence: FREE,
+    themes: FAKE_THEMES,
+    install: { installedAt: sevenDaysAgo, day7Dismissed: false },
+    nowMs: now,
+  });
+  assert.equal(vDay7.day7Card.show, true);
+  assert.equal(vDay7.day7Card.dismissed, false);
+  assert.equal(vDay7.day7Card.installedAt, sevenDaysAgo);
+
+  // 2. Only 6 days after install: card is not shown
+  const vDay6 = deriveView({
+    licence: FREE,
+    themes: FAKE_THEMES,
+    install: { installedAt: sixDaysAgo, day7Dismissed: false },
+    nowMs: now,
+  });
+  assert.equal(vDay6.day7Card.show, false);
+
+  // 3. User on Day 7 who previously dismissed the card: card is not shown
+  const vDismissed = deriveView({
+    licence: FREE,
+    themes: FAKE_THEMES,
+    install: { installedAt: sevenDaysAgo, day7Dismissed: true },
+    nowMs: now,
+  });
+  assert.equal(vDismissed.day7Card.show, false);
+  assert.equal(vDismissed.day7Card.dismissed, true);
+
+  // 4. Missing install info: card is not shown
+  const vNull = deriveView({
+    licence: FREE,
+    themes: FAKE_THEMES,
+    install: null,
+    nowMs: now,
+  });
+  assert.equal(vNull.day7Card.show, false);
+});
+
+
+
 
 

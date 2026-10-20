@@ -6,12 +6,14 @@ import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
 import { createChromeMock } from '../helpers/chrome-mock.js';
 import {
-  ALARM_LICENCE, ALARM_MAP, API_BASE, MANUAL_REFRESH_COOLDOWN_MS, createBackground, createChromeStore,
+  ALARM_LICENCE, ALARM_MAP, ALARM_SCHEDULE, ALARM_TRIAL_END, API_BASE, MANUAL_REFRESH_COOLDOWN_MS, createBackground, createChromeStore,
 } from '../../src/background/service-worker.js';
 import { parseMapVersion } from '../../src/background/map-updater.js';
 import { signLicenceToken } from '../../src/shared/licence.js';
 import { signEnvelope, toPublicJwk } from '../../src/shared/signing.js';
-import { DEFAULT_SETTINGS, LIMITS, MSG, STORAGE_KEYS } from '../../src/shared/constants.js';
+import {
+  DEFAULT_SETTINGS, LIMITS, MSG, STORAGE_KEYS, UNINSTALL_URL, WELCOME_URL,
+} from '../../src/shared/constants.js';
 
 // The worker seeds calm empty on purpose: explicit false values would override a theme's own calm defaults.
 const SEEDED = { ...DEFAULT_SETTINGS, calm: {} };
@@ -714,7 +716,7 @@ test('schedule alarm: registers cd-schedule when enabled, removes it when disabl
   const ctx = setup({ clock });
   await install(ctx);
 
-  // Free user: checkSchedule does not apply
+  // Schedule enabled: registers alarm and applies scheduled profile
   await ctx.chrome.storage.local.set({
     [STORAGE_KEYS.schedule]: {
       enabled: true,
@@ -724,15 +726,8 @@ test('schedule alarm: registers cd-schedule when enabled, removes it when disabl
       nightTime: '20:00',
     },
   });
-  const resFree = await ctx.bg.checkSchedule();
-  assert.equal(resFree.ok, false);
-  assert.equal(resFree.reason, 'free');
 
-  // Activate Pro
-  const token = await mintToken();
-  await send(ctx, { type: MSG.ACTIVATE_LICENCE, token });
-
-  // Schedule alarm registered
+  // Schedule alarm registered directly under free model
   await ctx.bg.updateScheduleAlarm();
   const alarms = await ctx.chrome.alarms.getAll();
   assert.ok(alarms.some((a) => a.name === 'cd-schedule' && a.periodInMinutes === 1));
@@ -764,4 +759,136 @@ test('schedule alarm: registers cd-schedule when enabled, removes it when disabl
   const alarmsAfter = await ctx.chrome.alarms.getAll();
   assert.ok(!alarmsAfter.some((a) => a.name === 'cd-schedule'));
 });
+
+// ---- PRO-0: Try Pro for 10 minutes ------------------------------------------------------------------
+
+test('PRO-0 trial: starts 10-minute trial, stores cd.trial in session, increments cd.trialLog, sets cd-trial-end alarm', async () => {
+  const clock = makeClock(T0);
+  const ctx = setup({ clock });
+  await install(ctx);
+
+  // Initial trial status: no active trial
+  const initTrial = await ctx.bg.getTrial();
+  assert.equal(initTrial.ok, true);
+  assert.equal(initTrial.trial, null);
+  assert.equal(initTrial.canStart, true);
+
+  // Start trial 1
+  const res1 = await ctx.bg.startTrial();
+  assert.equal(res1.ok, true);
+  assert.equal(res1.trial.used, 1);
+  assert.equal(res1.trial.until, T0 + 10 * 60 * 1000);
+
+  // Verified in session storage
+  const sessionStored = (await ctx.chrome.storage.session.get(STORAGE_KEYS.trial))[STORAGE_KEYS.trial];
+  assert.deepEqual(sessionStored, { until: T0 + 10 * 60 * 1000, used: 1 });
+
+  // Verified in local storage (trialLog)
+  const log1 = await stored(ctx, STORAGE_KEYS.trialLog);
+  assert.deepEqual(log1, { day: '2026-10-08', count: 1 });
+
+  // Verified alarm created
+  const alarm = await ctx.chrome.alarms.get(ALARM_TRIAL_END);
+  assert.ok(alarm);
+  assert.equal(alarm.scheduledTime, T0 + 10 * 60 * 1000);
+
+  // Trigger alarm: trial expires, session storage cleared, alarm cleared
+  await ctx.bg.handleAlarm({ name: ALARM_TRIAL_END });
+  const afterAlarmSession = (await ctx.chrome.storage.session.get(STORAGE_KEYS.trial))[STORAGE_KEYS.trial];
+  assert.equal(afterAlarmSession, undefined, 'cd.trial removed from session storage');
+  const alarmAfter = await ctx.chrome.alarms.get(ALARM_TRIAL_END);
+  assert.equal(alarmAfter, undefined, 'alarm cleared');
+
+  // Start trial 2
+  clock.advance(15 * 60 * 1000);
+  const res2 = await ctx.bg.startTrial();
+  assert.equal(res2.ok, true);
+  assert.equal(res2.trial.used, 2);
+  assert.equal(res2.trial.until, clock.t + 10 * 60 * 1000);
+
+  // Start trial 3
+  clock.advance(15 * 60 * 1000);
+  const res3 = await ctx.bg.startTrial();
+  assert.equal(res3.ok, true);
+  assert.equal(res3.trial.used, 3);
+
+  // 4th trial in the same day is refused with message
+  const res4 = await ctx.bg.startTrial();
+  assert.equal(res4.ok, false);
+  assert.equal(res4.reason, 'daily-limit-reached');
+  assert.match(res4.message, /Daily preview limit reached \(3 of 3 used today\)/);
+
+  // Next day (24 hours later): limit resets, trial 1 of 3 starts successfully
+  clock.advance(24 * 3600 * 1000);
+  const resNextDay = await ctx.bg.startTrial();
+  assert.equal(resNextDay.ok, true);
+  assert.equal(resNextDay.trial.used, 1);
+  const nextLog = await stored(ctx, STORAGE_KEYS.trialLog);
+  assert.equal(nextLog.count, 1);
+  assert.equal(nextLog.day, '2026-10-09');
+});
+
+test('onboarding hooks: onInstalled opens welcome URL on first install only, setUninstallURL sets bye URL', async () => {
+  const clock = makeClock();
+  const mock = createChromeMock({ now: () => clock.t });
+  const bg = createBackground({
+    chrome: mock.chrome,
+    keys: { licence: LICENCE.pub, selectorMap: MAPKEY.pub },
+    now: () => clock.t,
+    readBundledVersion: async () => '2026.10.08.1',
+  });
+  bg.register();
+
+  // setUninstallURL called during register
+  assert.equal(mock.getUninstallURL(), UNINSTALL_URL);
+
+  // 1. Install reason opens welcome page
+  await fireAll(mock.chrome.runtime.onInstalled, { reason: 'install' });
+  const tabsAfterInstall = await mock.chrome.tabs.query({});
+  assert.equal(tabsAfterInstall.length, 1);
+  assert.equal(tabsAfterInstall[0].url, WELCOME_URL);
+  assert.equal(mock.getUninstallURL(), UNINSTALL_URL);
+
+  // 2. Update reason does NOT open welcome page
+  await fireAll(mock.chrome.runtime.onInstalled, { reason: 'update', previousVersion: '0.1.0' });
+  const tabsAfterUpdate = await mock.chrome.tabs.query({});
+  assert.equal(tabsAfterUpdate.length, 1, 'no second tab opened on update');
+
+  // 3. chrome_update reason does NOT open welcome page
+  await fireAll(mock.chrome.runtime.onInstalled, { reason: 'chrome_update' });
+  const tabsAfterChromeUpdate = await mock.chrome.tabs.query({});
+  assert.equal(tabsAfterChromeUpdate.length, 1, 'no tab opened on chrome_update');
+
+  // 4. Missing or null details does not throw and does NOT open welcome page
+  await fireAll(mock.chrome.runtime.onInstalled);
+  const tabsAfterEmpty = await mock.chrome.tabs.query({});
+  assert.equal(tabsAfterEmpty.length, 1, 'no tab opened without install reason');
+});
+
+test('install tracking: records installedAt on install and preserves on startup/re-init', async () => {
+  const clock = makeClock();
+  const mock = createChromeMock({ now: () => clock.t });
+  const bg = createBackground({
+    chrome: mock.chrome,
+    keys: { licence: LICENCE.pub, selectorMap: MAPKEY.pub },
+    now: () => clock.t,
+    readBundledVersion: async () => '2026.10.08.1',
+  });
+
+  // 1. First install records install timestamp and day7Dismissed: false
+  await bg.handleInstalled({ reason: 'install' });
+  const installed = (await mock.chrome.storage.local.get(STORAGE_KEYS.install))[STORAGE_KEYS.install];
+  assert.ok(installed, 'install record exists');
+  assert.equal(installed.installedAt, clock.t);
+  assert.equal(installed.day7Dismissed, false);
+
+  // 2. Advance time and re-run startup (e.g. startup / init)
+  clock.advance(10 * 864e5);
+  await bg.handleStartup();
+  const preserved = (await mock.chrome.storage.local.get(STORAGE_KEYS.install))[STORAGE_KEYS.install];
+  assert.equal(preserved.installedAt, installed.installedAt, 'original installedAt is preserved');
+  assert.equal(preserved.day7Dismissed, false);
+});
+
+
 

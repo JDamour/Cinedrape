@@ -205,7 +205,7 @@ function hidesDecl({ prop, value }) {
 
 const SKIN_PROPS = new Set([
   'background-color', 'background-image', 'color', 'scrollbar-color', 'accent-color', 'caret-color', 'font-family', 'font-size',
-  'font-weight', 'border', 'border-color', 'border-radius', 'box-shadow', 'outline', 'outline-offset', 'overflow',
+  'font-weight', 'border', 'border-color', 'border-left', 'border-right', 'border-radius', 'box-shadow', 'outline', 'outline-offset', 'overflow',
   'transition', 'transition-duration', 'animation', 'scroll-behavior', '--cd-duration',
 ]);
 /** The inline tint palette YouTube sets on components that use the video's own colours: the only foreign custom properties the skin writes. */
@@ -1103,8 +1103,10 @@ describe('the whole stylesheet the engine injects (tokens + skin + theme CSS)', 
   });
 
   test('theme tokens reach the page: --cd-* on html[cd-theme] and the YouTube variables point at them', () => {
+    const darkThemeIds = ['cinema', 'primetime', 'arcade', 'oled', 'frost', 'mocha', 'midnight-city', 'ember', 'terminal', 'imax'];
     for (const theme of THEMES) {
-      const page = createPage('watch', { tiles: 3, dark: theme.tokens.color.bg.length > 0 && ['cinema', 'primetime', 'arcade'].includes(theme.id) });
+      const isDark = darkThemeIds.includes(theme.id);
+      const page = createPage('watch', { tiles: 3, dark: theme.tokens.color.bg.length > 0 && isDark });
       const { document, window } = page;
       const style = document.createElement('style');
       style.textContent = [buildTokenCss(theme, {}, MAP), buildSkinCss(MAP, { theme, disabled: [] })].join('\n');
@@ -1114,7 +1116,7 @@ describe('the whole stylesheet the engine injects (tokens + skin + theme CSS)', 
       assert.equal(cs.getPropertyValue('--cd-accent'), theme.tokens.color.accent, theme.id);
       assert.equal(cs.getPropertyValue('--cd-bg'), theme.tokens.color.bg, theme.id);
       assert.equal(cs.getPropertyValue('--yt-sys-color-baseline--base-background'), 'var(--cd-bg)', theme.id);
-      assert.equal(cs.getPropertyValue('color-scheme'), ['cinema', 'primetime', 'arcade'].includes(theme.id) ? 'dark' : 'light', theme.id);
+      assert.equal(cs.getPropertyValue('color-scheme'), isDark ? 'dark' : 'light', theme.id);
     }
   });
 });

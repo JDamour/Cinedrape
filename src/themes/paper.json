@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "id": "paper",
+  "name": "Paper Study",
+  "author": "Cinedrape",
+  "version": "1.0.0",
+  "tier": "free",
+  "tokens": {
+    "color": {
+      "bg": "#f6f3eb",
+      "surface": "#ffffff",
+      "text": "#1c1b18",
+      "muted": "#59564f",
+      "accent": "#8c3822",
+      "border": "#8f8a7e"
+    },
+    "type": {
+      "family": "Serif",
+      "baseSize": 15,
+      "headingWeight": 700
+    },
+    "shape": {
+      "radius": 4,
+      "shadow": false,
+      "spacing": 4
+    }
+  },
+  "layout": {
+    "home": "grid",
+    "watch": "focus",
+    "density": 4
+  },
+  "calm": {
+    "hideHomeRecs": true,
+    "hideShorts": true
+  },
+  "css": ".cd-home{padding-inline:calc(var(--cd-space) * 3)}\n.cd-card{border-radius:var(--cd-radius);background:var(--cd-surface);border:1px solid var(--cd-border)}\n.cd-card:hover{border-color:var(--cd-accent)}\n.cd-card-thumb{border-radius:var(--cd-radius)}\n.cd-card-title{font-weight:var(--cd-heading-weight);line-height:1.35}\n.cd-card-meta{color:var(--cd-muted)}"
+}

@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "id": "frost",
+  "name": "Frost",
+  "author": "Cinedrape",
+  "version": "1.0.0",
+  "tier": "free",
+  "tokens": {
+    "color": {
+      "bg": "#0f172a",
+      "surface": "#1e293b",
+      "text": "#f1f5f9",
+      "muted": "#94a3b8",
+      "accent": "#22d3ee",
+      "border": "#64748b"
+    },
+    "type": {
+      "family": "System",
+      "baseSize": 14,
+      "headingWeight": 600
+    },
+    "shape": {
+      "radius": 8,
+      "shadow": true,
+      "spacing": 3
+    }
+  },
+  "layout": {
+    "home": "grid",
+    "watch": "default",
+    "density": 3
+  },
+  "calm": {},
+  "css": ".cd-home{padding-inline:calc(var(--cd-space) * 2)}\n.cd-card{border-radius:var(--cd-radius);background:var(--cd-surface);box-shadow:var(--cd-shadow)}\n.cd-card:hover .cd-card-thumb{transform:translateY(-2px);border-color:var(--cd-accent)}\n.cd-card-thumb{border-radius:var(--cd-radius);border:1px solid var(--cd-border)}\n.cd-card-title{font-weight:var(--cd-heading-weight);letter-spacing:-0.01em}\n.cd-card-duration{border-radius:calc(var(--cd-radius) / 2)}"
+}

@@ -11,13 +11,18 @@
 // Structure: createBackground() builds all the handlers from injected dependencies (tests pass chrome-mock and fakes); the
 // few lines at the bottom wire the real `chrome` and register every listener synchronously at top level, which is the only
 // way MV3 delivers the event that woke the worker.
-import { DEFAULT_SETTINGS, LIMITS, MSG, STORAGE_KEYS } from '../shared/constants.js';
+import {
+  DEFAULT_SETTINGS, LIMITS, MSG, STORAGE_KEYS, UNINSTALL_URL, WELCOME_URL,
+} from '../shared/constants.js';
 import * as publicKeys from '../shared/public-keys.js';
-import { compareMapVersions } from '../shared/signing.js';
+import { compareMapVersions, verifyEnvelope as defaultVerifyEnvelope } from '../shared/signing.js';
+import { parseEnvelopePayload } from '../shared/selector-map.js';
+import { messageId, messagePatch } from '../shared/messages.js';
 import { createLicenceManager } from './licence-manager.js';
 import { parseMapVersion, refreshSelectorMap } from './map-updater.js';
-import { createSettingsStore } from './settings-store.js';
-import { computeScheduledProfileId, resolveProfileSettings } from '../shared/profiles.js';
+import { calculateNextBoundaryMs, createSettingsStore } from './settings-store.js';
+import { canStartTrial, getTrialDay, isTrialActive } from '../shared/entitlements.js';
+import defaultBundledEnvelope from '../data/selector-map.signed.json' with { type: 'json' };
 
 /** Base URL of the Cinedrape API, no trailing slash needed. Empty = the extension never touches the network. */
 export const API_BASE = '';
@@ -25,6 +30,7 @@ export const API_BASE = '';
 export const ALARM_LICENCE = 'cd-licence';
 export const ALARM_MAP = 'cd-map';
 export const ALARM_SCHEDULE = 'cd-schedule';
+export const ALARM_TRIAL_END = 'cd-trial-end';
 export const MANUAL_REFRESH_COOLDOWN_MS = 30000;
 export const BUNDLED_MAP_PATH = 'data/selector-map.json';
 
@@ -67,7 +73,7 @@ export function createChromeStore(area) {
  */
 export function createBackground(options = {}) {
   const {
-    chrome, fetch, now = () => Date.now(), apiBase = '', keys = DEFAULT_KEYS, readBundledVersion,
+    chrome, fetch, now = () => Date.now(), apiBase = '', keys = DEFAULT_KEYS, readBundledVersion, readBundledMap,
     verifyLicenceToken, licenceState, verifyEnvelope, validateMapShape, timeoutMs,
   } = options;
   if (!chrome || !chrome.storage || !chrome.storage.local) throw new TypeError('createBackground: chrome.storage.local is required');
@@ -81,22 +87,40 @@ export function createBackground(options = {}) {
     store, now, apiBase: base, fetch, publicKey: licenceKey, verifyLicenceToken, licenceState, timeoutMs,
   });
 
+  // The packaged map (data/selector-map.json). Reading our own file is not network access. A failed read is not cached.
+  let bundledMapCache = null;
+  async function bundledMap() {
+    if (bundledMapCache) return bundledMapCache;
+    try {
+      let map = null;
+      if (readBundledMap) {
+        map = await readBundledMap();
+      } else {
+        const res = await globalThis.fetch(chrome.runtime.getURL(BUNDLED_MAP_PATH));
+        if (res.ok) map = parseEnvelopePayload(await res.json());
+      }
+      if (map && typeof map === 'object') bundledMapCache = map;
+    } catch {}
+    if (!bundledMapCache && defaultBundledEnvelope) {
+      bundledMapCache = parseEnvelopePayload(defaultBundledEnvelope);
+    }
+    return bundledMapCache;
+  }
+
+  /** Verified cached map when it is newer than the packaged one, else the packaged map (null only if unreadable). */
   async function getActiveSelectorMap() {
+    const bundled = await bundledMap();
     const stored = await store.get(STORAGE_KEYS.selectorMap);
     if (stored) {
-      if (typeof verifyEnvelope === 'function') {
-        try {
-          const res = await verifyEnvelope(stored, mapKey);
-          if (res && res.ok && res.payload) return JSON.parse(res.payload);
-        } catch {}
-      } else {
-        try {
-          const parsed = typeof stored === 'string' ? JSON.parse(stored) : stored;
-          if (parsed && typeof parsed.payload === 'string') return JSON.parse(parsed.payload);
-        } catch {}
-      }
+      try {
+        const res = await (verifyEnvelope || defaultVerifyEnvelope)(stored, mapKey);
+        if (res && res.ok && res.payload) {
+          const map = JSON.parse(res.payload);
+          if (!bundled || compareMapVersions(map.mapVersion, bundled.mapVersion) > 0) return map;
+        }
+      } catch {}
     }
-    return null;
+    return bundled;
   }
 
   const settingsStore = createSettingsStore({
@@ -139,7 +163,10 @@ export function createBackground(options = {}) {
   async function ensureDefaults() {
     const current = await store.get(STORAGE_KEYS.settings);
     if (current !== undefined && current !== null) return false;
-    await store.set(STORAGE_KEYS.settings, { ...JSON.parse(JSON.stringify(DEFAULT_SETTINGS)), calm: {} });
+    await chrome.storage.local.set({
+      [STORAGE_KEYS.settings]: { ...JSON.parse(JSON.stringify(DEFAULT_SETTINGS)), calm: {} },
+      [STORAGE_KEYS.install]: { installedAt: now(), day7Dismissed: false },
+    });
     return true;
   }
 
@@ -158,14 +185,12 @@ export function createBackground(options = {}) {
     await updateScheduleAlarm();
   }
 
-  /** Updates the schedule alarm based on stored schedule and Pro status. */
+  /** Updates the schedule alarm based on stored schedule. */
   async function updateScheduleAlarm() {
     if (!chrome.alarms) return;
-    const lic = await licence.getState();
-    const isPro = lic.plan === 'pro' && (lic.status === 'active' || lic.status === 'grace');
-    const schedule = await store.get(STORAGE_KEYS.schedule);
+    const schedule = await settingsStore.getScheduleRecord();
     const existing = await chrome.alarms.get(ALARM_SCHEDULE);
-    if (isPro && schedule && schedule.enabled) {
+    if (schedule && schedule.enabled) {
       if (!existing || existing.periodInMinutes !== 1) {
         await chrome.alarms.create(ALARM_SCHEDULE, { periodInMinutes: 1 });
       }
@@ -174,56 +199,9 @@ export function createBackground(options = {}) {
     }
   }
 
-  /** Checks schedule against current time and applies target profile settings if needed. */
-  async function checkSchedule() {
-    const lic = await licence.getState();
-    if (lic.plan !== 'pro' || (lic.status !== 'active' && lic.status !== 'grace')) {
-      return { ok: false, reason: 'free' };
-    }
-    const schedule = await store.get(STORAGE_KEYS.schedule);
-    if (!schedule || !schedule.enabled) {
-      return { ok: false, reason: 'disabled' };
-    }
-    const nowMs = now();
-    if (typeof schedule.manualOverrideUntil === 'number') {
-      if (nowMs < schedule.manualOverrideUntil) {
-        return { ok: true, overridden: true, manualOverrideUntil: schedule.manualOverrideUntil };
-      }
-      schedule.manualOverrideUntil = null;
-      await store.set(STORAGE_KEYS.schedule, schedule);
-    }
-
-    const d = new Date(nowMs);
-    const hh = String(d.getHours()).padStart(2, '0');
-    const mm = String(d.getMinutes()).padStart(2, '0');
-    const currentTime = `${hh}:${mm}`;
-    const targetProfileId = computeScheduledProfileId(schedule, currentTime);
-    if (!targetProfileId) return { ok: false, reason: 'no-target' };
-
-    const profiles = await store.get(STORAGE_KEYS.profiles);
-    const targetSettings = resolveProfileSettings(targetProfileId, profiles);
-    if (!targetSettings) {
-      schedule.enabled = false;
-      schedule.lastError = 'missing-profile';
-      await store.set(STORAGE_KEYS.schedule, schedule);
-      await updateScheduleAlarm();
-      return { ok: false, reason: 'profile-not-found' };
-    }
-
-    const currentSettings = (await store.get(STORAGE_KEYS.settings)) || {};
-    const needsUpdate = currentSettings.themeId !== targetSettings.themeId
-      || currentSettings.accent !== targetSettings.accent
-      || currentSettings.density !== targetSettings.density
-      || currentSettings.animations !== targetSettings.animations
-      || currentSettings.textScale !== targetSettings.textScale
-      || JSON.stringify(currentSettings.calm || {}) !== JSON.stringify(targetSettings.calm || {});
-
-    if (needsUpdate) {
-      const merged = { ...currentSettings, ...targetSettings };
-      await store.set(STORAGE_KEYS.settings, merged);
-      return { ok: true, profileId: targetProfileId, applied: true };
-    }
-    return { ok: true, profileId: targetProfileId, applied: false };
+  /** Applies the schedule's current slot if it has not been applied yet (see settings-store `checkSchedule`). */
+  function checkSchedule() {
+    return settingsStore.checkSchedule();
   }
 
   /**
@@ -252,9 +230,81 @@ export function createBackground(options = {}) {
     return !!(result && result.ok === true);
   }
 
+  // Allow content scripts to read session storage if supported
+  try {
+    if (chrome.storage && chrome.storage.session && typeof chrome.storage.session.setAccessLevel === 'function') {
+      chrome.storage.session.setAccessLevel({ accessLevel: 'TRUSTED_AND_UNTRUSTED_CONTEXTS' }).catch(() => {});
+    }
+  } catch {}
+
+  async function checkTrialExpiry() {
+    if (!chrome.storage || !chrome.storage.session) return;
+    try {
+      const items = await chrome.storage.session.get([STORAGE_KEYS.trial]);
+      const trial = items ? items[STORAGE_KEYS.trial] : undefined;
+      if (trial && typeof trial.until === 'number') {
+        if (trial.until <= now()) {
+          await chrome.storage.session.remove(STORAGE_KEYS.trial);
+          await chrome.storage.session.set({ cd_trialEnded: true });
+          if (chrome.alarms) await chrome.alarms.clear(ALARM_TRIAL_END);
+        } else if (chrome.alarms) {
+          const existing = await chrome.alarms.get(ALARM_TRIAL_END);
+          if (!existing) {
+            await chrome.alarms.create(ALARM_TRIAL_END, { when: trial.until });
+          }
+        }
+      }
+    } catch (err) {
+      debug('checkTrialExpiry failed', err);
+    }
+  }
+
+  async function startTrial() {
+    if (!chrome.storage || !chrome.storage.session) {
+      return { ok: false, reason: 'unsupported', message: 'Session storage is not available in this browser.' };
+    }
+    const trialLog = await store.get(STORAGE_KEYS.trialLog);
+    const check = canStartTrial(trialLog, now(), LIMITS.maxDailyTrials);
+    if (!check.ok) {
+      return { ok: false, reason: check.reason, message: check.message };
+    }
+    const today = getTrialDay(now());
+    const count = check.count + 1;
+    await store.set(STORAGE_KEYS.trialLog, { day: today, count });
+
+    const duration = LIMITS.trialDurationMs || (10 * 60 * 1000);
+    const until = now() + duration;
+    const trial = { until, used: count };
+    await chrome.storage.session.set({ [STORAGE_KEYS.trial]: trial });
+    await chrome.storage.session.remove('cd_trialEnded').catch(() => {});
+
+    if (chrome.alarms) {
+      await chrome.alarms.create(ALARM_TRIAL_END, { when: until });
+    }
+    return { ok: true, trial };
+  }
+
+  async function getTrial() {
+    let trial = null;
+    let trialEnded = false;
+    if (chrome.storage && chrome.storage.session) {
+      try {
+        const items = await chrome.storage.session.get([STORAGE_KEYS.trial, 'cd_trialEnded']);
+        if (items) {
+          const raw = items[STORAGE_KEYS.trial];
+          if (isTrialActive(raw, now())) trial = raw;
+          if (items.cd_trialEnded) trialEnded = true;
+        }
+      } catch {}
+    }
+    const trialLog = await store.get(STORAGE_KEYS.trialLog);
+    const check = canStartTrial(trialLog, now(), LIMITS.maxDailyTrials);
+    return { ok: true, trial, trialEnded, trialLog: trialLog || null, canStart: check.ok };
+  }
+
   function initialise() {
     return serial(async () => {
-      for (const step of [ensureDefaults, ensureAlarms, pruneStaleMap, refreshLicenceLocally, checkSchedule]) {
+      for (const step of [ensureDefaults, ensureAlarms, pruneStaleMap, refreshLicenceLocally, checkSchedule, checkTrialExpiry]) {
         try { await step(); } catch (err) { debug('init step failed', step.name, err); }
       }
     });
@@ -297,7 +347,23 @@ export function createBackground(options = {}) {
     let job;
     if (name === ALARM_LICENCE) job = () => licence.recheck();
     else if (name === ALARM_MAP) job = () => refreshMap();
-    else if (name === ALARM_SCHEDULE) job = () => checkSchedule();
+    else if (name === ALARM_SCHEDULE) {
+      job = async () => {
+        const result = await checkSchedule();
+        await updateScheduleAlarm();
+        return result;
+      };
+    }
+    else if (name === ALARM_TRIAL_END) {
+      job = async () => {
+        if (chrome.storage && chrome.storage.session) {
+          await chrome.storage.session.remove(STORAGE_KEYS.trial);
+          await chrome.storage.session.set({ cd_trialEnded: true }).catch(() => {});
+        }
+        if (chrome.alarms) await chrome.alarms.clear(ALARM_TRIAL_END);
+        return { ok: true };
+      };
+    }
     else return Promise.resolve(undefined);
     return Promise.resolve().then(job).catch((err) => {
       debug('alarm failed', name, err);
@@ -355,7 +421,12 @@ export function createBackground(options = {}) {
           send(sendResponse, { ok: false, reason: 'forbidden' });
           return false;
         }
-        return respondAsync(sendResponse, () => licence.activate(message.token));
+        return respondAsync(sendResponse, async () => {
+          const res = await licence.activate(message.token);
+          // Pro may have just started: arm (or clear) the schedule alarm without waiting for the next start-up.
+          await updateScheduleAlarm().catch(() => {});
+          return res;
+        });
       case MSG.REFRESH_MAP:
         return respondAsync(sendResponse, async () => ({ ok: true, ...(await refreshFromMessage()) }));
       case MSG.SAVE_THEME:
@@ -373,7 +444,7 @@ export function createBackground(options = {}) {
           send(sendResponse, { ok: false, reason: 'forbidden' });
           return false;
         }
-        return respondAsync(sendResponse, () => settingsStore.deleteTheme(message.id, {
+        return respondAsync(sendResponse, () => settingsStore.deleteTheme(messageId(message), {
           expectedRevision: message.expectedRevision,
           resetReferences: message.resetReferences,
         }));
@@ -388,13 +459,18 @@ export function createBackground(options = {}) {
           send(sendResponse, { ok: false, reason: 'forbidden' });
           return false;
         }
-        return respondAsync(sendResponse, () => settingsStore.deleteProfile(message.id, message.expectedRevision));
+        return respondAsync(sendResponse, async () => {
+          const res = await settingsStore.deleteProfile(messageId(message), message.expectedRevision);
+          // Deleting a profile a schedule used disables that schedule; drop its alarm too.
+          if (res.ok) await updateScheduleAlarm().catch(() => {});
+          return res;
+        });
       case MSG.APPLY_PROFILE:
         if (!fromExtensionPage(sender)) {
           send(sendResponse, { ok: false, reason: 'forbidden' });
           return false;
         }
-        return respondAsync(sendResponse, () => settingsStore.applyProfile(message.id));
+        return respondAsync(sendResponse, () => settingsStore.applyProfile(messageId(message)));
       case MSG.UPDATE_SCHEDULE:
       case 'cd:updateSchedule':
         if (!fromExtensionPage(sender)) {
@@ -413,26 +489,62 @@ export function createBackground(options = {}) {
           send(sendResponse, { ok: false, reason: 'forbidden' });
           return false;
         }
-        return respondAsync(sendResponse, () => settingsStore.saveSettings(message.patch));
+        return respondAsync(sendResponse, () => settingsStore.saveSettings(messagePatch(message)));
+      case MSG.START_TRIAL:
+        if (!fromExtensionPage(sender)) {
+          send(sendResponse, { ok: false, reason: 'forbidden' });
+          return false;
+        }
+        return respondAsync(sendResponse, () => startTrial());
+      case MSG.GET_TRIAL:
+        return respondAsync(sendResponse, () => getTrial());
       default:
         return false;
     }
   }
 
+  async function handleInstalled(details) {
+    if (details && details.reason === 'install') {
+      if (chrome.tabs && typeof chrome.tabs.create === 'function') {
+        try {
+          await chrome.tabs.create({ url: WELCOME_URL });
+        } catch (err) {
+          debug('welcome tab failed', err);
+        }
+      }
+    }
+    if (chrome.runtime && typeof chrome.runtime.setUninstallURL === 'function') {
+      try {
+        await chrome.runtime.setUninstallURL(UNINSTALL_URL);
+      } catch (err) {
+        debug('setUninstallURL failed', err);
+      }
+    }
+    return initialise();
+  }
+
   // ---- wiring ----------------------------------------------------------------------------------------------------------
   /** Attaches every listener. Call it synchronously at top level of the worker, never from a promise or timer. */
   function register() {
-    chrome.runtime.onInstalled.addListener(() => initialise());
+    chrome.runtime.onInstalled.addListener((details) => handleInstalled(details));
     chrome.runtime.onStartup.addListener(() => initialise());
     if (chrome.alarms) chrome.alarms.onAlarm.addListener((alarm) => handleAlarm(alarm));
     chrome.runtime.onMessage.addListener(handleMessage);
+    if (chrome.runtime && typeof chrome.runtime.setUninstallURL === 'function') {
+      try {
+        chrome.runtime.setUninstallURL(UNINSTALL_URL);
+      } catch (err) {
+        debug('setUninstallURL failed', err);
+      }
+    }
   }
 
   return {
     licence, register, refreshMap, settingsStore,
     ensureDefaults, ensureAlarms, pruneStaleMap, refreshLicenceLocally,
     updateScheduleAlarm, checkSchedule,
-    handleInstalled: initialise, handleStartup: initialise, handleAlarm, handleMessage,
+    checkTrialExpiry, startTrial, getTrial,
+    handleInstalled, handleStartup: initialise, handleAlarm, handleMessage,
   };
 }
 

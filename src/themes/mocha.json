@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "id": "mocha",
+  "name": "Mocha",
+  "author": "Cinedrape",
+  "version": "1.0.0",
+  "tier": "free",
+  "tokens": {
+    "color": {
+      "bg": "#1e181b",
+      "surface": "#2a2226",
+      "text": "#f8f0eb",
+      "muted": "#bfaaa8",
+      "accent": "#f5a97f",
+      "border": "#8a7579"
+    },
+    "type": {
+      "family": "Rounded",
+      "baseSize": 14,
+      "headingWeight": 600
+    },
+    "shape": {
+      "radius": 14,
+      "shadow": true,
+      "spacing": 3
+    }
+  },
+  "layout": {
+    "home": "rows",
+    "watch": "cinema",
+    "density": 3
+  },
+  "calm": {},
+  "css": ".cd-row-title{letter-spacing:0.02em;font-size:1.1em;color:var(--cd-text)}\n.cd-row-track{gap:var(--cd-gap)}\n.cd-card{border-radius:var(--cd-radius);background:var(--cd-surface);box-shadow:var(--cd-shadow)}\n.cd-card-thumb{border-radius:var(--cd-radius);border:1px solid var(--cd-border)}\n.cd-card:hover .cd-card-thumb{transform:translateY(-3px)}\n.cd-card-title{font-weight:var(--cd-heading-weight)}"
+}

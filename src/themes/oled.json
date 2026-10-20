@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "id": "oled",
+  "name": "True Black",
+  "author": "Cinedrape",
+  "version": "1.0.0",
+  "tier": "free",
+  "tokens": {
+    "color": {
+      "bg": "#000000",
+      "surface": "#0d0d0d",
+      "text": "#ffffff",
+      "muted": "#9aa5b5",
+      "accent": "#38bdf8",
+      "border": "#5c6373"
+    },
+    "type": {
+      "family": "Inter",
+      "baseSize": 14,
+      "headingWeight": 700
+    },
+    "shape": {
+      "radius": 6,
+      "shadow": false,
+      "spacing": 3
+    }
+  },
+  "layout": {
+    "home": "hero-rows",
+    "watch": "cinema",
+    "density": 3
+  },
+  "calm": {},
+  "css": ".cd-hero{border-radius:var(--cd-radius);border:1px solid var(--cd-border);background:var(--cd-surface)}\n.cd-hero-title{letter-spacing:-0.02em;font-weight:var(--cd-heading-weight)}\n.cd-hero-cta{background:var(--cd-accent);color:var(--cd-accent-text);border-radius:var(--cd-radius)}\n.cd-row-title{letter-spacing:0.04em;font-weight:var(--cd-heading-weight)}\n.cd-card{border:1px solid var(--cd-border);border-radius:var(--cd-radius);background:var(--cd-surface)}\n.cd-card:hover{border-color:var(--cd-accent)}"
+}

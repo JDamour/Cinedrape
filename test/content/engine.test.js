@@ -37,6 +37,33 @@ function spyHealth() {
 }
 
 describe('boot and apply', () => {
+  test('theme changes apply when Edge suspends animation frames', async () => {
+    await withEnv('home', { page: HOME }, async (env) => {
+      await env.engine.start();
+      const queued = [];
+      env.window.requestAnimationFrame = (fn) => { queued.push(fn); return queued.length; };
+      env.window.cancelAnimationFrame = () => {};
+      await env.set('settings', { themeId: 'minimal' });
+      await waitFor(() => env.attr('cd-theme') === 'minimal', 'theme applied without an animation frame');
+      assert.ok(env.style().textContent.includes(theme('minimal').tokens.color.bg));
+      for (const fn of queued.splice(0)) fn();
+      assert.equal(env.attr('cd-theme'), 'minimal', 'late animation frame keeps the latest theme');
+    });
+  });
+
+  test('stopping the engine cancels a pending timer fallback', async () => {
+    await withEnv('home', { page: HOME }, async (env) => {
+      await env.engine.start();
+      env.window.requestAnimationFrame = () => 999;
+      env.window.cancelAnimationFrame = () => {};
+      await env.set('settings', { themeId: 'minimal' });
+      env.engine.stop();
+      await sleep(150);
+      assert.equal(env.attr('cd-theme'), null);
+      assert.equal(env.style(), null);
+    });
+  });
+
   test('defaults: attributes, one <style> with rules, cinema theme, status', async () => {
     const warn = mock.method(console, 'warn', () => {});
     try {
@@ -63,9 +90,10 @@ describe('boot and apply', () => {
         assert.equal(status.features.theme, 'on');
         assert.equal(status.features['layout-home'], 'on');
         assert.equal(status.features['layout-watch'], 'on');
-        assert.equal(status.features.density, 'locked');
+        assert.equal(status.features.density, 'off');
         assert.equal(status.features['calm-hideShorts'], 'off');
-        assert.equal(status.features['calm-hideComments'], 'locked');
+        assert.equal(status.features['calm-hideComments'], 'off');
+        assert.equal(status.features['calm-hideViewCounts'], 'off');
         assert.equal(warn.mock.callCount(), 0);
         await waitFor(() => mounted(env), 'home layout mounted');
       });
@@ -133,7 +161,7 @@ describe('boot and apply', () => {
       for (const licence of ['x', 5, [], { token: 5 }, { token: 'a.b', claims: 'junk', checkedAt: 'now' }, { claims: { plan: 'pro' } }]) {
         await withEnv('home', { page: HOME, stored: { settings: { themeId: 'studio' }, licence } }, async (env) => {
           await env.engine.start();
-          assert.equal(env.attr('cd-theme'), 'cinema', JSON.stringify(licence));
+          assert.equal(env.attr('cd-theme'), 'studio', JSON.stringify(licence));
           assert.equal(env.engine.getStatus().pro, false);
         });
       }
@@ -143,32 +171,33 @@ describe('boot and apply', () => {
 });
 
 describe('tiers', () => {
-  test('a free user with a Pro theme stored gets cinema (status says so); a verified Pro licence unlocks it; removing it falls back', async () => {
+  test('all themes are free: primetime is applied directly; a verified Pro licence sets status.pro, and removing it retains primetime', async () => {
     const keys = await makeKeyPair('licence-1');
     const licence = await proLicence(keys.privateJwk);
     await withEnv('home', { page: HOME, stored: { settings: { themeId: 'primetime' } }, engine: { publicKeys: { licence: keys.publicJwk } } }, async (env) => {
       await env.engine.start();
-      assert.equal(env.attr('cd-theme'), 'cinema');
+      assert.equal(env.attr('cd-theme'), 'primetime');
       let status = env.engine.getStatus();
-      assert.equal(status.themeId, 'cinema');
+      assert.equal(status.themeId, 'primetime');
       assert.equal(status.pro, false);
       const stored = (await env.chrome.storage.local.get(STORAGE_KEYS.settings))[STORAGE_KEYS.settings];
-      assert.equal(stored.themeId, 'primetime', 'the stored choice is never rewritten');
+      assert.equal(stored.themeId, 'primetime', 'the stored choice is preserved');
 
       await env.set('licence', licence);
-      await waitFor(() => env.attr('cd-theme') === 'primetime', 'pro theme applied');
+      await waitFor(() => env.engine.getStatus().pro === true, 'pro status active');
       status = env.engine.getStatus();
       assert.equal(status.themeId, 'primetime');
       assert.equal(status.pro, true);
-      assert.equal(status.features.density, 'off', 'unlocked but not set');
+      assert.equal(status.features.density, 'off', 'unlocked and free');
       assert.ok(env.style().textContent.includes(theme('primetime').tokens.color.bg));
 
       await env.set('licence', null);
-      await waitFor(() => env.attr('cd-theme') === 'cinema', 'back to cinema');
+      await waitFor(() => env.engine.getStatus().pro === false, 'pro status false');
+      assert.equal(env.attr('cd-theme'), 'primetime', 'primetime remains active under free model');
     });
   });
 
-  test('a Pro licence in storage at boot unlocks the theme; a token that does not verify is downgraded', async () => {
+  test('a Pro licence in storage at boot sets status.pro; a token that does not verify is downgraded to pro: false', async () => {
     const keys = await makeKeyPair('licence-1');
     const other = await makeKeyPair('licence-1');
     const settings = { themeId: 'studio' };
@@ -176,11 +205,13 @@ describe('tiers', () => {
       await env.engine.start();
       assert.equal(env.attr('cd-theme'), 'studio');
       await sleep(60);
-      assert.equal(env.attr('cd-theme'), 'studio', 'a valid token stays Pro after the background verification');
+      assert.equal(env.attr('cd-theme'), 'studio');
+      assert.equal(env.engine.getStatus().pro, true, 'a valid token stays Pro after the background verification');
     });
     await withEnv('home', { page: HOME, stored: { settings, licence: await proLicence(other.privateJwk) }, engine: { publicKeys: { licence: keys.publicJwk } } }, async (env) => {
       await env.engine.start();
-      await waitFor(() => env.attr('cd-theme') === 'cinema', 'forged licence downgraded');
+      await waitFor(() => env.engine.getStatus().pro === false, 'forged licence downgraded');
+      assert.equal(env.attr('cd-theme'), 'studio', 'free theme remains active');
       assert.equal(env.engine.getStatus().pro, false);
     });
   });
@@ -196,10 +227,11 @@ describe('tiers', () => {
     for (const [name, licence] of Object.entries(edits)) {
       await withEnv('home', { page: HOME, stored: { settings, licence }, engine: { publicKeys: { licence: keys.publicJwk } } }, async (env) => {
         await env.engine.start();
-        await waitFor(() => env.attr('cd-theme') === 'cinema', `${name}: lapsed after the signature check`);
+        await waitFor(() => env.engine.getStatus().pro === false, `${name}: pro status false after signature check`);
         const status = env.engine.getStatus();
         assert.equal(status.pro, false, name);
-        assert.equal(status.features['calm-hideComments'], 'locked', name);
+        assert.equal(env.attr('cd-theme'), 'studio', `${name}: studio theme remains active`);
+        assert.equal(status.features['calm-hideViewCounts'], 'off', name);
       });
     }
   });
@@ -215,23 +247,25 @@ describe('tiers', () => {
       assert.equal(env.engine.getStatus().pro, true);
       clock.t += 2 * 86400000;
       await env.engine.recompute();
-      assert.equal(env.attr('cd-theme'), 'cinema');
+      assert.equal(env.attr('cd-theme'), 'studio', 'studio remains active under free model');
       assert.equal(env.engine.getStatus().pro, false);
     });
   });
 
-  test('density and calm are gated: free keeps the theme density and only the free calm toggles; Pro gets all', async () => {
+  test('density and all calm toggles are free for all users: custom density 5 and hideViewCounts apply directly', async () => {
     const settings = { themeId: 'cinema', density: 5, calm: { hideShorts: true, hideComments: true, hideViewCounts: true } };
     await withEnv('home', { page: HOME, stored: { settings } }, async (env) => {
       await env.engine.start();
-      assert.equal(env.attr('cd-density'), String(theme('cinema').layout.density));
+      assert.equal(env.attr('cd-density'), '5');
       assert.equal(env.html.hasAttribute('cd-calm-hideShorts'), true);
-      assert.equal(env.html.hasAttribute('cd-calm-hideComments'), false);
-      assert.equal(env.html.hasAttribute('cd-calm-hideViewCounts'), false);
+      assert.equal(env.html.hasAttribute('cd-calm-hideComments'), true);
+      assert.equal(env.html.hasAttribute('cd-calm-hideViewCounts'), true);
       const f = env.engine.getStatus().features;
-      assert.equal(f.density, 'locked');
+      assert.equal(f.density, 'on');
       assert.equal(f['calm-hideShorts'], 'on');
-      assert.equal(f['calm-hideComments'], 'locked');
+      assert.equal(f['calm-hideComments'], 'on');
+      assert.equal(f['calm-hideViewCounts'], 'on');
+      assert.equal(f['calm-hideEndScreens'], 'off');
     });
     const keys = await makeKeyPair('licence-1');
     await withEnv('home', { page: HOME, stored: { settings, licence: await proLicence(keys.privateJwk) }, engine: { publicKeys: { licence: keys.publicJwk } } }, async (env) => {
@@ -252,6 +286,47 @@ describe('tiers', () => {
       assert.equal(env.html.hasAttribute('cd-calm-hideShorts'), true);
       await env.set('settings', { themeId: 'minimal', calm: { hideShorts: false } });
       await waitFor(() => !env.html.hasAttribute('cd-calm-hideShorts'), 'user choice wins');
+    });
+  });
+
+  test('universal free access: primetime, layout, density, and calm are active without trial; trial presence sets status.trial', async () => {
+    const settings = {
+      themeId: 'primetime',
+      layout: { home: 'grid', watch: 'focus' },
+      density: 5,
+      calm: { hideViewCounts: true },
+    };
+    await withEnv('home', { page: HOME, stored: { settings } }, async (env) => {
+      // Free user without trial -> primetime, custom layout, density 5, calm applied directly
+      await env.engine.start();
+      assert.equal(env.attr('cd-theme'), 'primetime');
+      assert.equal(env.attr('cd-home'), 'grid');
+      assert.equal(env.attr('cd-watch'), 'focus');
+      assert.equal(env.attr('cd-density'), '5');
+      assert.equal(env.html.hasAttribute('cd-calm-hideViewCounts'), true);
+
+      // Start trial in session storage
+      const until = Date.now() + 600000;
+      await env.chrome.storage.session.set({ [STORAGE_KEYS.trial]: { until, used: 1 } });
+      await env.engine.recompute();
+      assert.equal(env.attr('cd-theme'), 'primetime');
+      assert.equal(env.attr('cd-home'), 'grid');
+      assert.equal(env.attr('cd-density'), '5');
+      assert.equal(env.html.hasAttribute('cd-calm-hideViewCounts'), true);
+
+      // Trial ends -> session storage cleared
+      await env.chrome.storage.session.remove(STORAGE_KEYS.trial);
+      await env.engine.recompute();
+      assert.equal(env.attr('cd-theme'), 'primetime');
+      assert.equal(env.attr('cd-home'), 'grid');
+      assert.equal(env.attr('cd-density'), '5');
+      assert.equal(env.html.hasAttribute('cd-calm-hideViewCounts'), true);
+
+      // Stored settings remained identical
+      const stored = (await env.chrome.storage.local.get(STORAGE_KEYS.settings))[STORAGE_KEYS.settings];
+      assert.equal(stored.themeId, 'primetime');
+      assert.equal(stored.density, 5);
+      assert.equal(stored.layout.home, 'grid');
     });
   });
 });

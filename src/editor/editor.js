@@ -12,7 +12,7 @@ import {
   slugifyThemeName,
   cloneTheme,
 } from './editor-model.js';
-import { STORAGE_KEYS, LIMITS, MSG, RESERVED_THEME_IDS } from '../shared/constants.js';
+import { STORAGE_KEYS, LIMITS, MSG, RESERVED_THEME_IDS, SUPPORT_URL } from '../shared/constants.js';
 import { isReservedThemeId, normalizeCustomThemes } from '../shared/collections.js';
 import { isPro } from '../shared/entitlements.js';
 import { parseEnvelopePayload } from '../shared/selector-map.js';
@@ -20,6 +20,7 @@ import { SELECTOR_MAP_PUBLIC_KEY, LICENCE_PUBLIC_KEY } from '../shared/public-ke
 import { verifyEnvelope } from '../shared/signing.js';
 import { validateCss, buildAllowList } from '../shared/css-validator.js';
 import { licenceFromRecordVerified } from '../popup/model.js';
+import { describeFailure, isWorkerReply, messages } from '../shared/messages.js';
 
 import { THEMES } from '../themes/index.js';
 import broadcastTheme from '../themes/broadcast.json' with { type: 'json' };
@@ -40,6 +41,7 @@ export function initEditor(documentRef = document, windowRef = window) {
     nameInput: doc.getElementById('theme-name-input'),
     authorInput: doc.getElementById('theme-author-input'),
     templateSelect: doc.getElementById('template-select'),
+    supportLink: doc.getElementById('editor-support-link'),
     btnExport: doc.getElementById('btn-export'),
     btnSave: doc.getElementById('btn-save'),
     btnApply: doc.getElementById('btn-apply'),
@@ -106,6 +108,8 @@ export function initEditor(documentRef = document, windowRef = window) {
     widthCompactBtn: doc.getElementById('width-compact-btn'),
   };
 
+  if (els.supportLink) els.supportLink.href = SUPPORT_URL;
+
   let currentTheme = createDefaultTheme();
   let originalTheme = JSON.parse(JSON.stringify(currentTheme));
   let isDirty = false;
@@ -165,8 +169,8 @@ export function initEditor(documentRef = document, windowRef = window) {
   }
 
   async function checkProEntitlement() {
-    const state = await getLicenceState();
-    return isPro(state);
+    // In Cinedrape free-with-support, custom themes are 100% free to create and save for everyone.
+    return true;
   }
 
   function showNotice(message, kind = 'info') {
@@ -761,19 +765,29 @@ export function initEditor(documentRef = document, windowRef = window) {
 
       // Try worker mutation handler first
       let workerSaved = false;
+      const isExisting = Boolean(currentTheme._isExisting || customThemes[val.theme.id]);
       if (chromeApi.runtime && chromeApi.runtime.sendMessage) {
         try {
-          const resp = await chromeApi.runtime.sendMessage({
-            type: MSG.SAVE_THEME,
-            theme: val.theme,
-            expectedRevision: norm.record ? norm.record.revision : undefined,
-          });
-          if (resp && resp.ok) workerSaved = true;
+          const resp = await chromeApi.runtime.sendMessage(
+            messages.saveTheme(val.theme, {
+              mode: isExisting ? 'update' : 'create',
+              expectedRevision: norm.record ? norm.record.revision : undefined,
+              apply: andApply,
+            })
+          );
+          if (isWorkerReply(resp)) {
+            if (resp.ok) {
+              workerSaved = true;
+            } else {
+              showNotice(`Cannot save: ${describeFailure(resp)}`, 'error');
+              return false;
+            }
+          }
         } catch { /* worker offline or busy */ }
       }
 
       if (!workerSaved) {
-        // Direct storage write with canonical envelope
+        // Direct storage write with canonical envelope (fallback when worker is offline)
         customThemes[val.theme.id] = val.theme;
         const env = {
           schema: 1,
@@ -781,20 +795,7 @@ export function initEditor(documentRef = document, windowRef = window) {
           items: customThemes,
         };
         await chromeApi.storage.local.set({ [STORAGE_KEYS.customThemes]: env });
-      }
-
-      if (andApply) {
-        let applied = false;
-        if (chromeApi.runtime && chromeApi.runtime.sendMessage) {
-          try {
-            const resp = await chromeApi.runtime.sendMessage({
-              type: MSG.SAVE_SETTINGS,
-              settings: { themeId: val.theme.id },
-            });
-            if (resp && resp.ok) applied = true;
-          } catch { /* fallback */ }
-        }
-        if (!applied) {
+        if (andApply) {
           const settings = (stored && stored[STORAGE_KEYS.settings]) || {};
           await chromeApi.storage.local.set({
             [STORAGE_KEYS.settings]: { ...settings, themeId: val.theme.id },

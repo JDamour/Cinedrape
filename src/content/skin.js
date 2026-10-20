@@ -55,10 +55,11 @@ export const FALLBACK = Object.freeze({
   historyList: ['ytd-browse[page-subtype="history"] ytd-section-list-renderer'],
   playlistPanel: ['ytd-browse[page-subtype="playlist"] yt-item-section-renderer > #contents'],
   // ---- roles only the skin knows (candidates for the map) ----
-  searchInputBox: ['yt-searchbox .ytSearchboxComponentInputBox'],
+  searchInputBox: ['yt-searchbox .ytSearchboxComponentInputBox', 'ytd-searchbox #container'],
   searchInput: ['yt-searchbox .ytSearchboxComponentInput'],
   searchButton: ['yt-searchbox .ytSearchboxComponentSearchButton'],
   searchSuggest: ['yt-searchbox .ytSearchboxComponentSuggestionsContainer'],
+  watchPlayerBackground: ['#player-theater-container', '.player-container-background'],
   guideItem: ['ytd-guide-entry-renderer tp-yt-paper-item'],
   guideItemActive: ['ytd-guide-entry-renderer[active] tp-yt-paper-item', 'ytd-guide-entry-renderer[is-active] tp-yt-paper-item'],
   chip: ['.ytChipShapeChip', 'yt-chip-cloud-chip-renderer #chip-container'],
@@ -79,7 +80,15 @@ export const FALLBACK = Object.freeze({
     'yt-button-view-model[outline] button',
   ],
   buttonCta: ['.yt-spec-button-shape-next--call-to-action.yt-spec-button-shape-next--outline'],
-  buttonText: ['.yt-spec-button-shape-next--text', '.yt-spec-button-shape-next--icon-button'],
+  buttonText: [
+    '.yt-spec-button-shape-next--text',
+    '.yt-spec-button-shape-next--icon-button',
+    'yt-icon-button',
+  ],
+  icon: [
+    'yt-icon',
+    'tp-yt-iron-icon',
+  ],
   buttonPrimary: [
     '.yt-spec-button-shape-next--filled.yt-spec-button-shape-next--mono',
     '.yt-spec-button-shape-next--filled.yt-spec-button-shape-next--call-to-action',
@@ -256,6 +265,7 @@ export function buildSkinCss(map, cfg) {
   rule(G($('frostedGlass')), 'background-color:var(--cd-scrim)');
   rule(G($('searchInputBox')), 'background-color:var(--cd-surface);border-color:var(--cd-border);color:var(--cd-text);'
     + 'border-radius:min(var(--cd-radius),20px) 0 0 min(var(--cd-radius),20px)');
+  rule(G($('searchInputBox'), ':focus-within'), 'border-color:var(--cd-accent)');
   rule(G($('searchInput')), 'color:var(--cd-text);caret-color:var(--cd-accent)');
   rule(G($('searchInput'), '::placeholder'), 'color:var(--cd-muted)');
   rule(G($('searchButton')), 'background-color:var(--cd-hover);border-color:var(--cd-border);color:var(--cd-text);'
@@ -281,7 +291,9 @@ export function buildSkinCss(map, cfg) {
   rule(G($('button')), `border-radius:min(calc(var(--cd-radius) * 2),18px);${T('background-color', 'color', 'border-color')}`);
   rule(G($('buttonTonal')), 'background-color:var(--cd-hover);color:var(--cd-text)');
   rule(G($('buttonTonal'), ':hover'), 'background-color:var(--cd-active)');
+  rule(G($('buttonText')), 'color:var(--cd-text)');
   rule(G($('buttonText'), ':hover'), 'background-color:var(--cd-hover)');
+  rule(G($('icon')), 'color:inherit');
   rule(G($('buttonOutline')), 'border-color:var(--cd-border);color:var(--cd-text)');
   rule(G($('buttonCta')), 'border-color:var(--cd-accent)');
   rule(G($('buttonPrimary')), 'background-color:var(--cd-accent);color:var(--cd-accent-text)');
@@ -303,6 +315,7 @@ export function buildSkinCss(map, cfg) {
   // ---- watch page ---------------------------------------------------------------------------------------------
   rule(G($('watchTitle')), HEADING);
   rule(G($('watchMetadata')), 'color:var(--cd-text)');
+  rule(G($('watchPlayerBackground')), 'background-color:var(--cd-bg)');
   rule(G($('descriptionBox')), 'background-color:var(--cd-surface);border-radius:var(--cd-radius);color:var(--cd-text)');
   rule(G($('descriptionBox'), ':hover'), TINT);
   rule(G($('descriptionPreview')), 'background-color:var(--cd-surface);border-radius:var(--cd-radius);color:var(--cd-text)');

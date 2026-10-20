@@ -1,4 +1,4 @@
-// The six launch themes, bundled as data (ARCHITECTURE.md section 4, "themes/*.json").
+// The 16 bundled themes (ARCHITECTURE.md section 4, "themes/*.json").
 //
 // THEMES is ordered like ALL_THEME_IDS and frozen: every theme is fully specified (no defaults left to fill), so it is
 // already the NormalizedTheme the engine expects. Nothing downloads at runtime.
@@ -8,6 +8,16 @@ import classic from './classic.json' with { type: 'json' };
 import primetime from './primetime.json' with { type: 'json' };
 import studio from './studio.json' with { type: 'json' };
 import arcade from './arcade.json' with { type: 'json' };
+import oled from './oled.json' with { type: 'json' };
+import frost from './frost.json' with { type: 'json' };
+import mocha from './mocha.json' with { type: 'json' };
+import midnightCity from './midnight-city.json' with { type: 'json' };
+import ember from './ember.json' with { type: 'json' };
+import paper from './paper.json' with { type: 'json' };
+import matcha from './matcha.json' with { type: 'json' };
+import sunset from './sunset.json' with { type: 'json' };
+import terminal from './terminal.json' with { type: 'json' };
+import imax from './imax.json' with { type: 'json' };
 
 function deepFreeze(value) {
   if (value !== null && typeof value === 'object' && !Object.isFrozen(value)) {
@@ -18,7 +28,10 @@ function deepFreeze(value) {
 }
 
 /** @type {ReadonlyArray<import('../shared/theme-schema.js').NormalizedTheme>} */
-export const THEMES = Object.freeze([cinema, minimal, classic, primetime, studio, arcade].map(deepFreeze));
+export const THEMES = Object.freeze([
+  cinema, minimal, classic, primetime, studio, arcade,
+  oled, frost, mocha, midnightCity, ember, paper, matcha, sunset, terminal, imax,
+].map(deepFreeze));
 
 const BY_ID = new Map(THEMES.map((t) => [t.id, t]));
 

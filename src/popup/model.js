@@ -1,15 +1,16 @@
 // Pure popup logic: validation, tier gating, the derived view and all user-facing copy.
 // No DOM, no chrome.*: app.js owns the wiring, this file owns the decisions (and is unit-tested on its own).
 import {
-  ALL_THEME_IDS, CALM_KEYS, DEFAULT_SCHEDULE, DEFAULT_SETTINGS, FEATURES, FREE_THEME_IDS, PAGE_TYPES,
+  ALL_THEME_IDS, CALM_KEYS, DEFAULT_SCHEDULE, DEFAULT_SETTINGS, FEATURES, FREE_CALM_KEYS, FREE_THEME_IDS,
+  LAYOUT_HOME, LAYOUT_WATCH, LIMITS, PAGE_TYPES,
 } from '../shared/constants.js';
 import {
-  allowedCalmKeys, canSetDensity, computeEffectiveConfig, isPro, isThemeAllowed,
+  allowedCalmKeys, canSetDensity, canStartTrial, computeEffectiveConfig, getTrialDay, isPro, isThemeAllowed, isTrialActive,
 } from '../shared/entitlements.js';
 import { contrastRatio } from '../shared/contrast.js';
 import { LAPSE_REASONS, licenceState, verifiedLicenceState } from '../shared/licence.js';
 
-export { isPro };
+export { isPro, canStartTrial, isTrialActive };
 
 /** The accent must reach 3:1 on the theme background or tokens.js falls back to the theme's own accent. */
 export const ACCENT_MIN_CONTRAST = 3;
@@ -85,6 +86,14 @@ export const isDensity = (n) => Number.isInteger(n) && n >= 1 && n <= 5;
 export const TEXT_SCALES = Object.freeze([0.9, 1, 1.1, 1.25, 1.5]);
 export const isTextScale = (n) => typeof n === 'number' && TEXT_SCALES.includes(n);
 
+/** Formats milliseconds remaining into M:SS countdown string. */
+export function formatCountdown(ms) {
+  const totalSec = Math.max(0, Math.floor((Number(ms) || 0) / 1000));
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
 /** Colour strings from theme data are only applied to swatches when they are plainly colours. */
 export function safeCssColor(value) {
   if (typeof value !== 'string' || value.length > 64) return null;
@@ -133,6 +142,23 @@ export function sanitizePatch(patch, allowedCustomIds = []) {
         if (value !== null && !isTextScale(value)) return { ok: false, error: 'Text size must be 0.9, 1, 1.1, 1.25, or 1.5.' };
         out.textScale = value;
         break;
+      case 'layout': {
+        if (!isPlainObject(value)) return { ok: false, error: 'Layout settings are invalid.' };
+        const l = {};
+        for (const k of Object.keys(value)) {
+          if (k === 'home') {
+            if (value[k] !== null && !LAYOUT_HOME.includes(value[k])) return { ok: false, error: 'Home layout is invalid.' };
+            l.home = value[k];
+          } else if (k === 'watch') {
+            if (value[k] !== null && !LAYOUT_WATCH.includes(value[k])) return { ok: false, error: 'Watch layout is invalid.' };
+            l.watch = value[k];
+          } else {
+            return { ok: false, error: 'Layout settings are invalid.' };
+          }
+        }
+        out.layout = l;
+        break;
+      }
       case 'calm': {
         if (!isPlainObject(value)) return { ok: false, error: 'Calm settings are invalid.' };
         const calm = {};
@@ -161,6 +187,9 @@ export function mergeSettings(stored, patch) {
     if (key === 'calm') {
       const prev = isPlainObject(base.calm) ? base.calm : DEFAULT_SETTINGS.calm;
       out.calm = { ...prev, ...patch.calm };
+    } else if (key === 'layout') {
+      const prev = isPlainObject(base.layout) ? base.layout : DEFAULT_SETTINGS.layout;
+      out.layout = { ...prev, ...patch.layout };
     } else {
       out[key] = patch[key];
     }
@@ -175,6 +204,7 @@ export function withDefaults(stored) {
   return {
     ...DEFAULT_SETTINGS,
     ...base,
+    layout: { ...DEFAULT_SETTINGS.layout, ...(isPlainObject(base.layout) ? base.layout : {}) },
     calm: { ...DEFAULT_SETTINGS.calm, ...(isPlainObject(base.calm) ? base.calm : {}) },
   };
 }
@@ -193,6 +223,7 @@ export function parseLicence(res) {
   if (s.plan !== 'free' && s.plan !== 'pro') return null;
   if (!PLAN_STATUSES.includes(s.status)) return null;
   const out = { plan: s.plan, status: s.status };
+  if (s.tier === 'founder' || s.tier === 'standard') out.tier = s.tier;
   if (s.status === 'expired' && LAPSE_REASONS.includes(s.reason)) out.reason = s.reason;
   return out;
 }
@@ -209,7 +240,10 @@ export function licenceFromRecord(record, nowMs) {
   if (!isPlainObject(record.claims) || typeof record.checkedAt !== 'number' || !Number.isFinite(record.checkedAt)) return none;
   try {
     const s = licenceState(record, nowMs);
-    return { plan: s.plan === 'pro' ? 'pro' : 'free', status: PLAN_STATUSES.includes(s.status) ? s.status : 'none' };
+    const out = { plan: s.plan === 'pro' ? 'pro' : 'free', status: PLAN_STATUSES.includes(s.status) ? s.status : 'none' };
+    const tier = s.tier || (record.claims && record.claims.tier);
+    if (tier === 'founder' || tier === 'standard') out.tier = tier;
+    return out;
   } catch {
     return none;
   }
@@ -227,6 +261,8 @@ export async function licenceFromRecordVerified(record, nowMs, publicKeyJwk, fns
   try {
     const s = await verifiedLicenceState(record, nowMs, publicKeyJwk, fns);
     const out = { plan: s.plan === 'pro' ? 'pro' : 'free', status: PLAN_STATUSES.includes(s.status) ? s.status : 'none' };
+    const tier = s.tier || (record.claims && record.claims.tier);
+    if (tier === 'founder' || tier === 'standard') out.tier = tier;
     if (out.status === 'expired' && LAPSE_REASONS.includes(s.reason)) out.reason = s.reason;
     return out;
   } catch {
@@ -302,18 +338,19 @@ export function parseActivateResponse(res) {
 /** Friendly copy for a failed activation. Never contains the token, only the reason code's meaning. */
 export function activationErrorCopy(reason) {
   const r = String(reason || '').toLowerCase();
+  if (r === 'refunded' || r === 'revoked') return 'This token was refunded.';
   if (r === 'expired') return 'This licence has expired. Ask for a new token.';
   if (r === 'not-yet-valid' || r === 'bad-time') return "This token isn't valid yet. Check your computer's date and time.";
   if (r === 'malformed' || r === 'malformed-token' || r === 'bad-claims' || r === 'unsupported-version' || r === 'bad-plan') {
     return "That doesn't look like a Cinedrape licence token. Paste the whole token.";
   }
-  if (r === 'bad-signature' || r === 'invalid') return 'That token could not be verified. Check you copied it exactly.';
+  if (r === 'bad-signature' || r === 'invalid') return "That token isn't valid — check you copied all of it.";
   if (r === 'no-key' || r === 'bad-key' || r === 'verify-error' || r === 'crypto-unavailable') {
     return 'Cinedrape could not verify tokens in this browser. Try again later.';
   }
   if (r === 'storage-error') return 'The token is valid, but it could not be saved. Check your browser storage and try again.';
   if (r === 'no-response' || r === 'timeout') return 'Cinedrape did not answer. Close and reopen this popup, then try again.';
-  return 'That token could not be activated. Check it and try again.';
+  return "That token isn't valid — check you copied all of it.";
 }
 
 // ---- derived view -----------------------------------------------------------------------------------------------------
@@ -347,24 +384,41 @@ export const themeNeedsPro = (theme) => theme.tier === 'pro' || (!theme.isCustom
  * tab actually renders), so a lapsed licence shows Cinema/theme density/no Pro calm while the stored choices stay intact;
  * `suppressed` lists what is saved but currently not applied.
  */
-export function deriveView({ settings, licence, licenceKnown = true, themes, customThemes = [], profiles = [], schedule = null }) {
+export function deriveView({
+  settings, licence, licenceKnown = true, themes, customThemes = [], profiles = [], schedule = null,
+  trial = null, trialEnded = false, install = null, nowMs = Date.now(),
+}) {
   const list = usableThemes(themes, customThemes);
   const stored = withDefaults(settings);
   const pro = isPro(licence);
-  const cfg = computeEffectiveConfig({ settings: stored, licenceState: licence, themes: list });
+  const tier = (licence && (licence.tier === 'founder' || licence.tier === 'standard'))
+    ? licence.tier
+    : ((licence && licence.claims && licence.claims.tier === 'founder') ? 'founder' : 'standard');
+  const trialActive = isTrialActive(trial, nowMs);
+  const cfg = computeEffectiveConfig({ settings: stored, licenceState: licence, themes: list, trial: trialActive });
   const effectiveTheme = cfg.theme;
   const storedTheme = list.find((t) => t.id === stored.themeId) || null;
-  const allowedCalm = allowedCalmKeys(licence);
-  const densityLocked = !canSetDensity(licence);
+  const densityLocked = false;
   const storedDensity = isDensity(stored.density) ? stored.density : null;
+  const layoutLocked = false;
+  const storedLayout = isPlainObject(stored.layout) ? stored.layout : {};
+  const storedHome = LAYOUT_HOME.includes(storedLayout.home) ? storedLayout.home : null;
+  const storedWatch = LAYOUT_WATCH.includes(storedLayout.watch) ? storedLayout.watch : null;
+  const layoutCustom = storedHome !== null || storedWatch !== null;
+  const layoutSuppressed = false;
+
+  const installInfo = (install && typeof install === 'object') ? install : null;
+  const installedAt = installInfo && typeof installInfo.installedAt === 'number' ? installInfo.installedAt : null;
+  const day7Dismissed = Boolean(installInfo && installInfo.day7Dismissed);
+  const isDay7 = installedAt !== null && (nowMs - installedAt >= (LIMITS.day7UpgradeMs || (7 * 864e5)));
+  const showDay7Card = !day7Dismissed && isDay7;
 
   const themeViews = list.map((t) => {
-    const locked = !isThemeAllowed(t, licence);
     return {
       id: t.id,
       name: typeof t.name === 'string' && t.name.trim() ? t.name.trim() : t.id,
-      pro: themeNeedsPro(t),
-      locked,
+      pro: false,
+      locked: false,
       checked: !!effectiveTheme && t.id === effectiveTheme.id,
       colors: t.tokens && isPlainObject(t.tokens.color) ? t.tokens.color : {},
       isCustom: !!t.isCustom,
@@ -372,23 +426,17 @@ export function deriveView({ settings, licence, licenceKnown = true, themes, cus
   });
 
   const calm = CALM_KEYS.map((key) => {
-    const locked = !allowedCalm.includes(key);
     return {
       key,
       label: CALM_COPY[key].label,
       hint: CALM_COPY[key].hint,
-      locked,
+      locked: false,
       on: cfg.calm[key] === true,
-      suppressed: locked && stored.calm[key] === true,
+      suppressed: false,
     };
   });
 
   const suppressed = [];
-  if (storedTheme && effectiveTheme && storedTheme.id !== effectiveTheme.id) {
-    suppressed.push(typeof storedTheme.name === 'string' && storedTheme.name ? `${storedTheme.name} theme` : 'your theme');
-  }
-  if (densityLocked && storedDensity !== null) suppressed.push('density');
-  for (const c of calm) if (c.suppressed) suppressed.push(c.label.toLowerCase());
 
   const profileList = Array.isArray(profiles)
     ? profiles.filter((p) => p && typeof p.id === 'string' && typeof p.name === 'string')
@@ -404,6 +452,15 @@ export function deriveView({ settings, licence, licenceKnown = true, themes, cus
 
   return {
     pro,
+    tier: pro ? tier : null,
+    trial: {
+      active: trialActive,
+      until: trial && typeof trial.until === 'number' ? trial.until : null,
+      used: trial && typeof trial.used === 'number' ? trial.used : 0,
+      msRemaining: trial && typeof trial.until === 'number' ? Math.max(0, trial.until - nowMs) : 0,
+      formatted: trial && typeof trial.until === 'number' ? formatCountdown(trial.until - nowMs) : '',
+      ended: trialEnded,
+    },
     licenceKey: licenceKey(licence, licenceKnown),
     themes: themeViews,
     theme: effectiveTheme ? { id: effectiveTheme.id, name: themeViews.find((t) => t.id === effectiveTheme.id)?.name || effectiveTheme.id } : null,
@@ -422,39 +479,87 @@ export function deriveView({ settings, licence, licenceKnown = true, themes, cus
       custom: !densityLocked && storedDensity !== null,
       suppressed: densityLocked && storedDensity !== null,
     },
+    layout: {
+      home: {
+        value: cfg.home,
+        locked: layoutLocked,
+        custom: !layoutLocked && storedHome !== null,
+        suppressed: layoutLocked && storedHome !== null,
+      },
+      watch: {
+        value: cfg.watch,
+        locked: layoutLocked,
+        custom: !layoutLocked && storedWatch !== null,
+        suppressed: layoutLocked && storedWatch !== null,
+      },
+      locked: layoutLocked,
+      custom: layoutCustom,
+      suppressed: layoutSuppressed,
+    },
     calm,
     suppressed,
     profiles: profileList,
-    profilesLocked: !pro,
+    profilesLocked: false,
     schedule: scheduleView,
-    scheduleLocked: !pro,
+    scheduleLocked: false,
+    day7Card: {
+      show: showDay7Card,
+      dismissed: day7Dismissed,
+      installedAt,
+    },
   };
 }
 
 /** Is `patch` (already sanitised) something this licence may write? Locked controls never write. */
-export function checkEntitlement(patch, { licence, themes, customThemes = [] }) {
+export function checkEntitlement(patch, { licence, trial = null, trialActive = false, themes, customThemes = [] }) {
   if (patch.themeId !== undefined) {
     const theme = usableThemes(themes, customThemes).find((t) => t.id === patch.themeId);
     // A theme the popup does not know cannot be shown or verified, so it is refused for everyone.
     if (!theme) return { ok: false, kind: 'unknown-theme', key: patch.themeId };
-    if (!isThemeAllowed(theme, licence)) {
-      return { ok: false, kind: 'theme', key: theme.id, name: typeof theme.name === 'string' && theme.name ? theme.name : theme.id };
-    }
-  }
-  if (patch.density !== undefined && !canSetDensity(licence)) return { ok: false, kind: 'density', key: 'density' };
-  if (patch.calm) {
-    const allowed = allowedCalmKeys(licence);
-    for (const key of Object.keys(patch.calm)) {
-      if (!allowed.includes(key)) return { ok: false, kind: 'calm', key, name: CALM_COPY[key].label };
-    }
-  }
-  if (patch.profiles !== undefined && !isPro(licence)) {
-    return { ok: false, kind: 'profiles', key: 'profiles' };
-  }
-  if (patch.schedule !== undefined && !isPro(licence)) {
-    return { ok: false, kind: 'schedule', key: 'schedule' };
   }
   return { ok: true };
+}
+
+/** Returns title, description and colors for the locked feature sheet preview. */
+export function sheetFeatureInfo(kind, key, theme = null) {
+  if (kind === 'theme' && theme) {
+    return {
+      title: `${theme.name} Theme`,
+      desc: `Experience the luxury ${theme.name} palette with tailored contrast and ambient tone. Try it free on your own YouTube.`,
+      previewBg: theme.tokens?.color?.bg || '#111',
+      previewAccent: theme.tokens?.color?.accent || '#e8b04a',
+    };
+  }
+  if (kind === 'layout') {
+    return {
+      title: 'Mix & Match Layouts',
+      desc: 'Customize Home and Watch page layouts independently with any theme: Hero + rows, Cinema watch, and Focus mode.',
+      previewBg: '#18181b',
+      previewAccent: '#38bdf8',
+    };
+  }
+  if (kind === 'density') {
+    return {
+      title: 'Custom Density',
+      desc: 'Dial in your spacing from Compact (dense cards) to Roomy (cinematic breathing room).',
+      previewBg: '#1c1917',
+      previewAccent: '#f59e0b',
+    };
+  }
+  if (kind === 'calm') {
+    return {
+      title: 'Advanced Calm Mode',
+      desc: 'Hide distracting view counts and live streams to keep your focus entirely on what you want to watch.',
+      previewBg: '#0f172a',
+      previewAccent: '#10b981',
+    };
+  }
+  return {
+    title: 'Unlock Cinedrape Pro',
+    desc: 'Preview luxury Pro themes, custom layouts, density, and all calm mode filters on your own YouTube for 10 minutes.',
+    previewBg: '#18181b',
+    previewAccent: '#e8b04a',
+  };
 }
 
 /** Explanation for a locked control; the notice also offers "Activate Pro". */
@@ -463,6 +568,7 @@ export function lockedCopy(check, key) {
     : (key === 'lapsed' || key === 'invalid' ? 'Your Pro licence is paused. ' : '');
   if (check.kind === 'theme') return `${lead}${check.name} is a Pro theme. Activate Pro to use it.`;
   if (check.kind === 'density') return `${lead}Density is a Pro setting. Activate Pro to adjust it.`;
+  if (check.kind === 'layout') return `${lead}Layout customisation is a Pro feature. Activate Pro to use it.`;
   if (check.kind === 'calm') return `${lead}${check.name} is a Pro setting. Activate Pro to turn it on.`;
   if (check.kind === 'profiles') return `${lead}Profiles are a Pro feature. Activate Pro to create and manage profiles.`;
   if (check.kind === 'schedule') return `${lead}Time-based scheduling is a Pro feature. Activate Pro to use it.`;
@@ -534,3 +640,156 @@ export function statusCopy(state, { summary = null, themes = [] } = {}) {
     default: return { text: '', detail: '' };
   }
 }
+
+// ---- calm presets -----------------------------------------------------------------------------------------------------
+
+export const CALM_PRESETS = Object.freeze({
+  study: Object.freeze({
+    id: 'study',
+    name: 'Study',
+    hint: 'No distractions: hides recommendations, comments, end screens, and Shorts',
+    calm: Object.freeze({
+      hideShorts: true,
+      hideHomeRecs: true,
+      hideComments: true,
+      hideEndScreens: true,
+      hideViewCounts: false,
+      hideLive: true,
+    }),
+  }),
+  winddown: Object.freeze({
+    id: 'winddown',
+    name: 'Wind-down',
+    hint: 'Quiet evening viewing: hides metric counters and algorithmic feeds',
+    calm: Object.freeze({
+      hideShorts: true,
+      hideHomeRecs: true,
+      hideComments: true,
+      hideEndScreens: true,
+      hideViewCounts: true,
+      hideLive: true,
+    }),
+  }),
+  zen: Object.freeze({
+    id: 'zen',
+    name: 'Zen',
+    hint: 'Pure minimalist viewing: all calm filters active',
+    calm: Object.freeze({
+      hideShorts: true,
+      hideHomeRecs: true,
+      hideComments: true,
+      hideEndScreens: true,
+      hideViewCounts: true,
+      hideLive: true,
+    }),
+  }),
+  reset: Object.freeze({
+    id: 'reset',
+    name: 'Reset',
+    hint: 'Turn off all calm filters',
+    calm: Object.freeze({
+      hideShorts: false,
+      hideHomeRecs: false,
+      hideComments: false,
+      hideEndScreens: false,
+      hideViewCounts: false,
+      hideLive: false,
+    }),
+  }),
+});
+
+/**
+ * Applies a calm preset against user's licence entitlements.
+ * For free users, only allowed calm keys are enabled; pro keys remain false and are reported in `proBlockedCount`.
+ */
+export function applyCalmPreset(presetId, currentCalm = {}, licence = null) {
+  const preset = CALM_PRESETS[presetId];
+  if (!preset) return { ok: false, error: 'Unknown calm preset.' };
+  const allowed = allowedCalmKeys(licence);
+  const out = { ...currentCalm };
+  let proBlockedCount = 0;
+  for (const [key, value] of Object.entries(preset.calm)) {
+    if (!allowed.includes(key)) {
+      if (value) proBlockedCount++;
+    } else {
+      out[key] = value;
+    }
+  }
+  const notice = proBlockedCount > 0
+    ? `Applied "${preset.name}" preset (${proBlockedCount} setting${proBlockedCount > 1 ? 's' : ''} require Pro).`
+    : presetId === 'reset' ? 'Calm settings reset.' : `Applied "${preset.name}" preset.`;
+  return {
+    ok: true,
+    calm: out,
+    preset,
+    proBlockedCount,
+    notice,
+  };
+}
+
+// ---- backup & restore -------------------------------------------------------------------------------------------------
+
+/**
+ * Creates a clean backup bundle JSON object containing user settings, custom themes, profiles, and schedule.
+ */
+export function createBackupBundle({ settings, customThemes = {}, profiles = [], schedule = null }) {
+  return {
+    schema: 1,
+    cinedrapeBackup: true,
+    version: '0.1.0',
+    exportedAt: new Date().toISOString(),
+    settings: settings || DEFAULT_SETTINGS,
+    customThemes: customThemes || {},
+    profiles: Array.isArray(profiles) ? profiles : [],
+    schedule: schedule || DEFAULT_SCHEDULE,
+  };
+}
+
+/**
+ * Validates a parsed backup bundle structure before restoring.
+ */
+export function validateBackupBundle(bundle, allowedCustomIds = []) {
+  if (!isPlainObject(bundle)) return { ok: false, error: 'Backup must be a JSON object.' };
+  if (!bundle.cinedrapeBackup && !bundle.settings) return { ok: false, error: 'File is not a Cinedrape backup.' };
+
+  let cleanSettings = null;
+  if (bundle.settings) {
+    const res = sanitizePatch(bundle.settings, allowedCustomIds);
+    if (!res.ok) return { ok: false, error: `Invalid settings in backup: ${res.error}` };
+    cleanSettings = res.patch;
+  }
+
+  return {
+    ok: true,
+    bundle: {
+      settings: cleanSettings,
+      customThemes: isPlainObject(bundle.customThemes) ? bundle.customThemes : {},
+      profiles: Array.isArray(bundle.profiles) ? bundle.profiles : [],
+      schedule: isPlainObject(bundle.schedule) ? bundle.schedule : null,
+    },
+  };
+}
+
+// ---- diagnostics ------------------------------------------------------------------------------------------------------
+
+/**
+ * Generates an anonymous, privacy-safe diagnostic report (no personal data, no URLs).
+ */
+export function createDiagnostics({ manifestVersion, userAgent, pageType, settings, schedule, licence, selectorMapVersion }) {
+  return {
+    app: 'Cinedrape',
+    version: manifestVersion || '0.1.0',
+    userAgent: userAgent || 'unknown',
+    pageType: pageType || 'unknown',
+    theme: settings?.themeId || 'default',
+    accent: settings?.accent || null,
+    density: settings?.density || null,
+    textScale: settings?.textScale || 1.0,
+    calm: settings?.calm || {},
+    scheduleEnabled: Boolean(schedule?.enabled),
+    plan: licence?.plan || 'free',
+    mapVersion: selectorMapVersion || 'bundled',
+    timestamp: new Date().toISOString(),
+  };
+}
+

@@ -86,5 +86,6 @@ Cinedrape requests only the minimal permissions required for its functionality:
 ## 7. Contact & Open Source
 
 Cinedrape is dedicated to transparency.  
-For questions or privacy concerns, contact the project maintainers via the support link on the Chrome Web Store listing or repository:  
-https://cinedrape.com
+For questions, bug reports, or privacy concerns, contact the project maintainers via the website or GitHub repository:  
+- Website: https://jdamour.github.io/Cinedrape/  
+- Issue Tracker: https://github.com/JDamour/Cinedrape/issues

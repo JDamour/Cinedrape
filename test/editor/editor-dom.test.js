@@ -209,11 +209,11 @@ test('saveTheme writes valid theme to storage and can apply to settings', async 
   assert.match(doc.getElementById('editor-notice').textContent, /selected/);
 });
 
-test('saveTheme blocks free user with Pro explanation notice', async () => {
+test('saveTheme allows free users to save custom themes without paywall', async () => {
   const { doc, editor } = setupDom({ isPro: false });
   const ok = await editor.saveTheme(false);
-  assert.equal(ok, false);
-  assert.match(doc.getElementById('editor-notice').textContent, /Cinedrape Pro/);
+  assert.equal(ok, true);
+  assert.match(doc.getElementById('editor-notice').textContent, /saved/i);
 });
 
 test('saveTheme fails safely when storage is unavailable', async () => {

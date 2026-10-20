@@ -21,10 +21,7 @@
 
   <main class="popup" aria-labelledby="app-title">
     <header class="masthead">
-      <svg class="logo" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
-        <rect class="logo-bg" x="2" y="2" width="28" height="28" rx="8"/>
-        <path class="logo-fold" d="M8 7c0 7 3.2 12 8 18M24 7c0 7-3.2 12-8 18"/>
-      </svg>
+      <img class="logo" src="../icons/icon-128.png" width="40" height="40" alt="" aria-hidden="true">
       <div>
         <h1 id="app-title" class="brand">Cinedrape</h1>
         <p class="tagline">Themes and calm for YouTube</p>
@@ -40,12 +37,26 @@
       </div>
     </div>
 
+    <!-- Day 7 Support Invitation card -->
+    <div id="day7-card" class="day7-card" hidden role="region" aria-labelledby="day7-title">
+      <div class="day7-card-header">
+        <h2 id="day7-title" class="day7-card-title">Enjoying Cinedrape?</h2>
+        <button type="button" id="day7-dismiss-btn" class="btn btn-ghost btn-icon day7-dismiss" aria-label="Dismiss recommendation"><svg class="icon" aria-hidden="true" focusable="false"><use href="#i-close"/></svg></button>
+      </div>
+      <p class="day7-card-body">All 16 themes, custom layouts, and calm filters are 100% free forever. If you&rsquo;d like to support development, consider sponsoring the project on GitHub.</p>
+      <div class="day7-card-actions">
+        <a id="day7-buy-link" href="https://github.com/sponsors/JDamour" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-small btn-coffee-small"><span class="coffee-icon" aria-hidden="true">♥</span> Sponsor on GitHub</a>
+        <button type="button" id="day7-dismiss-link" class="btn btn-ghost btn-small">Maybe later</button>
+      </div>
+    </div>
+
     <section id="status" class="card status" data-state="checking" aria-labelledby="status-heading">
       <h2 id="status-heading" class="sr-only">Status</h2>
       <svg id="status-icon" class="icon status-icon" aria-hidden="true" focusable="false"><use href="#i-info"/></svg>
       <div class="status-body">
         <p id="status-text" class="status-text" role="status">Checking this tab&hellip;</p>
         <p id="status-detail" class="hint"></p>
+        <button type="button" id="status-reload" class="btn btn-small" hidden>Reload YouTube tab</button>
       </div>
     </section>
 
@@ -56,12 +67,12 @@
         <legend id="theme-legend">Theme</legend>
         <div id="theme-grid" class="theme-grid"></div>
         <p id="theme-note" class="hint"></p>
-        <span id="theme-locked-desc" class="sr-only">Requires Cinedrape Pro. Press to see how to unlock it.</span>
         <div class="theme-actions">
           <button type="button" id="theme-editor-btn" class="btn btn-secondary btn-small">Theme Studio</button>
           <button type="button" id="theme-export" class="btn btn-secondary btn-small">Export theme</button>
           <button type="button" id="theme-import-btn" class="btn btn-secondary btn-small">Import theme</button>
           <button type="button" id="profile-manage-btn" class="btn btn-secondary btn-small">Profiles &amp; Schedule</button>
+          <button type="button" id="backup-manage-btn" class="btn btn-secondary btn-small">Backup &amp; Restore</button>
         </div>
         <div id="theme-import-panel" class="import-panel" hidden>
           <div class="import-panel-header">
@@ -123,6 +134,48 @@
           </div>
           <span id="profile-error" class="hint hint-error" role="alert"></span>
         </div>
+        <div id="backup-panel" class="import-panel" hidden>
+          <div class="import-panel-header">
+            <span class="import-title">Backup &amp; Restore</span>
+            <button type="button" id="backup-panel-close" class="btn btn-ghost btn-icon" aria-label="Close backup dialog"><svg class="icon" aria-hidden="true" focusable="false"><use href="#i-close"/></svg></button>
+          </div>
+          <p class="hint">Export all your settings, custom themes, and profiles to a JSON file:</p>
+          <div class="backup-actions">
+            <button type="button" id="backup-export-btn" class="btn btn-secondary btn-small">Export backup</button>
+          </div>
+          <hr class="panel-divider">
+          <p class="hint">Restore from a backup JSON file or paste code:</p>
+          <input type="file" id="backup-import-file" accept=".json,application/json" class="file-input">
+          <textarea id="backup-import-json" class="input input-textarea" rows="3" placeholder='{"schema":1,"cinedrapeBackup":true,...}'></textarea>
+          <div class="import-actions">
+            <button type="button" id="backup-import-submit" class="btn btn-primary btn-small">Restore</button>
+            <span id="backup-error" class="hint hint-error" role="alert"></span>
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset id="layout-group" class="group">
+        <legend id="layout-legend">Layout</legend>
+        <div class="layout-control">
+          <span id="layout-home-label" class="field-label">Home layout</span>
+          <div id="layout-home" class="segmented" role="radiogroup" aria-labelledby="layout-home-label">
+            <button type="button" class="segmented-btn" role="radio" aria-checked="false" data-home="grid" tabindex="-1">Grid</button>
+            <button type="button" class="segmented-btn" role="radio" aria-checked="false" data-home="rows" tabindex="-1">Rows</button>
+            <button type="button" class="segmented-btn" role="radio" aria-checked="false" data-home="hero-rows" tabindex="-1">Hero + rows</button>
+          </div>
+        </div>
+        <div class="layout-control">
+          <span id="layout-watch-label" class="field-label">Watch page layout</span>
+          <div id="layout-watch" class="segmented" role="radiogroup" aria-labelledby="layout-watch-label">
+            <button type="button" class="segmented-btn" role="radio" aria-checked="false" data-watch="default" tabindex="-1">Standard</button>
+            <button type="button" class="segmented-btn" role="radio" aria-checked="false" data-watch="cinema" tabindex="-1">Cinema</button>
+            <button type="button" class="segmented-btn" role="radio" aria-checked="false" data-watch="focus" tabindex="-1">Focus</button>
+          </div>
+        </div>
+        <p class="layout-actions">
+          <button type="button" id="layout-reset" class="link-button" hidden>Use the theme&rsquo;s layout</button>
+        </p>
+        <p id="layout-note" class="hint"></p>
       </fieldset>
 
       <fieldset id="accent-group" class="group">
@@ -142,7 +195,7 @@
       </fieldset>
 
       <fieldset id="density-group" class="group">
-        <legend id="density-legend">Density <span id="density-pro" class="tag-pro" hidden><svg class="icon" aria-hidden="true" focusable="false"><use href="#i-lock"/></svg>Pro<span class="sr-only"> feature, locked</span></span></legend>
+        <legend id="density-legend">Density</legend>
         <div class="range-row">
           <span class="range-end" aria-hidden="true">Compact</span>
           <input id="density" class="range" type="range" min="1" max="5" step="1" value="3" aria-label="Density, from compact to roomy" aria-describedby="density-note">
@@ -150,7 +203,6 @@
         </div>
         <p class="density-readout"><output id="density-value" for="density">Balanced</output> <button type="button" id="density-reset" class="link-button" hidden>Use the theme&rsquo;s density</button></p>
         <p id="density-note" class="hint"></p>
-        <button type="button" id="density-unlock" class="btn btn-secondary btn-small" hidden>Activate Pro</button>
       </fieldset>
 
       <fieldset id="textscale-group" class="group">
@@ -179,6 +231,15 @@
 
     <section class="card" aria-labelledby="calm-heading">
       <h2 id="calm-heading" class="card-title">Calm mode</h2>
+      <div id="calm-presets" class="calm-presets">
+        <span class="field-label">Presets</span>
+        <div class="preset-buttons">
+          <button type="button" class="btn btn-secondary btn-small" data-calm-preset="study">Study</button>
+          <button type="button" class="btn btn-secondary btn-small" data-calm-preset="winddown">Wind-down</button>
+          <button type="button" class="btn btn-secondary btn-small" data-calm-preset="zen">Zen</button>
+          <button type="button" class="btn btn-ghost btn-small" data-calm-preset="reset">Reset</button>
+        </div>
+      </div>
       <fieldset id="calm-group" class="group">
         <legend id="calm-legend" class="sr-only">Calm mode options</legend>
         <div id="calm-list" class="calm-list"></div>
@@ -186,29 +247,26 @@
       </fieldset>
     </section>
 
-    <section id="pro" class="card" aria-labelledby="pro-heading">
-      <h2 id="pro-heading" class="card-title">Cinedrape Pro</h2>
-      <p id="pro-state" class="pro-state" data-state="free">
-        <svg id="pro-state-icon" class="icon" aria-hidden="true" focusable="false"><use href="#i-info"/></svg>
-        <span id="pro-state-text">Free</span>
-      </p>
-      <p id="pro-detail" class="hint"></p>
-      <p id="pro-saved" class="hint"></p>
-      <details id="activate" class="activate" open>
-        <summary id="activate-summary">Activate Pro</summary>
-        <form id="activate-form" class="activate-form" novalidate autocomplete="off">
-          <label for="token" class="field-label">Licence token</label>
-          <input id="token" class="input input-secret" type="text" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="token-help activate-result">
-          <p id="token-help" class="hint">Paste the token from your licence. It is checked on this device and never shown again.</p>
-          <button type="submit" id="activate-btn" class="btn btn-primary">Activate Pro</button>
-          <p id="activate-result" class="hint activate-result" role="status"></p>
-        </form>
-      </details>
+    <section id="support" class="card support-card" aria-labelledby="support-heading">
+      <h2 id="support-heading" class="card-title">Support Cinedrape</h2>
+      <p class="support-tagline">Cinedrape is 100% free. Every theme, layout, and calm control is unlocked for everyone.</p>
+      <p class="hint">If Cinedrape makes your YouTube experience calmer and more enjoyable, consider supporting its independent development.</p>
+      <div class="support-actions">
+        <a id="support-link" href="https://github.com/sponsors/JDamour" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-coffee">
+          <span class="coffee-icon" aria-hidden="true">♥</span> Sponsor on GitHub
+        </a>
+      </div>
     </section>
 
     <footer class="footer">
       <p><span id="version">Cinedrape</span> &middot; Not affiliated with Google or YouTube.</p>
-      <p><a id="site-link" href="https://cinedrape.com" target="_blank" rel="noopener noreferrer">cinedrape.com<svg class="icon" aria-hidden="true" focusable="false"><use href="#i-external"/></svg><span class="sr-only"> (opens in a new tab)</span></a></p>
+      <p>
+        <a id="footer-coffee-link" href="https://github.com/sponsors/JDamour" target="_blank" rel="noopener noreferrer">♥ Sponsor on GitHub</a>
+        &middot;
+        <button type="button" id="copy-diagnostics-btn" class="link-button">Copy diagnostics</button>
+        &middot;
+        <a id="site-link" href="https://jdamour.github.io/Cinedrape/" target="_blank" rel="noopener noreferrer">Website<svg class="icon" aria-hidden="true" focusable="false"><use href="#i-external"/></svg><span class="sr-only"> (opens in a new tab)</span></a>
+      </p>
     </footer>
 
     <div id="dev-slot"></div>

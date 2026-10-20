@@ -122,7 +122,7 @@ function cinemaCss() {
 
   // Darkened surround: a full-bleed band behind the player's row, the theme background pushed toward black.
   out.push(`${wide} #columns::before{content:"";grid-column:1 / -1;grid-row:1;display:block;margin:0 0 0 calc(${MARGIN} * -1);`
-    + 'background:#000;background:color-mix(in srgb,var(--cd-bg,#0f0f0f) 45%,#000)}');
+    + 'background:#000;background:color-mix(in srgb,var(--cd-bg,#0f0f0f) 92%,#000)}');
   return out.join('\n');
 }
 

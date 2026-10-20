@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "id": "sunset",
+  "name": "Sunset",
+  "author": "Cinedrape",
+  "version": "1.0.0",
+  "tier": "free",
+  "tokens": {
+    "color": {
+      "bg": "#fff2eb",
+      "surface": "#ffffff",
+      "text": "#2a1715",
+      "muted": "#6e4f4b",
+      "accent": "#c93b66",
+      "border": "#997e78"
+    },
+    "type": {
+      "family": "Rounded",
+      "baseSize": 14,
+      "headingWeight": 600
+    },
+    "shape": {
+      "radius": 16,
+      "shadow": true,
+      "spacing": 3
+    }
+  },
+  "layout": {
+    "home": "hero-rows",
+    "watch": "default",
+    "density": 3
+  },
+  "calm": {},
+  "css": ".cd-hero{border-radius:var(--cd-radius);box-shadow:var(--cd-shadow)}\n.cd-hero-title{font-weight:var(--cd-heading-weight)}\n.cd-hero-cta{background:var(--cd-accent);color:var(--cd-accent-text);border-radius:var(--cd-radius)}\n.cd-card{border-radius:var(--cd-radius);background:var(--cd-surface);box-shadow:var(--cd-shadow)}\n.cd-card:hover .cd-card-thumb{transform:translateY(-3px) scale(1.02)}\n.cd-card-thumb{border-radius:var(--cd-radius)}"
+}

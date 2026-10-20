@@ -15,7 +15,7 @@ function makeMockLicence(isPro = true) {
 }
 
 describe('settings-store profile mutations', () => {
-  test('rejects saveProfile for free users', async () => {
+  test('allows saveProfile for all users under free model', async () => {
     const { chrome } = createChromeMock();
     const store = createSettingsStore({ chrome, licence: makeMockLicence(false) });
     const res = await store.saveProfile({
@@ -23,8 +23,8 @@ describe('settings-store profile mutations', () => {
       name: 'Test',
       settings: { themeId: 'cinema' },
     });
-    assert.equal(res.ok, false);
-    assert.equal(res.reason, 'requires-pro');
+    assert.equal(res.ok, true);
+    assert.equal(res.saved, 'prof-test');
   });
 
   test('saves profile with revision increment and detects revision conflicts', async () => {

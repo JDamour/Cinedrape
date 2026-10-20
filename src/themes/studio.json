@@ -4,20 +4,34 @@
   "name": "Studio",
   "author": "Cinedrape",
   "version": "1.0.0",
-  "tier": "pro",
+  "tier": "free",
   "tokens": {
     "color": {
-      "bg": "#fbf8f3",
+      "bg": "#faf7f2",
       "surface": "#ffffff",
-      "text": "#231f1c",
-      "muted": "#645c55",
-      "accent": "#a0442a",
-      "border": "#8f867d"
+      "text": "#181512",
+      "muted": "#605850",
+      "accent": "#a8381a",
+      "border": "#8c8278"
     },
-    "type": { "family": "Inter", "baseSize": 15, "headingWeight": 600 },
-    "shape": { "radius": 14, "shadow": true, "spacing": 5 }
+    "type": {
+      "family": "Inter",
+      "baseSize": 15,
+      "headingWeight": 600
+    },
+    "shape": {
+      "radius": 14,
+      "shadow": true,
+      "spacing": 5
+    }
   },
-  "layout": { "home": "hero-rows", "watch": "focus", "density": 4 },
-  "calm": { "hideShorts": true },
-  "css": "[cd-theme]{--cd-heading-font:Georgia,'Times New Roman',serif}\n.cd-home{padding-inline:calc(var(--cd-space) * 5)}\n.cd-hero{border-radius:calc(var(--cd-radius) * 1.5);box-shadow:var(--cd-shadow)}\n.cd-hero-title{font-family:var(--cd-heading-font);font-size:2.2em;font-weight:600;line-height:1.1}\n.cd-hero-cta{background:var(--cd-accent);color:var(--cd-accent-text);border-radius:var(--cd-radius)}\n.cd-row-title{font-family:var(--cd-heading-font);font-size:1.6em;font-weight:600;letter-spacing:0}\n.cd-card-thumb{border-radius:var(--cd-radius);box-shadow:var(--cd-shadow);transition:transform var(--cd-duration) ease}\n.cd-card:hover .cd-card-thumb{transform:translateY(-2px)}\n.cd-card-title{font-weight:500}\n.cd-card-meta{color:var(--cd-muted)}"
+  "layout": {
+    "home": "hero-rows",
+    "watch": "focus",
+    "density": 4
+  },
+  "calm": {
+    "hideShorts": true
+  },
+  "css": "[cd-theme]{--cd-heading-font:Georgia,'Times New Roman',serif}\n.cd-home{padding-inline:calc(var(--cd-space) * 5)}\n.cd-hero-title{font-family:var(--cd-heading-font);font-size:2.2em}\n.cd-row-title{font-family:var(--cd-heading-font);font-size:1.6em;border-bottom:2px solid var(--cd-accent)}\n.cd-card:hover .cd-card-thumb{transform:translateY(-3px);border-color:var(--cd-accent)}"
 }

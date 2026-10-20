@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  CLOCK_SKEW_MS, LAPSE_REASONS, PLANS, claimsMatch, lapseReason, licenceState, parseClaims, signLicenceToken, verifiedLicenceState,
+  CLOCK_SKEW_MS, LAPSE_REASONS, PLANS, TIERS, claimsMatch, lapseReason, licenceState, parseClaims, signLicenceToken, verifiedLicenceState,
   verifyLicenceToken,
 } from '../../src/shared/licence.js';
 import { LIMITS } from '../../src/shared/constants.js';
@@ -65,6 +65,30 @@ test('free tokens, lifetime tokens (no exp) and no-devices tokens are valid', as
   assert.equal(noDevices.valid, true);
   assert.ok(!('devices' in noDevices.claims));
 });
+
+test('PRO-7: tier claim founder and standard are valid; invalid tiers are rejected', async () => {
+  assert.deepEqual(TIERS, ['founder', 'standard']);
+  const founder = await verify(await mint({ tier: 'founder' }));
+  assert.equal(founder.valid, true);
+  assert.equal(founder.claims.tier, 'founder');
+
+  const standard = await verify(await mint({ tier: 'standard' }));
+  assert.equal(standard.valid, true);
+  assert.equal(standard.claims.tier, 'standard');
+
+  await assertInvalid(await mint({ tier: 'vip' }), 'bad-claims', { label: 'invalid tier' });
+  await assertInvalid(await mint({ tier: 123 }), 'bad-claims', { label: 'non-string tier' });
+});
+
+test('PRO-7: claimsMatch checks tier agreement', () => {
+  const base = claimsOf({ tier: 'founder' });
+  assert.equal(claimsMatch(base, { ...base }), true);
+  assert.equal(claimsMatch(base, { ...base, tier: 'standard' }), false);
+  assert.equal(claimsMatch(base, { ...base, tier: undefined }), false);
+  const withoutTier = claimsOf();
+  assert.equal(claimsMatch(withoutTier, { ...withoutTier }), true);
+});
+
 
 test('unknown claims are dropped and cannot pollute prototypes', async () => {
   const bytes = new TextEncoder().encode('{"v":1,"sub":"a@b.c","plan":"free","iat":1,"admin":true,"__proto__":{"plan":"pro","polluted":1},"constructor":{"x":1}}');

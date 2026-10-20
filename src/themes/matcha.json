@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "id": "matcha",
+  "name": "Matcha",
+  "author": "Cinedrape",
+  "version": "1.0.0",
+  "tier": "free",
+  "tokens": {
+    "color": {
+      "bg": "#edf3eb",
+      "surface": "#f7faf5",
+      "text": "#182317",
+      "muted": "#526350",
+      "accent": "#2c6e3b",
+      "border": "#70806e"
+    },
+    "type": {
+      "family": "System",
+      "baseSize": 14,
+      "headingWeight": 500
+    },
+    "shape": {
+      "radius": 10,
+      "shadow": false,
+      "spacing": 3
+    }
+  },
+  "layout": {
+    "home": "rows",
+    "watch": "focus",
+    "density": 3
+  },
+  "calm": {},
+  "css": ".cd-row-title{letter-spacing:0.02em;font-size:1.15em;color:var(--cd-text)}\n.cd-card{border-radius:var(--cd-radius);background:var(--cd-surface);border:1px solid var(--cd-border)}\n.cd-card:hover .cd-card-thumb{transform:translateY(-2px)}\n.cd-card-thumb{border-radius:var(--cd-radius)}\n.cd-card-title{font-weight:600}\n.cd-card-meta{color:var(--cd-muted)}"
+}

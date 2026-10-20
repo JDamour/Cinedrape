@@ -9,7 +9,28 @@ const GUARD = Symbol.for('cinedrape.engine');
 
 (function boot() {
   try {
-    if (typeof document === 'undefined' || typeof chrome === 'undefined' || globalThis[GUARD] || !document.documentElement) return;
+    if (typeof document === 'undefined' || typeof chrome === 'undefined' || globalThis[GUARD]) return;
+    if (!document.documentElement) {
+      const onReady = () => {
+        if (document.documentElement && !globalThis[GUARD]) {
+          boot();
+        }
+      };
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', onReady, { once: true });
+        document.addEventListener('readystatechange', onReady, { once: true });
+      }
+      if (typeof MutationObserver !== 'undefined') {
+        const obs = new MutationObserver(() => {
+          if (document.documentElement) {
+            obs.disconnect();
+            onReady();
+          }
+        });
+        obs.observe(document, { childList: true });
+      }
+      return;
+    }
     globalThis[GUARD] = true;
     const engine = createEngine({ doc: document, win: window, chrome, loc: location, themes: THEMES, bundledEnvelope });
     globalThis[GUARD] = engine;

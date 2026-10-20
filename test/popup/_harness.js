@@ -30,7 +30,7 @@ const theme = (id, name, tier, color, density = 3) => ({
   css: '',
 });
 
-/** Six stand-ins shaped like the real themes (ids and tiers per the contract, colours chosen to pass 4.5:1 / 3:1). */
+/** Stand-ins shaped like the real themes (ids and tiers per the contract, colours chosen to pass 4.5:1 / 3:1). */
 export const FAKE_THEMES = Object.freeze([
   theme('cinema', 'Cinema', 'free', { bg: '#0b0b0f', surface: '#16161d', text: '#f2f2f5', muted: '#9a9aa8', accent: '#e8b04a', border: '#26262f' }),
   theme('minimal', 'Minimal', 'free', { bg: '#f6f6f4', surface: '#ffffff', text: '#1c1c1f', muted: '#5d5d66', accent: '#0b57d0', border: '#8c8c94' }, 4),
@@ -38,6 +38,16 @@ export const FAKE_THEMES = Object.freeze([
   theme('primetime', 'Prime Time', 'pro', { bg: '#0a1330', surface: '#111d45', text: '#eef2ff', muted: '#a9b4dc', accent: '#4da3ff', border: '#4a5d9a' }),
   theme('studio', 'Studio', 'pro', { bg: '#fbf8f2', surface: '#ffffff', text: '#221f1a', muted: '#5f5a50', accent: '#8a4b00', border: '#8f8778' }, 5),
   theme('arcade', 'Arcade', 'pro', { bg: '#0a0a12', surface: '#14141f', text: '#f4f4ff', muted: '#a8a8c4', accent: '#39ff88', border: '#4b4b72' }, 1),
+  theme('oled', 'True Black', 'pro', { bg: '#000000', surface: '#0d0d0d', text: '#f5f5f7', muted: '#a0a0a8', accent: '#38bdf8', border: '#52525c' }, 3),
+  theme('frost', 'Frost', 'pro', { bg: '#0f172a', surface: '#1e293b', text: '#f1f5f9', muted: '#94a3b8', accent: '#22d3ee', border: '#64748b' }, 3),
+  theme('mocha', 'Mocha', 'pro', { bg: '#1e181b', surface: '#2a2226', text: '#f5eff2', muted: '#b0a2a8', accent: '#f5a97f', border: '#66565f' }, 3),
+  theme('midnight-city', 'Midnight City', 'pro', { bg: '#060814', surface: '#0f1224', text: '#f0f2ff', muted: '#989ebd', accent: '#a855f7', border: '#545a82' }, 3),
+  theme('ember', 'Ember', 'pro', { bg: '#151811', surface: '#21261b', text: '#f4f5ee', muted: '#a4ab97', accent: '#e06b3a', border: '#626b55' }, 2),
+  theme('paper', 'Paper Study', 'pro', { bg: '#f6f3eb', surface: '#ffffff', text: '#211d1a', muted: '#6e6761', accent: '#8c3822', border: '#8c847b' }, 4),
+  theme('matcha', 'Matcha', 'pro', { bg: '#edf3eb', surface: '#f7faf5', text: '#1b241c', muted: '#5b695c', accent: '#2c6e3b', border: '#7b8c7c' }, 3),
+  theme('sunset', 'Sunset', 'pro', { bg: '#fff2eb', surface: '#ffffff', text: '#261b1e', muted: '#735f65', accent: '#c93b66', border: '#948086' }, 3),
+  theme('terminal', 'Retro Terminal', 'pro', { bg: '#050905', surface: '#0d140d', text: '#e6ffe6', muted: '#82ba82', accent: '#00ff41', border: '#427542' }, 1),
+  theme('imax', 'Big Screen', 'pro', { bg: '#07070a', surface: '#111116', text: '#f7f7fa', muted: '#a2a2ad', accent: '#ff9f1c', border: '#585869' }, 5),
 ]);
 
 export const FREE = Object.freeze({ plan: 'free', status: 'none' });
@@ -106,6 +116,31 @@ export async function mount(o = {}) {
       });
       return true;
     }
+    if (message.type === MSG.START_TRIAL) {
+      if (t.startTrialImpl) {
+        Promise.resolve(t.startTrialImpl()).then(sendResponse);
+        return true;
+      }
+      const nowMs = Date.now();
+      const trial = { until: nowMs + 10 * 60 * 1000, used: 1 };
+      chrome.storage.session.set({ [STORAGE_KEYS.trial]: trial }).then(() => {
+        sendResponse({ ok: true, trial });
+      });
+      return true;
+    }
+    if (message.type === MSG.GET_TRIAL) {
+      chrome.storage.session.get([STORAGE_KEYS.trial, 'cd_trialEnded']).then((sess) => {
+        chrome.storage.local.get([STORAGE_KEYS.trialLog]).then((loc) => {
+          sendResponse({
+            ok: true,
+            trial: sess?.[STORAGE_KEYS.trial] || null,
+            trialEnded: Boolean(sess?.cd_trialEnded),
+            trialLog: loc?.[STORAGE_KEYS.trialLog] || null,
+          });
+        });
+      });
+      return true;
+    }
     return undefined;
   });
 
@@ -124,6 +159,10 @@ export async function mount(o = {}) {
 
   if (o.settings !== undefined && o.settings !== null) await chrome.storage.local.set({ [SETTINGS_KEY]: o.settings });
   if (o.storedLicence) await chrome.storage.local.set({ [STORAGE_KEYS.licence]: o.storedLicence });
+  if (o.trial) await chrome.storage.session.set({ [STORAGE_KEYS.trial]: o.trial });
+  if (o.trialEnded) await chrome.storage.session.set({ cd_trialEnded: true });
+  if (o.trialLog) await chrome.storage.local.set({ [STORAGE_KEYS.trialLog]: o.trialLog });
+  if (o.install) await chrome.storage.local.set({ [STORAGE_KEYS.install]: o.install });
   mock.spies['storage.local.set'].calls.length = 0;
   if (o.prepare) await o.prepare(t);
 
@@ -140,7 +179,7 @@ export async function mount(o = {}) {
   t.card = (id) => doc.querySelector(`[data-theme-id="${id}"]`);
   t.swatch = (hex) => doc.querySelector(`.swatch[data-hex="${hex}"]`);
   t.calm = (key) => doc.getElementById(`calm-${key}`);
-  t.click = (el) => el.dispatchEvent(new win.MouseEvent('click', { bubbles: true, cancelable: true }));
+  t.click = (el) => el.dispatchEvent(new win.MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 }));
   t.fire = (el, type) => el.dispatchEvent(new win.Event(type, { bubbles: true, cancelable: true }));
   t.key = (el, key, init = {}) => {
     const ev = new win.KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...init });

@@ -53,8 +53,10 @@ export async function swFetchControl(url) {
 
 // ---- licence + signing (Node side) ------------------------------------------------------------------------------------------
 
-export async function mintLicence({ plan = 'pro', days = 30 } = {}) {
-  const { stdout } = await execFileP(process.execPath, [join(REPO_ROOT, 'tools', 'dev-licence.mjs'), '--plan', plan, '--days', String(days)], { cwd: REPO_ROOT, timeout: 20000, windowsHide: true });
+export async function mintLicence({ plan = 'pro', tier, days = 30 } = {}) {
+  const args = [join(REPO_ROOT, 'tools', 'dev-licence.mjs'), '--plan', plan, '--days', String(days)];
+  if (tier) args.push('--tier', tier);
+  const { stdout } = await execFileP(process.execPath, args, { cwd: REPO_ROOT, timeout: 20000, windowsHide: true });
   const token = String(stdout).trim().split(/\r?\n/).filter(Boolean).pop() || '';
   const parts = token.split('.');
   if (parts.length !== 2) throw new Error('could not mint a dev licence (run npm run keys once)');
@@ -348,6 +350,10 @@ export async function startRun({ extension, viewport = { width: 1280, height: 80
     sw: (fn, ...args) => bridge.run(fn, ...args),
     async newYouTube(url, { width = viewport.width, height = viewport.height, label = 'yt' } = {}) {
       const page = await browser.newPage();
+      await page.bringToFront();
+      for (const p of await browser.pages()) {
+        if (p !== page && !p.url().includes('youtube.com')) await p.close().catch(() => {});
+      }
       await page.setViewport({ width, height, deviceScaleFactor: 1 });
       page.on('console', (m) => {
         if (['error', 'warn', 'warning'].includes(m.type())) consoleLog.push({ label, type: m.type(), text: m.text().slice(0, 240), url: String((m.location() || {}).url || '').slice(0, 100) });

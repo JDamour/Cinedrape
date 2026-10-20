@@ -71,7 +71,10 @@ export function createLicenceManager({
   function stateOf(record) {
     try {
       const state = licenceState(record, now());
-      return { plan: state.plan === 'pro' ? 'pro' : 'free', status: String(state.status) };
+      const out = { plan: state.plan === 'pro' ? 'pro' : 'free', status: String(state.status) };
+      const tier = state.tier || (record && record.claims && record.claims.tier);
+      if (tier) out.tier = tier;
+      return out;
     } catch {
       return noLicence();
     }
@@ -89,6 +92,8 @@ export function createLicenceManager({
     try {
       const state = await verifiedLicenceState(record, now(), publicKey, { verify: verifyLicenceToken, state: licenceState });
       const out = { plan: state.plan === 'pro' ? 'pro' : 'free', status: String(state.status) };
+      const tier = state.tier || (record && record.claims && record.claims.tier);
+      if (tier) out.tier = tier;
       if (typeof state.reason === 'string') out.reason = state.reason;
       return out;
     } catch {

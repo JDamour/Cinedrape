@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "id": "midnight-city",
+  "name": "Midnight City",
+  "author": "Cinedrape",
+  "version": "1.0.0",
+  "tier": "free",
+  "tokens": {
+    "color": {
+      "bg": "#060814",
+      "surface": "#0f1224",
+      "text": "#f4f6ff",
+      "muted": "#9aa3cc",
+      "accent": "#a855f7",
+      "border": "#5a628a"
+    },
+    "type": {
+      "family": "Inter",
+      "baseSize": 14,
+      "headingWeight": 700
+    },
+    "shape": {
+      "radius": 10,
+      "shadow": true,
+      "spacing": 3
+    }
+  },
+  "layout": {
+    "home": "hero-rows",
+    "watch": "cinema",
+    "density": 3
+  },
+  "calm": {},
+  "css": ".cd-hero{border-radius:var(--cd-radius);box-shadow:var(--cd-shadow);border:1px solid var(--cd-border)}\n.cd-hero-title{letter-spacing:-0.02em;font-weight:var(--cd-heading-weight)}\n.cd-hero-cta{background:var(--cd-accent);color:var(--cd-accent-text);border-radius:var(--cd-radius)}\n.cd-card-thumb{border-radius:var(--cd-radius);border:1px solid var(--cd-border)}\n.cd-card:hover .cd-card-thumb{transform:translateY(-3px);border-color:var(--cd-accent)}\n.cd-card-title{font-weight:600}"
+}

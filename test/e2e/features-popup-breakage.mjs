@@ -107,7 +107,10 @@ function popupState() {
   const mapRadio = (b) => ({ id: b.dataset.themeId || b.dataset.hex, checked: b.getAttribute('aria-checked'), disabled: b.getAttribute('aria-disabled'), tab: b.tabIndex, label: (b.getAttribute('aria-label') || b.textContent).trim().replace(/\s+/g, ' ') });
   return {
     proLabel: $('pro-state-text').textContent,
+    founderBadge: !$('founder-badge').hidden,
     proDetail: $('pro-detail').textContent,
+    proThankYou: $('pro-thank-you').textContent,
+    proThankYouHidden: $('pro-thank-you').hidden,
     proSaved: $('pro-saved').textContent,
     themes: [...document.querySelectorAll('#theme-grid [role=radio]')].map(mapRadio),
     themeNote: $('theme-note').textContent,
@@ -143,7 +146,7 @@ function interactiveInventory() {
   return [...new Set(document.querySelectorAll(sel))].filter((el) => !el.closest('svg.sprite')).map((el) => {
     const r = el.getBoundingClientRect();
     const cs = getComputedStyle(el);
-    return { key: `${el.tagName}#${el.id}|${el.dataset.themeId || el.dataset.hex || el.dataset.calm || ''}`, tag: el.tagName.toLowerCase(), role: el.getAttribute('role') || '', disabledAttr: el.disabled === true, hiddenEl: el.hidden || r.width === 0 || r.height === 0 || cs.visibility === 'hidden' || cs.display === 'none', tabindex: el.tabIndex };
+    return { key: `${el.tagName}#${el.id}|${el.dataset.themeId || el.dataset.hex || el.dataset.calm || ''}`, tag: el.tagName.toLowerCase(), role: el.getAttribute('role') || '', disabledAttr: el.disabled === true, hiddenEl: el.hidden || Boolean(el.tagName.toLowerCase() !== 'summary' && el.closest('details:not([open])')) || r.width === 0 || r.height === 0 || cs.visibility === 'hidden' || cs.display === 'none', tabindex: el.tabIndex };
   });
 }
 
@@ -183,11 +186,12 @@ async function phaseF4(ctx, S) {
   let st = await pop.evaluate(popupState);
   check(P, 'free-render-licence', st.proLabel === 'Free' && /Free themes/.test(st.proDetail), { label: st.proLabel });
   const lockedThemes = st.themes.filter((t) => t.disabled === 'true').map((t) => t.id).sort();
-  check(P, 'free-render-themes', st.themes.length === 6 && st.themes.find((t) => t.id === 'cinema').checked === 'true' && JSON.stringify(lockedThemes) === JSON.stringify(['arcade', 'primetime', 'studio']), { checked: st.themes.filter((t) => t.checked === 'true').map((t) => t.id), locked: lockedThemes });
+  const expectedLocked = ['arcade', 'ember', 'frost', 'imax', 'matcha', 'midnight-city', 'mocha', 'oled', 'paper', 'primetime', 'studio', 'sunset', 'terminal'];
+  check(P, 'free-render-themes', st.themes.length === 16 && st.themes.find((t) => t.id === 'cinema').checked === 'true' && JSON.stringify(lockedThemes) === JSON.stringify(expectedLocked), { checked: st.themes.filter((t) => t.checked === 'true').map((t) => t.id), locked: lockedThemes });
   check(P, 'free-render-density-locked', st.density.disabled === true && st.density.proTag, st.density);
   const calmLocked = st.calm.filter((c) => c.disabled === 'true').map((c) => c.k).sort();
-  check(P, 'free-render-calm-locked', JSON.stringify(calmLocked) === JSON.stringify(['hideComments', 'hideEndScreens', 'hideLive', 'hideViewCounts']) && st.calm.every((c) => c.tag === (c.disabled === 'true')), { locked: calmLocked });
-  check(P, 'free-render-activate-open', st.activate.open === true, st.activate);
+  check(P, 'free-render-calm-locked', JSON.stringify(calmLocked) === JSON.stringify(['hideLive', 'hideViewCounts']) && st.calm.every((c) => c.tag === (c.disabled === 'true')), { locked: calmLocked });
+  check(P, 'free-render-activate-collapsed', st.activate.open === false && /I have a licence/.test(st.activate.summary), st.activate);
   check(P, 'free-status-idle-in-own-window', /Open a YouTube tab/.test(st.status.text), st.status);
   check(P, 'free-footer', /Not affiliated with Google or YouTube/.test(await pop.evaluate(() => document.querySelector('.footer').textContent)) && /^Cinedrape v\d/.test(st.version), st.version);
   const lay = await pop.evaluate(popupLayoutProbe);
@@ -220,9 +224,11 @@ async function phaseF4(ctx, S) {
   check(P, 'locked-theme-explained', st.notice.open === 'true' && /Prime Time is a Pro theme/.test(st.notice.text) && st.notice.action, st.notice);
   check(P, 'locked-theme-nothing-written', noWrite && JSON.stringify(before) === JSON.stringify(after) && (await ytAttr(yt, 'cd-theme')) === 'cinema', { noWrite, themeStored: after.themeId, themeInTab: await ytAttr(yt, 'cd-theme') });
   check(P, 'locked-theme-checked-unchanged', st.themes.find((t) => t.id === 'cinema').checked === 'true' && st.themes.find((t) => t.id === 'primetime').checked === 'false', '');
-  noWrite = await activeNoWrite(pop, () => pop.click('[data-calm="hideComments"]'));
+  await pop.click('#sheet-close-btn').catch(() => {});
+  noWrite = await activeNoWrite(pop, () => pop.click('[data-calm="hideViewCounts"]'));
   st = await pop.evaluate(popupState);
-  check(P, 'locked-calm-explained-not-written', noWrite && /Hide comments is a Pro setting/.test(st.notice.text) && (await settingsOf(ctx)).calm.hideComments === undefined, { noWrite, notice: st.notice.text });
+  check(P, 'locked-calm-explained-not-written', noWrite && /Hide view counts is a Pro setting/.test(st.notice.text) && (await settingsOf(ctx)).calm.hideViewCounts === undefined, { noWrite, notice: st.notice.text });
+  await pop.click('#sheet-close-btn').catch(() => {});
   noWrite = await activeNoWrite(pop, async () => { await pop.focus('#density').catch(() => {}); await pop.keyboard.press('ArrowRight'); });
   check(P, 'locked-density-slider-inert', noWrite && (await pop.evaluate(() => document.getElementById('density').disabled)), '');
   await pop.click('#notice-dismiss');
@@ -278,10 +284,15 @@ async function phaseF4(ctx, S) {
   const cases = [
     ['empty', '', /Paste your licence token first/],
     ['garbage', 'hello world', /doesn.t look like a Cinedrape licence token/],
-    ['tampered', tamperToken(good.token), /could not be verified/],
+    ['tampered', tamperToken(good.token), /isn.t valid|could not be verified/],
     ['expired', expiredToken, /has expired/],
   ];
   const frags = (tok) => tok.split('.').flatMap((p) => [p.slice(0, 18), p.slice(-18)]);
+  st = await pop.evaluate(popupState);
+  if (!st.activate.open) {
+    await pop.click('#activate-summary');
+    await sleep(200);
+  }
   for (const [name, token, re] of cases) {
     await pop.evaluate(() => { const t = document.getElementById('token'); t.value = ''; });
     await pop.click('#token');
@@ -304,6 +315,10 @@ async function phaseF4(ctx, S) {
   await sleep(700);
   st = await pop.evaluate(popupState);
   check(P, 'free-with-stored-pro-choice-shows-fallback', (await ytAttr(yt, 'cd-theme')) === 'cinema' && /Studio theme is saved and returns when Pro is active/.test(st.themeNote) && /Saved and waiting for Pro/.test(st.proSaved), { tab: await ytAttr(yt, 'cd-theme'), note: st.themeNote, saved: st.proSaved });
+  if (!st.activate.open) {
+    await pop.click('#activate-summary');
+    await sleep(200);
+  }
   await pop.evaluate(() => { document.getElementById('token').value = ''; });
   await pop.click('#token');
   await pop.keyboard.sendCharacter(good.token);
@@ -316,6 +331,16 @@ async function phaseF4(ctx, S) {
   st = await pop.evaluate(popupState);
   const lic = (await ctx.sw(swGet, 'cd.licence')).value['cd.licence'];
   check(P, 'activate-valid-token-via-ui', st.proLabel === 'Pro active' && /Pro is now active/.test(st.activate.result) && st.activate.tokenValueLength === 0 && Boolean(lic && lic.token === good.token), { label: st.proLabel, result: st.activate.result, inputCleared: st.activate.tokenValueLength === 0 });
+  const proExtras = await pop.evaluate(() => ({
+    founderHidden: document.getElementById('founder-badge').hidden,
+    thankYou: document.getElementById('pro-thank-you').textContent,
+    thankYouHidden: document.getElementById('pro-thank-you').hidden,
+    bannerHidden: document.getElementById('pro-activated-banner').hidden,
+  }));
+  check(P, 'activate-shows-thank-you-and-banner', proExtras.founderHidden === true && proExtras.thankYouHidden === false && proExtras.thankYou === 'Pro · thank you' && proExtras.bannerHidden === false, proExtras);
+  await pop.click('#pro-activated-dismiss');
+  const bannerDismissed = await pop.evaluate(() => document.getElementById('pro-activated-banner').hidden);
+  check(P, 'activate-banner-dismisses-on-click', bannerDismissed === true, { bannerDismissed });
   metric('activate click -> stored Pro theme visible in tab ms', ev ? ev.t - pt : null);
   check(P, 'activate-unlocks-tab-within-1s', Boolean(ev) && ev.t - pt < 1000, ev ? ev.t - pt : 'no event');
   const leak2 = await pop.evaluate((fr) => {
@@ -331,6 +356,17 @@ async function phaseF4(ctx, S) {
   S.tokenFrags = frags(good.token);
   const consoleLeak = ctx.consoleLog.filter((l) => S.tokenFrags.some((f) => l.text.includes(f)));
   check(P, 'token-not-in-console', consoleLeak.length === 0, { consoleEntries: ctx.consoleLog.length });
+
+  const founderLic = await mintLicence({ plan: 'pro', tier: 'founder', days: 30 });
+  await ctx.sw(swSet, { 'cd.licence': { token: founderLic.token, claims: founderLic.claims, checkedAt: Date.now() } });
+  await pop.waitForFunction(() => !document.getElementById('founder-badge').hidden, { timeout: 4000 }).catch(() => {});
+  const founderState = await pop.evaluate(() => ({
+    badge: !document.getElementById('founder-badge').hidden,
+    thankYou: document.getElementById('pro-thank-you').textContent,
+  }));
+  check(P, 'pro-founder-badge-and-thank-you', founderState.badge === true && founderState.thankYou === 'Founder · thank you for supporting Cinedrape', founderState);
+  await ctx.sw(swSet, { 'cd.licence': { token: good.token, claims: good.claims, checkedAt: Date.now() } });
+  await pop.waitForFunction(() => document.getElementById('founder-badge').hidden, { timeout: 4000 }).catch(() => {});
 
   await phaseF4Pro(ctx, S);
 }
@@ -416,7 +452,10 @@ async function keyboardAndAx(ctx, pop, yt, P, mode) {
   // arrow keys inside the theme group
   await pop.focus('#theme-grid [aria-checked="true"]');
   const cur = await pop.evaluate(() => document.querySelector('#theme-grid [aria-checked="true"]').dataset.themeId);
-  const order = ['cinema', 'minimal', 'classic', 'primetime', 'studio', 'arcade'];
+  const order = [
+    'cinema', 'minimal', 'classic', 'primetime', 'studio', 'arcade',
+    'oled', 'frost', 'mocha', 'midnight-city', 'ember', 'paper', 'matcha', 'sunset', 'terminal', 'imax',
+  ];
   const idx = order.indexOf(cur);
   if (mode === 'free') {
     await pop.keyboard.press('Home');
@@ -440,16 +479,16 @@ async function keyboardAndAx(ctx, pop, yt, P, mode) {
     await pop.keyboard.press('End');
     await sleep(200);
     const endFocus = await pop.evaluate(() => document.activeElement.dataset.themeId);
-    check(P, 'free: End moves focus to the last theme (locked), selection stays', endFocus === 'arcade' && (await pop.evaluate(() => document.querySelector('#theme-grid [aria-checked="true"]').dataset.themeId)) === 'classic', endFocus);
+    check(P, 'free: End moves focus to the last theme (locked), selection stays', endFocus === 'imax' && (await pop.evaluate(() => document.querySelector('#theme-grid [aria-checked="true"]').dataset.themeId)) === 'classic', endFocus);
     await pop.click('[data-theme-id="cinema"]');
     await pop.click('#notice-dismiss').catch(() => {});
   } else {
     void idx;
     await pop.keyboard.press('Home');
     await sleep(300);
-    const m = await actAndMeasure(pop, yt, () => pop.keyboard.press('End'), { k: 'attr', n: 'cd-theme', v: 'arcade' });
+    const m = await actAndMeasure(pop, yt, () => pop.keyboard.press('End'), { k: 'attr', n: 'cd-theme', v: 'imax' });
     check(P, 'pro: End key selects the last (Pro) theme', m.ok && m.effectMs < 1000, m);
-    const m2 = await actAndMeasure(pop, yt, () => pop.keyboard.press('ArrowLeft'), { k: 'attr', n: 'cd-theme', v: 'studio' });
+    const m2 = await actAndMeasure(pop, yt, () => pop.keyboard.press('ArrowLeft'), { k: 'attr', n: 'cd-theme', v: 'terminal' });
     check(P, 'pro: ArrowLeft selects the previous Pro theme', m2.ok && m2.effectMs < 1000, m2);
     await pop.click('[data-theme-id="cinema"]');
   }
@@ -465,10 +504,10 @@ async function keyboardAndAx(ctx, pop, yt, P, mode) {
   const radios = ctl.filter((n) => n.role === 'radio');
   const switches = ctl.filter((n) => n.role === 'switch');
   const slider = ctl.find((n) => n.role === 'slider');
-  check(P, `${mode}: AX radios expose checked state`, radios.length === 19 && radios.every((n) => typeof n.checked === 'boolean' || n.checked === 'mixed'), radios.map((n) => `${n.name}=${n.checked}`).join('; ').slice(0, 300));
+  check(P, `${mode}: AX radios expose checked state`, radios.length === 35 && radios.every((n) => typeof n.checked === 'boolean' || n.checked === 'mixed'), radios.map((n) => `${n.name}=${n.checked}`).join('; ').slice(0, 300));
   check(P, `${mode}: AX switches expose checked state (7)`, switches.length === 7 && switches.every((n) => typeof n.checked === 'boolean'), switches.map((n) => `${n.name}=${n.checked}${n.disabled ? ' disabled' : ''}`).join('; ').slice(0, 400));
   const lockedAx = ctl.filter((n) => n.disabled);
-  check(P, `${mode}: locked controls are exposed as disabled`, mode === 'free' ? lockedAx.filter((n) => n.role === 'radio').length === 3 && lockedAx.filter((n) => n.role === 'switch').length === 4 : lockedAx.filter((n) => ['radio', 'switch', 'slider'].includes(n.role)).length === 0, lockedAx.map((n) => `${n.role}:${n.name}`).join('; ').slice(0, 300));
+  check(P, `${mode}: locked controls are exposed as disabled`, mode === 'free' ? lockedAx.filter((n) => n.role === 'radio').length === 19 && lockedAx.filter((n) => n.role === 'switch').length === 2 : lockedAx.filter((n) => ['radio', 'switch', 'slider'].includes(n.role)).length === 0, lockedAx.map((n) => `${n.role}:${n.name}`).join('; ').slice(0, 300));
   check(P, `${mode}: AX slider has a name and a value text`, Boolean(slider && slider.name && (slider.valuetext || slider.value !== undefined)), slider && { name: slider.name, value: slider.value, valuetext: slider.valuetext, disabled: slider.disabled });
   const groups = nodes.filter((n) => n.role === 'radiogroup' || n.role === 'group');
   check(P, `${mode}: AX radiogroups are named`, groups.filter((n) => n.role === 'radiogroup').every((n) => n.name), groups.map((n) => `${n.role}:${n.name}`).slice(0, 8));
@@ -928,7 +967,7 @@ async function phaseLicence(ctx, S) {
   if (!S.licence) S.licence = await mintLicence({});
   const yt = S.yt || (await ctx.newYouTube(CHANNEL_URL));
   await yt.bringToFront();
-  await ctx.sw(swSet, { 'cd.settings': baseSettings({ themeId: 'studio', density: 4, calm: { hideShorts: true, hideComments: true } }) });
+  await ctx.sw(swSet, { 'cd.settings': baseSettings({ themeId: 'studio', density: 4, calm: { hideShorts: true, hideViewCounts: true } }) });
   const popBg = await ctx.openPopup({ window: false, background: true, label: 'popup-licence', width: 360, height: 900 });
   const rows = [];
   for (const [days, expectStatus, expectPro] of [[3, 'active', true], [8, 'grace', true], [29, 'grace', true], [31, 'expired', false], [3, 'active', true]]) {
@@ -939,9 +978,9 @@ async function phaseLicence(ctx, S) {
     const rep = await statusOf(ctx, 'youtube.com');
     const pst = await popBg.evaluate(popupState);
     const swLic = await popBg.evaluate(() => chrome.runtime.sendMessage({ type: 'cd:getLicence' })).catch(() => null);
-    const row = { days, status: swLic && swLic.status, plan: swLic && swLic.plan, tabTheme: await ytAttr(yt, 'cd-theme'), tabDensity: rep.features && rep.features.density, tabCalmComments: rep.features && rep.features['calm-hideComments'], enginePro: rep.pro, popupLabel: pst.proLabel, popupLocked: pst.themes.filter((t) => t.disabled).length };
+    const row = { days, status: swLic && swLic.status, plan: swLic && swLic.plan, tabTheme: await ytAttr(yt, 'cd-theme'), tabDensity: rep.features && rep.features.density, tabCalmViews: rep.features && rep.features['calm-hideViewCounts'], enginePro: rep.pro, popupLabel: pst.proLabel, popupLocked: pst.themes.filter((t) => t.disabled).length };
     rows.push(row);
-    check(P, `checkedAt ${days} d old -> ${expectStatus}, Pro features ${expectPro ? 'unlocked' : 'locked'} in the live tab`, got.value === true && row.status === expectStatus && row.enginePro === expectPro && (expectPro ? row.tabDensity === 'on' && row.tabCalmComments === 'on' : row.tabDensity === 'locked' && row.tabCalmComments === 'locked'), row);
+    check(P, `checkedAt ${days} d old -> ${expectStatus}, Pro features ${expectPro ? 'unlocked' : 'locked'} in the live tab`, got.value === true && row.status === expectStatus && row.enginePro === expectPro && (expectPro ? row.tabDensity === 'on' && row.tabCalmViews === 'on' : row.tabDensity === 'locked' && row.tabCalmViews === 'locked'), row);
   }
   check(P, 'popup labels: Pro active / offline grace / paused', true, rows.map((r) => `${r.days}d=${r.popupLabel}`).join('; '));
   // A record that was merely not re-checked for 31 days (the token itself has no expiry problem) is "paused", not "expired": the

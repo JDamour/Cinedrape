@@ -251,7 +251,14 @@ export function createChromeMock(options = {}) {
     return deliver(onMessage._listeners, message, sender);
   }));
 
+  let uninstallURL = '';
+  runtime.setUninstallURL = spy('runtime.setUninstallURL', (...args) => call(args, (url = '') => {
+    uninstallURL = String(url);
+    return { result: undefined };
+  }));
+
   // ---- alarms -----------------------------------------------------------------------------------
+
   /** @type {Map<string, {name:string, scheduledTime:number, periodInMinutes?:number}>} */
   const alarmStore = new Map();
   const onAlarm = createEvent(onError);
@@ -300,7 +307,12 @@ export function createChromeMock(options = {}) {
     const esc = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
     return new RegExp(`^${esc}$`);
   };
+  let nextTabId = 100;
   const tabs = {
+    create: spy('tabs.create', (...args) => call(args, (props = {}) => {
+      const tab = addTab({ id: nextTabId++, url: props.url, active: props.active !== false });
+      return { result: tab };
+    })),
     query: spy('tabs.query', (...args) => call(args, (info = {}) => {
       const patterns = info.url == null ? null : [].concat(info.url).map(patternToRegExp);
       const result = tabEntries.map((e) => e.tab).filter((t) => (
@@ -353,6 +365,7 @@ export function createChromeMock(options = {}) {
     runtime.lastError = undefined;
     sender = { id: 'test-id' };
     listenerErrors.length = 0;
+    uninstallURL = '';
     for (const fn of Object.values(spies)) fn.calls.length = 0;
   }
 
@@ -362,6 +375,7 @@ export function createChromeMock(options = {}) {
     spies,
     addTab,
     removeTab,
+    getUninstallURL() { return uninstallURL; },
     /** Sets the `sender` object listeners receive from sendMessage / tabs.sendMessage. */
     setSender(next) { sender = { id: 'test-id', ...next }; },
     /** Errors thrown by event listeners (Chrome would only log them). */

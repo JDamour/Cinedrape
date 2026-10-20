@@ -336,7 +336,7 @@ describe('first-paint cache', () => {
   });
 });
 
-test('everything the engine itself can build (6 themes x 3 home layouts x 3 watch layouts, every calm toggle) passes the first-paint filter', () => {
+test('everything the engine itself can build (all themes x 3 home layouts x 3 watch layouts, every calm toggle) passes the first-paint filter', () => {
   const map = parseEnvelopePayload(JSON.parse(readFileSync(new URL('../../src/data/selector-map.signed.json', import.meta.url), 'utf8')));
   const pro = { plan: 'pro', status: 'active' };
   let built = 0;
@@ -351,5 +351,5 @@ test('everything the engine itself can build (6 themes x 3 home layouts x 3 watc
       }
     }
   }
-  assert.equal(built, 54);
+  assert.equal(built, THEMES.length * 9);
 });
