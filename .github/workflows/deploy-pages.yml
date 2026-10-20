@@ -28,6 +28,8 @@ jobs:
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       # Publish only the landing-page assets, not the whole repository
       # (keeps internal docs and sources off the public site).
