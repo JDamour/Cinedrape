@@ -1,0 +1,10 @@
+Generated with the built-in imagegen tool on 2026-10-14.
+
+Use case: logo-brand
+Asset type: final square app icon for Cinedrape, a browser extension for YouTube themes, layouts and calm viewing.
+Primary request: a polished, distinctive cinema curtain app icon matching the app's charcoal and warm gold brand.
+Subject: a bold simplified pair of parted theatrical drapes framing a single clear right-facing play triangle. Curtains and play triangle form one cohesive compact graphic. Two smooth curved curtain silhouettes with only one or two broad fold accents each, no ornate valance or tassels. Large recognizable shapes suitable for tiny 16px toolbar display.
+Style: restrained premium vector-like graphic, crisp edges, subtle warm gold shading, almost flat. No photorealistic fabric.
+Palette: warm gold #e8b04a and soft highlight #f6d68c on near-black charcoal #0b0b0f rounded square tile with a subtle thin charcoal rim.
+Composition: exactly square image, one centered front-facing icon tile filling the canvas with minimal transparent padding outside rounded corners. Generous internal safe margins, mark occupies about 72 percent of tile. Balanced and bold at small sizes.
+Constraints: transparent outside rounded square only; tile interior opaque. No text, letters, watermark, mockup, extra objects, drop shadow outside tile, YouTube logo, or red. Output only the finished icon.

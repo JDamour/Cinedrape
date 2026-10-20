@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cinedrape — Cinematic Themes, Custom Layouts & Calm Mode for YouTube™</title>
+  <meta name="description" content="A private, fail-open Manifest V3 browser extension that restyles desktop YouTube in one click. 16 handcrafted themes, calm study mode, cinema hero rows, and zero tracking.">
+  <meta name="keywords" content="YouTube themes, browser extension, dark mode, calm mode, YouTube focus, manifest v3, open source">
+  
+  <!-- Favicons -->
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="icons/icon-16.png">
+  <link rel="apple-touch-icon" sizes="128x128" href="icons/icon-128.png">
+
+  <!-- Open Graph / Social Sharing -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Cinedrape — Cinematic Themes, Custom Layouts & Calm Mode for YouTube™">
+  <meta property="og:description" content="Pick a complete YouTube look in one click, eliminate distractions with Calm Mode, and enjoy a fail-open, 100% private viewing experience.">
+  <meta property="og:image" content="https://jdamour.github.io/Cinedrape/docs/branding/cinedrape-icon-master.png">
+  <meta property="og:url" content="https://jdamour.github.io/Cinedrape/">
+  <link rel="canonical" href="https://jdamour.github.io/Cinedrape/">
+  <meta name="theme-color" content="#0d0d12">
+
+  <!-- Twitter / X Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Cinedrape — Cinematic Themes, Custom Layouts & Calm Mode for YouTube™">
+  <meta name="twitter:description" content="Pick a complete YouTube look in one click, eliminate distractions with Calm Mode, and enjoy a fail-open, 100% private viewing experience.">
+  <meta name="twitter:image" content="https://jdamour.github.io/Cinedrape/docs/branding/cinedrape-icon-master.png">
+
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Site Navigation -->
+  <header class="site-header">
+    <div class="container navbar">
+      <a href="#" class="brand">
+        <img src="icons/icon-48.png" alt="Cinedrape Logo" class="brand-icon">
+        <span>Cinedrape</span>
+        <span class="brand-tag">v0.1.1</span>
+      </a>
+
+      <nav>
+        <ul class="nav-links" id="navLinks">
+          <li><a href="#simulator">Live Preview</a></li>
+          <li><a href="#features">Features</a></li>
+          <li><a href="#gallery">Gallery</a></li>
+          <li><a href="#architecture">Privacy & Safety</a></li>
+          <li><a href="#install">Install</a></li>
+          <li><a href="#faq">FAQ</a></li>
+        </ul>
+      </nav>
+
+      <div class="nav-actions">
+        <a href="https://github.com/JDamour/Cinedrape" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
+          </svg>
+          <span>GitHub</span>
+        </a>
+        <a href="#install" class="btn btn-primary">
+          <span>Get Extension</span>
+        </a>
+        <button class="mobile-toggle" id="mobileToggle" aria-label="Toggle Navigation Menu">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Contextual Welcome / Feedback Banner (shown on #welcome or #bye) -->
+  <div id="hashBanner" class="container" style="display:none; margin-top: 1.5rem;" role="status" aria-live="polite"></div>
+
+  <!-- Hero Section -->
+  <section class="section hero-section">
+    <div class="container hero-content">
+      <div class="badge">
+        <span class="badge-dot"></span>
+        Manifest V3 · Local-First · Zero Telemetry
+      </div>
+
+      <h1 class="hero-title">
+        <span>Your YouTube.</span>
+        <span class="text-gradient">Your Atmosphere.</span>
+      </h1>
+
+      <p class="hero-desc">
+        The fail-open browser extension that restyles and re-lays-out desktop YouTube in one click. Pick curated cinema looks, eliminate distractions with Calm Mode, and enjoy deep focus with <strong>zero tracking and zero account requirements</strong>.
+      </p>
+
+      <div class="hero-actions">
+        <a href="#simulator" class="btn btn-primary btn-lg">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+          </svg>
+          <span>Try Interactive Preview</span>
+        </a>
+        <a href="#install" class="btn btn-secondary btn-lg">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          <span>Install Extension</span>
+        </a>
+      </div>
+
+      <!-- Trust Badges -->
+      <div class="trust-bar">
+        <div class="trust-item">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+          <span>Zero Telemetry or Phone-Home</span>
+        </div>
+        <div class="trust-item">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+          <span>Fail-Open Architecture</span>
+        </div>
+        <div class="trust-item">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="m4.93 4.93 4.24 4.24"></path><path d="m14.83 9.17 4.24-4.24"></path><path d="m14.83 14.83 4.24 4.24"></path><path d="m9.17 14.83-4.24 4.24"></path></svg>
+          <span>16 Bundled Themes</span>
+        </div>
+        <div class="trust-item">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          <span>Local Day/Night Scheduling</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Interactive Simulator -->
+  <section class="section simulator-section" id="simulator">
+    <div class="container">
+      <div class="section-header">
+        <div class="badge">Interactive Demo</div>
+        <h2 class="section-title">Experience YouTube with <span class="text-gradient">Cinedrape</span></h2>
+        <p class="section-desc">Click themes below or toggle Calm Mode to see the live interface transform instantly.</p>
+      </div>
+
+      <div class="simulator-wrapper">
+        <!-- Simulator Controls -->
+        <div class="sim-controls-bar">
+          <div class="sim-theme-selector">
+            <span class="sim-control-label">Theme:</span>
+            <button class="theme-pill active" data-theme="cinema" aria-label="Cinema Theme">
+              <span class="swatch-dot" style="color: #e8b04a;"></span>
+              <span>Cinema</span>
+            </button>
+            <button class="theme-pill" data-theme="oled" aria-label="True Black Theme">
+              <span class="swatch-dot" style="color: #38bdf8;"></span>
+              <span>True Black (OLED)</span>
+            </button>
+            <button class="theme-pill" data-theme="frost" aria-label="Frost Theme">
+              <span class="swatch-dot" style="color: #22d3ee;"></span>
+              <span>Frost</span>
+            </button>
+            <button class="theme-pill" data-theme="terminal" aria-label="Retro Terminal Theme">
+              <span class="swatch-dot" style="color: #00ff41;"></span>
+              <span>Terminal</span>
+            </button>
+            <button class="theme-pill" data-theme="paper" aria-label="Paper Study Theme">
+              <span class="swatch-dot" style="color: #8c3822;"></span>
+              <span>Paper Study</span>
+            </button>
+            <button class="theme-pill" data-theme="matcha" aria-label="Matcha Theme">
+              <span class="swatch-dot" style="color: #4ade80;"></span>
+              <span>Matcha</span>
+            </button>
+            <button class="theme-pill" data-theme="arcade" aria-label="Arcade Theme">
+              <span class="swatch-dot" style="color: #ff3df2;"></span>
+              <span>Arcade</span>
+            </button>
+            <button class="theme-pill" data-theme="mocha" aria-label="Mocha Theme">
+              <span class="swatch-dot" style="color: #e0a96d;"></span>
+              <span>Mocha</span>
+            </button>
+          </div>
+
+          <div class="sim-toggles">
+            <button class="toggle-btn" id="calmToggle" aria-label="Toggle Calm Mode">
+              <span class="toggle-status"></span>
+              <span class="toggle-text">Calm Mode: OFF</span>
+            </button>
+            <button class="toggle-btn active" id="layoutToggle" aria-label="Toggle Layout Mode">
+              <span class="toggle-text">Layout: Hero Rows</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Mock YouTube Viewport -->
+        <div class="mock-viewport" id="mockViewport">
+          <!-- Mock Top Bar -->
+          <div class="mock-nav">
+            <div class="mock-logo">
+              <div class="mock-logo-icon">▶</div>
+              <span>YouTube</span>
+            </div>
+            <div class="mock-search">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+              <span>Search cinema, ambient focus, documentaires...</span>
+            </div>
+            <div class="mock-user-controls">
+              <div class="mock-distractions">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+              </div>
+              <div class="mock-avatar"></div>
+            </div>
+          </div>
+
+          <!-- Mock Hero Showcase -->
+          <div class="mock-hero" id="mockHero">
+            <div class="mock-hero-left">
+              <div class="mock-hero-tag">Cinematic Feature · Curated</div>
+              <div class="mock-hero-title">Interstellar Visuals & Deep Acoustic Spaces</div>
+              <div class="mock-hero-desc">An exploratory journey through atmospheric film scoring, 4K spatial visuals, and sound design architecture.</div>
+              <div class="mock-hero-btn">Watch Now</div>
+            </div>
+            <div class="mock-hero-preview">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
+                <line x1="7" y1="2" x2="7" y2="22"></line>
+                <line x1="17" y1="2" x2="17" y2="22"></line>
+                <line x1="2" y1="12" x2="22" y2="12"></line>
+                <line x1="2" y1="7" x2="7" y2="7"></line>
+                <line x1="2" y1="17" x2="7" y2="17"></line>
+                <line x1="17" y1="17" x2="22" y2="17"></line>
+                <line x1="17" y1="7" x2="22" y2="7"></line>
+              </svg>
+            </div>
+          </div>
+
+          <!-- Mock Cards Feed -->
+          <div class="mock-feed">
+            <div class="mock-feed-header">
+              <span class="mock-feed-title">Recommended Spotlight</span>
+            </div>
+            <div class="mock-cards-grid">
+              <!-- Card 1 -->
+              <div class="mock-card">
+                <div class="mock-thumb">
+                  <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                  <span class="mock-duration">28:45</span>
+                </div>
+                <div class="mock-card-body">
+                  <div class="mock-card-title">Nordic Minimalism & Cold Aesthetic Cinema</div>
+                  <div class="mock-card-meta">
+                    <span>Cinephile Archives</span>
+                    <span class="mock-metrics">1.2M views · 3 days ago</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Card 2 -->
+              <div class="mock-card">
+                <div class="mock-thumb">
+                  <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                  <span class="mock-duration">14:12</span>
+                </div>
+                <div class="mock-card-body">
+                  <div class="mock-card-title">How To Design Unbreakable Manifest V3 Extensions</div>
+                  <div class="mock-card-meta">
+                    <span>Engineering Lab</span>
+                    <span class="mock-metrics">420K views · 2 weeks ago</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Card 3 -->
+              <div class="mock-card">
+                <div class="mock-thumb">
+                  <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                  <span class="mock-duration">54:00</span>
+                </div>
+                <div class="mock-card-body">
+                  <div class="mock-card-title">Deep Focus Lo-Fi Study Session (No Ads / Clean)</div>
+                  <div class="mock-card-meta">
+                    <span>Calm Station</span>
+                    <span class="mock-metrics">3.8M views · 1 month ago</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Card 4 -->
+              <div class="mock-card">
+                <div class="mock-thumb">
+                  <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                  <span class="mock-duration">42:19</span>
+                </div>
+                <div class="mock-card-body">
+                  <div class="mock-card-title">Analog Modular Synthesizers in Film Production</div>
+                  <div class="mock-card-meta">
+                    <span>Sonic Architecture</span>
+                    <span class="mock-metrics">85K views · 5 days ago</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Key Features Section -->
+  <section class="section" id="features">
+    <div class="container">
+      <div class="section-header">
+        <div class="badge">Designed for Focus & Aesthetics</div>
+        <h2 class="section-title">Everything you need.<br><span class="text-gradient">Nothing you don't.</span></h2>
+        <p class="section-desc">Cinedrape re-imagines desktop YouTube as a calm, beautiful personal theater. Built with precision engineering, local privacy, and fail-open guarantees.</p>
+      </div>
+
+      <div class="features-grid">
+        <!-- Feature 1 -->
+        <div class="feature-card">
+          <div class="feature-icon-box">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="m4.93 4.93 4.24 4.24"></path><path d="m14.83 9.17 4.24-4.24"></path><path d="m14.83 14.83 4.24 4.24"></path><path d="m9.17 14.83-4.24 4.24"></path></svg>
+          </div>
+          <h3 class="feature-title">16 Bundled Themes</h3>
+          <p class="feature-desc">From pitch-black OLED to retro terminal green phosphor, warm Paper Study, pastel Sunset, and icy Frost. Every theme is bundled as pure JSON data with zero runtime downloads.</p>
+          <div class="feature-tag-list">
+            <span class="feature-chip">OLED Black</span>
+            <span class="feature-chip">Cinema Gold</span>
+            <span class="feature-chip">Retro Terminal</span>
+            <span class="feature-chip">Matcha</span>
+            <span class="feature-chip">Paper Study</span>
+          </div>
+        </div>
+
+        <!-- Feature 2 -->
+        <div class="feature-card">
+          <div class="feature-icon-box">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"></path><path d="M12 6a6 6 0 0 0-6 6h12a6 6 0 0 0-6-6z"></path></svg>
+          </div>
+          <h3 class="feature-title">Calm Mode (Focus & Study)</h3>
+          <p class="feature-desc">Tired of dopamine-fueled algorithmic traps? Hide recommendation sidebars, collapse comment sections, hide view counts, and eliminate notification badges in one click.</p>
+          <div class="feature-tag-list">
+            <span class="feature-chip">Hide Recommendations</span>
+            <span class="feature-chip">Silence Metrics</span>
+            <span class="feature-chip">Hide Comments</span>
+            <span class="feature-chip">Anti-Distraction</span>
+          </div>
+        </div>
+
+        <!-- Feature 3 -->
+        <div class="feature-card">
+          <div class="feature-icon-box">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+          </div>
+          <h3 class="feature-title">Custom Layouts & Density</h3>
+          <p class="feature-desc">Switch between curated Cinema Hero rows and clean grid layouts. Adjust card density from 1 (cozy & compact) to 5 (roomy) perfectly tailored to ultrawide monitors or compact laptops.</p>
+          <div class="feature-tag-list">
+            <span class="feature-chip">Hero Rows</span>
+            <span class="feature-chip">Cinema Watch Mode</span>
+            <span class="feature-chip">5 Density Levels</span>
+            <span class="feature-chip">Ultrawide Friendly</span>
+          </div>
+        </div>
+
+        <!-- Feature 4 -->
+        <div class="feature-card">
+          <div class="feature-icon-box">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+          </div>
+          <h3 class="feature-title">Fail-Open Architecture</h3>
+          <p class="feature-desc">If YouTube updates its internal DOM or element names, Cinedrape safely and gracefully turns off only affected styling. Your video playback, player controls, and ads are never broken.</p>
+          <div class="feature-tag-list">
+            <span class="feature-chip">Zero Player Breakage</span>
+            <span class="feature-chip">Signed Selector Map</span>
+            <span class="feature-chip">Ad-Safe Validator</span>
+          </div>
+        </div>
+
+        <!-- Feature 5 -->
+        <div class="feature-card">
+          <div class="feature-icon-box">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          </div>
+          <h3 class="feature-title">Local Day/Night Scheduling</h3>
+          <p class="feature-desc">Enjoy Paper Study or Matcha during bright daylight hours, and automatically transition to True Black or Midnight Cinema at sunset. Handled 100% locally on your computer.</p>
+          <div class="feature-tag-list">
+            <span class="feature-chip">Zero Server Lookups</span>
+            <span class="feature-chip">Automatic Transition</span>
+            <span class="feature-chip">Saved Profiles</span>
+          </div>
+        </div>
+
+        <!-- Feature 6 -->
+        <div class="feature-card">
+          <div class="feature-icon-box">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+          </div>
+          <h3 class="feature-title">Visual Studio & Theme Editor</h3>
+          <p class="feature-desc">Create your own bespoke YouTube themes. Adjust background surfaces, accent highlights, typography, corner radii, and drop shadows in real-time. Export and share as JSON.</p>
+          <div class="feature-tag-list">
+            <span class="feature-chip">Visual Color Pickers</span>
+            <span class="feature-chip">JSON Import / Export</span>
+            <span class="feature-chip">Live Preview</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Visual Showcase / Gallery -->
+  <section class="section" id="gallery">
+    <div class="container">
+      <div class="section-header">
+        <div class="badge">Visual Tour</div>
+        <h2 class="section-title">Crafted with obsessive detail</h2>
+        <p class="section-desc">Explore concept screens and real test captures. Click any image to view in high resolution.</p>
+      </div>
+
+      <div class="gallery-grid">
+        <!-- Gallery 1 -->
+        <div class="gallery-item">
+          <div class="gallery-thumb">
+            <img src="docs/demo-images/01-marketplace.png" alt="Cinedrape Theme Marketplace Discovery" loading="lazy">
+            <div class="gallery-overlay">
+              <span class="gallery-zoom-badge">Click to enlarge</span>
+            </div>
+          </div>
+          <div class="gallery-info">
+            <div class="gallery-number">01 · Discovery</div>
+            <h4 class="gallery-title">Marketplace & Collections</h4>
+            <p class="gallery-desc">Browse complete looks with rich page previews, free options, and curated collections.</p>
+          </div>
+        </div>
+
+        <!-- Gallery 2 -->
+        <div class="gallery-item">
+          <div class="gallery-thumb">
+            <img src="docs/demo-images/03-viewing-and-popup.png" alt="Viewing Experience and Extension Popup Controls" loading="lazy">
+            <div class="gallery-overlay">
+              <span class="gallery-zoom-badge">Click to enlarge</span>
+            </div>
+          </div>
+          <div class="gallery-info">
+            <div class="gallery-number">02 · Live Control</div>
+            <h4 class="gallery-title">Quick Settings Popup</h4>
+            <p class="gallery-desc">Instant access to themes, layout density, calm filters, and profiles directly while watching.</p>
+          </div>
+        </div>
+
+        <!-- Gallery 3 -->
+        <div class="gallery-item">
+          <div class="gallery-thumb">
+            <img src="docs/demo-images/04-theme-editor.png" alt="Cinedrape Visual Theme Editor" loading="lazy">
+            <div class="gallery-overlay">
+              <span class="gallery-zoom-badge">Click to enlarge</span>
+            </div>
+          </div>
+          <div class="gallery-info">
+            <div class="gallery-number">03 · Customization</div>
+            <h4 class="gallery-title">Visual Theme Studio</h4>
+            <p class="gallery-desc">Tune colors, fonts, card corner curves, and layouts beside a real-time responsive preview.</p>
+          </div>
+        </div>
+
+        <!-- Gallery 4 -->
+        <div class="gallery-item">
+          <div class="gallery-thumb">
+            <img src="docs/demo-images/02-theme-detail.png" alt="Theme Detail & Customization" loading="lazy">
+            <div class="gallery-overlay">
+              <span class="gallery-zoom-badge">Click to enlarge</span>
+            </div>
+          </div>
+          <div class="gallery-info">
+            <div class="gallery-number">04 · Inspection</div>
+            <h4 class="gallery-title">Theme Detail & Inspect</h4>
+            <p class="gallery-desc">Inspect included color tokens, typography scales, and calm presets before applying.</p>
+          </div>
+        </div>
+
+        <!-- Gallery 5 -->
+        <div class="gallery-item">
+          <div class="gallery-thumb">
+            <img src="docs/demo-images/05-creator-studio.png" alt="Creator Studio & Ecosystem" loading="lazy">
+            <div class="gallery-overlay">
+              <span class="gallery-zoom-badge">Click to enlarge</span>
+            </div>
+          </div>
+          <div class="gallery-info">
+            <div class="gallery-number">05 · Community</div>
+            <h4 class="gallery-title">Creator Ecosystem</h4>
+            <p class="gallery-desc">Manage themes, customize themes for your audience, and export validated JSON packages.</p>
+          </div>
+        </div>
+
+        <!-- Gallery 6: Real E2E Screenshot -->
+        <div class="gallery-item">
+          <div class="gallery-thumb">
+            <img src="docs/demo-images/06-cinema-watch-dark.png" alt="Cinedrape Cinema Watch Mode on Real YouTube" loading="lazy">
+            <div class="gallery-overlay">
+              <span class="gallery-zoom-badge">Click to enlarge</span>
+            </div>
+          </div>
+          <div class="gallery-info">
+            <div class="gallery-number">06 · Real YouTube Test</div>
+            <h4 class="gallery-title">Cinema Watch in Action</h4>
+            <p class="gallery-desc">Live headless browser verification: clean cinematic borders, legible metadata, and zero ad interference.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Privacy & Architecture Section -->
+  <section class="section" id="architecture">
+    <div class="container">
+      <div class="section-header">
+        <div class="badge">Privacy By Design</div>
+        <h2 class="section-title">Built with strict <span class="text-gradient">Local-First</span> integrity</h2>
+        <p class="section-desc">Most browser extensions silently track your browsing history or call remote APIs. Cinedrape was engineered from line 1 with zero network calls and strict sandboxing.</p>
+      </div>
+
+      <div class="comparison-card">
+        <div class="table-responsive">
+          <table class="comparison-table">
+            <thead>
+              <tr>
+                <th>Security & Privacy Vector</th>
+                <th class="cinedrape-col">Cinedrape</th>
+                <th>Standard Browser Extensions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Telemetry & Analytics</td>
+                <td class="cinedrape-col"><span class="pill-check">✓</span> <strong>Zero</strong> (0 network requests in content script)</td>
+                <td><span class="pill-cross">✗</span> Google Analytics, Mixpanel, Sentry telemetry</td>
+              </tr>
+              <tr>
+                <td>Account Requirement</td>
+                <td class="cinedrape-col"><span class="pill-check">✓</span> <strong>None</strong> (Runs 100% on-device)</td>
+                <td><span class="pill-cross">✗</span> Mandatory cloud account & email logins</td>
+              </tr>
+              <tr>
+                <td>Ad & Player Safety</td>
+                <td class="cinedrape-col"><span class="pill-check">✓</span> <strong>Strict Validator</strong> (Cannot hide ads or player)</td>
+                <td><span class="pill-cross">✗</span> Unchecked CSS often breaks player & monetisation</td>
+              </tr>
+              <tr>
+                <td>Failure Handling</td>
+                <td class="cinedrape-col"><span class="pill-check">✓</span> <strong>Fail-Open</strong> (Reverts to standard YouTube on error)</td>
+                <td><span class="pill-cross">✗</span> Leaves broken layouts and unplayable video pages</td>
+              </tr>
+              <tr>
+                <td>Executable Code Storage</td>
+                <td class="cinedrape-col"><span class="pill-check">✓</span> <strong>Pure JSON Data</strong> (0 eval, 0 new Function)</td>
+                <td><span class="pill-cross">✗</span> Remote code scripts, eval(), unvetted injections</td>
+              </tr>
+              <tr>
+                <td>DOM Compatibility Updates</td>
+                <td class="cinedrape-col"><span class="pill-check">✓</span> <strong>ECDSA Signed Map</strong> (Cryptographically verified)</td>
+                <td><span class="pill-cross">✗</span> Unsigned hardcoded scraper selectors</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Installation Section -->
+  <section class="section" id="install">
+    <div class="container">
+      <div class="section-header">
+        <div class="badge">Get Started</div>
+        <h2 class="section-title">Install in <span class="text-gradient">under 60 seconds</span></h2>
+        <p class="section-desc">Try Cinedrape today on Chrome, Microsoft Edge, Brave, or Firefox. 100% free — all 16 themes, layouts, and calm mode filters included.</p>
+      </div>
+
+      <!-- Tab Buttons -->
+      <div class="install-tabs">
+        <button class="tab-btn active" data-target="tabChrome">Chrome / Edge / Brave</button>
+        <button class="tab-btn" data-target="tabFirefox">Firefox</button>
+        <button class="tab-btn" data-target="tabDev">Developer / CLI</button>
+      </div>
+
+      <!-- Tab 1: Chrome / Chromium -->
+      <div class="tab-pane active" id="tabChrome">
+        <div class="install-card">
+          <ol class="step-list">
+            <li class="step-item">
+              <span class="step-num">1</span>
+              <div class="step-content">
+                <h4>Download or Build the Extension</h4>
+                <p>Download the latest <a href="https://github.com/JDamour/Cinedrape/releases" target="_blank" rel="noopener noreferrer" style="color:var(--accent);text-decoration:underline;">release archive from GitHub</a>, or clone and build locally:</p>
+                <div class="code-box">
+                  <code>git clone https://github.com/JDamour/Cinedrape.git &amp;&amp; cd Cinedrape &amp;&amp; npm install &amp;&amp; npm run build</code>
+                  <button class="copy-btn" data-code="git clone https://github.com/JDamour/Cinedrape.git && cd Cinedrape && npm install && npm run build">Copy</button>
+                </div>
+              </div>
+            </li>
+            <li class="step-item">
+              <span class="step-num">2</span>
+              <div class="step-content">
+                <h4>Open Extensions in Your Browser</h4>
+                <p>Navigate to <code>chrome://extensions</code> in Chrome/Brave or <code>edge://extensions</code> in Microsoft Edge. Switch on the <strong>Developer mode</strong> toggle.</p>
+              </div>
+            </li>
+            <li class="step-item">
+              <span class="step-num">3</span>
+              <div class="step-content">
+                <h4>Load Unpacked</h4>
+                <p>Click <strong>Load unpacked</strong> and select the <code>dist/</code> folder (or <code>dist-edge/</code> for Edge). Navigate to <code>youtube.com</code> and click the Cinedrape icon in your toolbar!</p>
+              </div>
+            </li>
+          </ol>
+        </div>
+      </div>
+
+      <!-- Tab 2: Firefox -->
+      <div class="tab-pane" id="tabFirefox">
+        <div class="install-card">
+          <ol class="step-list">
+            <li class="step-item">
+              <span class="step-num">1</span>
+              <div class="step-content">
+                <h4>Build for Firefox</h4>
+                <p>Cinedrape includes dedicated Firefox Manifest V3 target builds:</p>
+                <div class="code-box">
+                  <code>npm run build:firefox</code>
+                  <button class="copy-btn" data-code="npm run build:firefox">Copy</button>
+                </div>
+              </div>
+            </li>
+            <li class="step-item">
+              <span class="step-num">2</span>
+              <div class="step-content">
+                <h4>Open Firefox Debugging</h4>
+                <p>In Firefox, enter <code>about:debugging#/runtime/this-firefox</code> into the address bar.</p>
+              </div>
+            </li>
+            <li class="step-item">
+              <span class="step-num">3</span>
+              <div class="step-content">
+                <h4>Load Temporary Add-on</h4>
+                <p>Click <strong>Load Temporary Add-on...</strong> and select <code>dist-firefox/manifest.json</code>.</p>
+              </div>
+            </li>
+          </ol>
+        </div>
+      </div>
+
+      <!-- Tab 3: Dev / CLI -->
+      <div class="tab-pane" id="tabDev">
+        <div class="install-card">
+          <ol class="step-list">
+            <li class="step-item">
+              <span class="step-num">1</span>
+              <div class="step-content">
+                <h4>Clone &amp; Build Strictly</h4>
+                <div class="code-box">
+                  <code>npm install &amp;&amp; npm run build:strict</code>
+                  <button class="copy-btn" data-code="npm install && npm run build:strict">Copy</button>
+                </div>
+              </div>
+            </li>
+            <li class="step-item">
+              <span class="step-num">2</span>
+              <div class="step-content">
+                <h4>Run Test Suite (2062 automated checks)</h4>
+                <div class="code-box">
+                  <code>npm test</code>
+                  <button class="copy-btn" data-code="npm test">Copy</button>
+                </div>
+              </div>
+            </li>
+            <li class="step-item">
+              <span class="step-num">3</span>
+              <div class="step-content">
+                <h4>Package Multi-Browser Release Archives (Chrome, Edge &amp; Firefox)</h4>
+                <p>Build and package clean store-ready archives into <code>release/</code>:</p>
+                <div class="code-box">
+                  <code>npm run package:dev</code>
+                  <button class="copy-btn" data-code="npm run package:dev">Copy</button>
+                </div>
+              </div>
+            </li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ Section -->
+  <section class="section" id="faq">
+    <div class="container">
+      <div class="section-header">
+        <div class="badge">Questions & Answers</div>
+        <h2 class="section-title">Frequently Asked Questions</h2>
+        <p class="section-desc">Everything you need to know about Cinedrape, how it works, and our privacy commitments.</p>
+      </div>
+
+      <div class="faq-container">
+        <!-- FAQ 1 -->
+        <div class="faq-item open">
+          <button class="faq-question">
+            <span>Does Cinedrape block or hide YouTube ads?</span>
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+          <div class="faq-answer">
+            <p><strong>No.</strong> Cinedrape is not an ad blocker. Our built-in CSS validator strictly refuses any rules or selectors that could hide, collapse, cover, or interfere with advertisements, sponsorship disclosures, or video player controls. Creators earn their revenue normally.</p>
+          </div>
+        </div>
+
+        <!-- FAQ 2 -->
+        <div class="faq-item">
+          <button class="faq-question">
+            <span>Will this slow down YouTube video playback?</span>
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+          <div class="faq-answer">
+            <p>No. Cinedrape applies styles via high-performance CSS custom properties (variables) injected once into the page root. We avoid heavy JavaScript mutation loops. In fact, Calm Mode often speeds up page responsiveness by hiding dynamic comment threads and endless recommendations.</p>
+          </div>
+        </div>
+
+        <!-- FAQ 3 -->
+        <div class="faq-item">
+          <button class="faq-question">
+            <span>What happens when YouTube updates its layout or HTML classes?</span>
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+          <div class="faq-answer">
+            <p>Cinedrape uses a dual protection model: First, all selectors are separated into an ECDSA-signed selector map. Second, our fail-open health monitor continuously checks whether expected elements are present. If YouTube introduces an incompatible DOM change, Cinedrape gracefully turns off only the affected layout component and keeps the rest of YouTube functioning normally.</p>
+          </div>
+        </div>
+
+        <!-- FAQ 4 -->
+        <div class="faq-item">
+          <button class="faq-question">
+            <span>Does Cinedrape collect my YouTube viewing history or credentials?</span>
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+          <div class="faq-answer">
+            <p><strong>Never.</strong> Cinedrape has zero telemetry, zero analytics scripts, and zero tracking pixels. The content script and popup contains no external network requests. Everything is stored purely locally on your device in sandboxed browser storage.</p>
+          </div>
+        </div>
+
+        <!-- FAQ 5 -->
+        <div class="faq-item">
+          <button class="faq-question">
+            <span>Can I customize existing themes or create my own?</span>
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+          <div class="faq-answer">
+            <p>Yes! With Cinedrape's built-in Visual Theme Editor, you can customize color tokens, background surfaces, font scales, card border curves, and spacing. You can save your custom themes locally and export them as clean JSON files to back up or share.</p>
+          </div>
+        </div>
+
+        <!-- FAQ 6 -->
+        <div class="faq-item">
+          <button class="faq-question">
+            <span>Is Cinedrape free?</span>
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+          <div class="faq-answer">
+            <p><strong>Yes — 100% free!</strong> All 16 handcrafted themes, custom layouts, Calm Mode distraction filters, saved profiles, time-based scheduling, and the Visual Theme Studio are unlocked for everyone with no account required. If Cinedrape improves your daily YouTube experience, you can optionally support ongoing maintenance and new themes via voluntary community support.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Final Call to Action -->
+  <section class="section cta-section" id="support">
+    <div class="container">
+      <div class="cta-box">
+        <h2>Transform your YouTube experience today.</h2>
+        <p>All 16 cinematic themes, layouts, and Calm Mode filters are 100% free. Star the repository or sponsor the developer on GitHub to help keep Cinedrape thriving.</p>
+        <div class="cta-actions">
+          <a href="#install" class="btn btn-primary btn-lg">
+            <span>Install Cinedrape</span>
+          </a>
+          <a href="https://github.com/sponsors/JDamour" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-lg">
+            <span>♥ Sponsor on GitHub</span>
+          </a>
+          <a href="https://github.com/JDamour/Cinedrape" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-lg">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
+            </svg>
+            <span>Star on GitHub</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Modal Lightbox for Images -->
+  <div class="modal-backdrop" id="modalBackdrop" role="dialog" aria-modal="true" aria-label="Screenshot Lightbox">
+    <div class="modal-content">
+      <button class="modal-close-btn" id="modalCloseBtn" aria-label="Close image preview">✕</button>
+      <img src="" alt="Enlarged screenshot preview" class="modal-image" id="modalImage">
+      <div class="modal-caption" id="modalCaption"></div>
+    </div>
+  </div>
+
+  <!-- Site Footer -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-top">
+        <div class="footer-brand">
+          <a href="#" class="brand">
+            <img src="icons/icon-48.png" alt="Cinedrape Logo" class="brand-icon">
+            <span>Cinedrape</span>
+          </a>
+          <p>Cinematic themes, custom layouts, and calm mode for YouTube™. Manifest V3, local-first, zero telemetry.</p>
+        </div>
+
+        <div class="footer-col">
+          <h4>Navigation</h4>
+          <ul>
+            <li><a href="#simulator">Live Preview</a></li>
+            <li><a href="#features">Features</a></li>
+            <li><a href="#gallery">Gallery</a></li>
+            <li><a href="#install">Installation</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4>Documentation</h4>
+          <ul>
+            <li><a href="https://github.com/JDamour/Cinedrape/blob/main/docs/ARCHITECTURE.md" target="_blank" rel="noopener noreferrer">Architecture Specification</a></li>
+            <li><a href="https://github.com/JDamour/Cinedrape/blob/main/docs/PRIVACY.md" target="_blank" rel="noopener noreferrer">Privacy Policy</a></li>
+            <li><a href="https://github.com/JDamour/Cinedrape/blob/main/docs/STATUS.md" target="_blank" rel="noopener noreferrer">Module Status</a></li>
+            <li><a href="https://github.com/JDamour/Cinedrape/blob/main/docs/TASKS.md" target="_blank" rel="noopener noreferrer">Roadmap</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4>Open Source &amp; Support</h4>
+          <ul>
+            <li><a href="https://github.com/JDamour/Cinedrape" target="_blank" rel="noopener noreferrer">GitHub Repository</a></li>
+            <li><a href="https://github.com/JDamour/Cinedrape/releases" target="_blank" rel="noopener noreferrer">Releases &amp; Downloads</a></li>
+            <li><a href="https://github.com/JDamour/Cinedrape/issues" target="_blank" rel="noopener noreferrer">Issue Tracker</a></li>
+            <li><a href="https://github.com/sponsors/JDamour" target="_blank" rel="noopener noreferrer">♥ Sponsor on GitHub</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <p class="disclaimer-text">
+          <strong>Trademark Disclaimer:</strong> YouTube™ is a trademark of Google LLC. Cinedrape is an independent open-source project and is not endorsed by, sponsored by, or affiliated with Google LLC or YouTube.
+        </p>
+        <p>&copy; 2026 Cinedrape Project. Released under the project open-source licence.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
