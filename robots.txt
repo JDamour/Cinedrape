@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://jdamour.github.io/Cinedrape/sitemap.xml

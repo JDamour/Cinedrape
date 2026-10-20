@@ -12,6 +12,23 @@ The project landing page is ready for GitHub Pages hosting:
 - Automated deployment: Handled via `.github/workflows/deploy-pages.yml` (or via GitHub Pages branch deploy from root `/`).
 
 
+## Screenshots
+
+Real captures of Cinedrape themes running live on youtube.com — the same shots featured in the landing page gallery. The full-resolution PNGs live in `docs/demo-images/`.
+
+| Cinema — home feed | Quick settings popup |
+| --- | --- |
+| ![Cinema theme on the YouTube home feed](docs/demo-images/shot-01-cinema-home.png) | ![Quick settings popup with the theme grid](docs/demo-images/shot-02-quick-settings-popup.png) |
+
+| Broadcast — live gaming feed | Retro Terminal — home feed |
+| --- | --- |
+| ![Broadcast theme on a live gaming feed](docs/demo-images/shot-03-broadcast-live-gaming.png) | ![Retro Terminal theme on the home feed](docs/demo-images/shot-04-retro-terminal-home.png) |
+
+| Retro Terminal — watch page | Frost — daylight home feed |
+| --- | --- |
+| ![Retro Terminal theme on a watch page](docs/demo-images/shot-05-retro-terminal-watch.png) | ![Frost light theme on the home feed](docs/demo-images/shot-06-frost-light-home.png) |
+
+
 ## Try it
 
 ```bash
@@ -62,3 +79,7 @@ Details: `docs/ARCHITECTURE.md` (the build contract: module APIs, shared names, 
 2. **Deliberate Local-Beta Mode:** In local-beta mode, `API_BASE=''` is retained; map updates arrive through extension package updates and licence tokens are cryptographically verified locally. Any future connected backend services require a separate specification covering endpoint security, manifests, licensing/device policies, and backend verification.
 3. **Trademark & Store Disclosures:** Complete trademark clearance (USPTO, EUIPO, WIPO), ensure `docs/PRIVACY.md` matches store disclosures, and verify storage keys.
 4. **Live-Ad Verification:** Verify ad and sponsorship protection against real logged-in sessions with active ad impressions before public release.
+
+## License
+
+Released under the [MIT License](LICENSE). YouTube™ is a trademark of Google LLC — this project is not affiliated with, endorsed by, or sponsored by Google.

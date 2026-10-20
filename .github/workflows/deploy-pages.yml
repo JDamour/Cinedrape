@@ -36,7 +36,7 @@ jobs:
       - name: Assemble site
         run: |
           mkdir -p _site/docs
-          cp index.html app.js styles.css .nojekyll _site/
+          cp index.html app.js styles.css robots.txt sitemap.xml .nojekyll _site/
           cp -r icons _site/icons
           cp -r docs/demo-images _site/docs/demo-images
           cp -r docs/branding _site/docs/branding

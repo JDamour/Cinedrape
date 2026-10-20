@@ -3,6 +3,7 @@
   "version": "0.1.1",
   "private": true,
   "type": "module",
+  "license": "MIT",
   "description": "Cinedrape: themes, layouts and calm mode for YouTube (Manifest V3 Chrome extension).",
   "scripts": {
     "build": "node build.mjs",
@@ -22,7 +23,8 @@
     "package": "node tools/package.mjs",
     "package:firefox": "node tools/package.mjs --target firefox",
     "package:edge": "node tools/package.mjs --target edge",
-    "package:all": "node tools/package.mjs --all"
+    "package:all": "node tools/package.mjs --all",
+    "og-banner": "node tools/make-og-banner.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.28.2",
