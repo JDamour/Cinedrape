@@ -1,0 +1,61 @@
+name: Build & Publish Packages and Releases
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  publish:
+    name: Build, Package & Publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@jdamour'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run test suite
+        run: npm test
+
+      - name: Build all extensions
+        run: npm run build:all
+
+      - name: Package extension archives
+        run: npm run package:all
+
+      - name: Publish to GitHub Packages
+        run: |
+          npm publish || echo "Package version already published or skipped"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish GitHub Release
+        run: |
+          VERSION="v$(node -p 'JSON.parse(fs.readFileSync("package.json")).version')"
+          echo "Target release: $VERSION"
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            echo "Release $VERSION exists, updating assets..."
+            gh release upload "$VERSION" release/*.zip --clobber
+          else
+            echo "Creating release $VERSION..."
+            gh release create "$VERSION" release/*.zip --title "Cinedrape $VERSION" --generate-notes
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

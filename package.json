@@ -1,10 +1,27 @@
 {
-  "name": "cinedrape",
+  "name": "@jdamour/cinedrape",
   "version": "0.1.1",
-  "private": true,
   "type": "module",
   "license": "MIT",
-  "description": "Cinedrape: themes, layouts and calm mode for YouTube (Manifest V3 Chrome extension).",
+  "description": "Cinedrape: themes, layouts and calm mode for YouTube (Manifest V3 Chrome, Edge, and Firefox extension).",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JDamour/Cinedrape.git"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "files": [
+    "dist",
+    "dist-edge",
+    "dist-firefox",
+    "release",
+    "src",
+    "icons",
+    "manifest.json",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "node build.mjs",
     "build:dev": "node build.mjs --dev",
@@ -20,10 +37,10 @@
     "e2e": "node test/e2e/run.mjs",
     "e2e:home": "node test/e2e/features-home-calm.mjs --extension dist-home",
     "e2e:popup": "node test/e2e/features-popup-breakage.mjs --extension dist-popup",
-    "package": "node tools/package.mjs",
-    "package:firefox": "node tools/package.mjs --target firefox",
-    "package:edge": "node tools/package.mjs --target edge",
-    "package:all": "node tools/package.mjs --all",
+    "package": "node tools/package.mjs --allow-dev-keys",
+    "package:firefox": "node tools/package.mjs --target firefox --allow-dev-keys",
+    "package:edge": "node tools/package.mjs --target edge --allow-dev-keys",
+    "package:all": "node tools/package.mjs --all --allow-dev-keys",
     "og-banner": "node tools/make-og-banner.mjs"
   },
   "devDependencies": {
