@@ -351,6 +351,9 @@ export async function main(argv = process.argv.slice(2), env = process.env, io =
         gecko: {
           id: 'cinedrape@cinedrape.org',
           strict_min_version: '109.0',
+          data_collection_permissions: {
+            required: ['none'],
+          },
         },
       };
     } else if (target === 'edge') {
